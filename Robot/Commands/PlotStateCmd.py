@@ -41,9 +41,9 @@ class PlotStateCmd(Command):
         self.xs = []
         self.ys = []
 
-        # UWB fused positions (plotted as dots)
-        self.uwb_xs = []        # <-- ADDED
-        self.uwb_ys = []        # <-- ADDED
+        # Individual UWB tag positions (one list per tag)
+        self.uwb_tag_data = {}  # {tag_id: {'xs': [...], 'ys': [...], 'line': ...}}
+        self.uwb_colors = ['red', 'blue', 'green', 'orange', 'purple', 'brown', 'pink', 'gray']
 
         # GUI objects
         self.root = None
@@ -97,9 +97,6 @@ class PlotStateCmd(Command):
         self.line, = self.ax.plot([], [], "b.-", markersize=4)
         # green marker for the latest point
         self.last_dot, = self.ax.plot([], [], "go", markersize=8, zorder=5)
-
-        # UWB dots: red markers only (no connecting line)
-        self.uwb_dots, = self.ax.plot([], [], "ro", markersize=5, linestyle="")
         
         # Reference path: black line
         self.ref_path_line, = self.ax.plot([], [], "k-", linewidth=2, label="Reference Path")
@@ -229,31 +226,46 @@ class PlotStateCmd(Command):
                 if self.yaw_text is not None:
                     self.yaw_text.set_text("Yaw: --\N{DEGREE SIGN}")
 
-        # ADDED: update UWB dot positions from the UWB subsystem
-        uwb_positions = self.uwb.get_positions()  # iterable of positions (objects or sequences)
+        # ADDED: update individual UWB tag positions from the UWB subsystem
+        uwb_positions = self.uwb.get_positions()  # list of Position objects
 
-        # collect all reported UWB x/y values into lists (mutable)
-        uwb_x_list = []
-        uwb_y_list = []
-        for uwb_pos in uwb_positions:
-            # prefer attribute access (uwb_pos.x, uwb_pos.y)
-            ux = float(uwb_pos.x)
-            uy = float(uwb_pos.y)
-
-            uwb_x_list.append(ux)
-            uwb_y_list.append(uy)
-
-        # if we have any valid UWB samples, compute their mean and plot
-        if uwb_x_list:
-            uwb_x = sum(uwb_x_list) / len(uwb_x_list)
-            uwb_y = sum(uwb_y_list) / len(uwb_y_list)
-            self.uwb_xs.append(uwb_x)
-            self.uwb_ys.append(uwb_y)
-            if len(self.uwb_xs) > self.max_points:
-                self.uwb_xs = self.uwb_xs[-self.max_points :]
-                self.uwb_ys = self.uwb_ys[-self.max_points :]
-            # update uwb_dots data
-            self.uwb_dots.set_data(self.uwb_xs, self.uwb_ys) # type: ignore
+        # Update each tag's position data
+        for idx, uwb_pos in enumerate(uwb_positions):
+            tag_id = idx  # Use index as tag identifier if tag_id not available
+            
+            try:
+                ux = float(uwb_pos.x)
+                uy = float(uwb_pos.y)
+            except (AttributeError, TypeError, ValueError):
+                continue
+            
+            # Initialize tag data if new
+            if tag_id not in self.uwb_tag_data:
+                color = self.uwb_colors[tag_id % len(self.uwb_colors)]
+                line, = self.ax.plot([], [], "o", color=color, markersize=6, 
+                                     linestyle="", label=f"Tag {tag_id}")
+                self.uwb_tag_data[tag_id] = {
+                    'xs': [],
+                    'ys': [],
+                    'line': line,
+                    'color': color
+                }
+                self.ax.legend(loc='upper right')
+            
+            # Add new position to tag's history
+            self.uwb_tag_data[tag_id]['xs'].append(ux)
+            self.uwb_tag_data[tag_id]['ys'].append(uy)
+            
+            # Keep only max_points
+            if len(self.uwb_tag_data[tag_id]['xs']) > self.max_points:
+                self.uwb_tag_data[tag_id]['xs'] = self.uwb_tag_data[tag_id]['xs'][-self.max_points:]
+                self.uwb_tag_data[tag_id]['ys'] = self.uwb_tag_data[tag_id]['ys'][-self.max_points:]
+            
+            # Update the line plot for this tag
+            self.uwb_tag_data[tag_id]['line'].set_data(
+                self.uwb_tag_data[tag_id]['xs'],
+                self.uwb_tag_data[tag_id]['ys']
+            )
         
         ref_path = self.path_following.get_path()
         logger.debug(f"PlotStateCmd: got reference path with shape {ref_path.shape if ref_path is not None else 'None'}")
