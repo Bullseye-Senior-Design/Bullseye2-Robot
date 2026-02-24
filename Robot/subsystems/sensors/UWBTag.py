@@ -244,9 +244,9 @@ class UWBTag:
                                 loc_data.position.z
                             ])
                             if self.tag_offset:
-                                self.state_estimator.update_uwb_range(meas, np.array(self.tag_offset), True)
+                                self.state_estimator.batch_uwb(self.id, meas, np.array(self.tag_offset), True)
                             else:
-                                self.state_estimator.update_uwb_range(meas, use_offset= False)
+                                self.state_estimator.batch_uwb(self.id, meas, None, False)
                         except Exception as e:
                             logger.error(f"EKF Update Error for tag {self.id}: {e}")
                             
