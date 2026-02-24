@@ -465,9 +465,7 @@ class KalmanStateEstimator:
                 tag_offset,
                 use_offset
             )
-            
-            print(f"[UWB Batch] Tag {tag_id} received: pos={tag_pos_meas}, batch_size={len(self._uwb_batch)}")
-            
+                        
             # Reset the timeout monitor when a new measurement arrives
             self._reset_uwb_batch_timer()
             
@@ -477,14 +475,12 @@ class KalmanStateEstimator:
             if len(self._uwb_batch) >= 2:
                 # We have measurements from at least 2 tags - process immediately
                 should_process = True
-                print(f"[UWB Batch] Trigger: multiple tags ({len(self._uwb_batch)} tags)")
             
             if should_process:
                 # Process all stored measurements as a single stacked update
                 self._process_stacked_uwb_update()
                 # Clear the batch
                 self._uwb_batch.clear()
-                print(f"[UWB Batch] Processed and cleared batch")
     
     def _reset_uwb_batch_timer(self):
         """Reset the UWB batch timeout timer.
@@ -512,18 +508,14 @@ class KalmanStateEstimator:
         """
         with self._lock:
             if not self._uwb_batch:
-                print(f"[UWB Batch] Timeout expired but batch is empty")
                 return
             
             if not self.is_initialized:
-                print(f"[UWB Batch] Timeout expired but filter not initialized")
                 return
             
-            print(f"[UWB Batch] Timeout expired! Processing {len(self._uwb_batch)} measurements")
             self._process_stacked_uwb_update()
             # Clear the batch
             self._uwb_batch.clear()
-            print(f"[UWB Batch] Timeout processing complete and batch cleared")
     
     def _process_stacked_uwb_update(self):
         """Process stored UWB measurements as a single stacked update.
@@ -533,23 +525,18 @@ class KalmanStateEstimator:
         """
         # This assumes _lock is already held by caller
         if not self._uwb_batch:
-            print(f"[UWB Batch] _process_stacked_uwb_update called but batch is empty")
             return
-        
-        print(f"[UWB Batch] Processing {len(self._uwb_batch)} measurements: tags={sorted(self._uwb_batch.keys())}")
-        
+                
         # Check for any valid measurement to initialize
         for tag_id, (_, pos, _, _) in self._uwb_batch.items():
             if not self.is_initialized:
                 if np.all(np.isfinite(pos)):
                     self.x[0:3] = pos  # Set initial position
                     self.is_initialized = True
-                    print(f"[UWB Batch] Initialized filter with tag {tag_id} at pos={pos}")
                     return
         
         # Don't update if still not initialized
         if not self.is_initialized:
-            print(f"[UWB Batch] Skipping update: filter not initialized")
             return
         
         # Get current rotation matrix (shared for all tags)
@@ -571,7 +558,6 @@ class KalmanStateEstimator:
             
             # Skip non-finite measurements
             if not np.all(np.isfinite(pos)):
-                print(f"[UWB Batch] Skipping tag {tag_id}: non-finite position")
                 continue
             
             # Decide whether to apply the offset
@@ -586,7 +572,6 @@ class KalmanStateEstimator:
             h = self.pos + R @ o_b
             h_list.append(h)
             
-            print(f"[UWB Batch] Tag {tag_id}: meas={pos}, pred={h}, offset={o_b}, residual={pos-h}")
             
             # Jacobian H (3x9): [ I3  03  R[o]_x ]
             H = np.zeros((3, 9))
@@ -607,9 +592,7 @@ class KalmanStateEstimator:
         
         # Innovation
         y = z_stacked - h_stacked
-        
-        print(f"[UWB Batch] Stacked innovation norm: {np.linalg.norm(y):.4f}m, components: {y}")
-        
+                
         # Measurement covariance (block diagonal)
         n_meas = len(z_list)
         R_single = np.eye(3) * self.R_uwb_range
@@ -625,9 +608,7 @@ class KalmanStateEstimator:
         
         K = self.P @ H_stacked.T @ Sinv
         dx = (K @ y).flatten()
-        
-        print(f"[UWB Batch] State correction: pos={dx[0:3]}, vel={dx[3:6]}, att={dx[6:9]}")
-        
+                
         # Inject error state
         self._inject_error_state(dx)
         
@@ -635,8 +616,6 @@ class KalmanStateEstimator:
         I = np.eye(9)
         self.P = (I - K @ H_stacked) @ self.P @ (I - K @ H_stacked).T + K @ R_stacked @ K.T
         
-        print(f"[UWB Batch] Update complete. New position: {self.pos}")
-
     def _inject_error_state(self, dx: np.ndarray):
         """Inject 9-vector error state into the full state x and renormalize quaternion.
 
