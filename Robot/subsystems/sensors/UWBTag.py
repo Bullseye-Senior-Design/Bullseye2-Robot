@@ -33,6 +33,7 @@ class Position:
     y: float
     z: float
     quality: int
+    id: int
     timestamp: float
 
     def __eq__(self, other):
@@ -41,12 +42,7 @@ class Position:
         # Exact float comparison is intentional here. 
         # If the DWM1001 hasn't updated, the bytes in memory are identical.
         # If it HAS updated, UWB noise ensures at least one float will differ slightly.
-        return self.x == other.x and self.y == other.y and self.z == other.z
-
-@dataclass
-class TagInfo:
-    node_id: str
-    anchors: Optional[List[Dict[str, Any]]] = None
+        return self.x == other.x and self.y == other.y and self.z == other.z and self.id == other.id
 
 @dataclass
 class LocationData:
@@ -66,6 +62,7 @@ class UWBTag:
             port: Serial port
         """
         self.port = port
+        print(f"Initializing UWBTag on port {port} with ID {id}")
         self.id = id
         self.baudrate = 115200
         self.timeout = 0.05
@@ -75,7 +72,6 @@ class UWBTag:
         self.serial_connection: Optional[serial.Serial] = None
         self.is_connected = False
         self.is_reading = False
-        self.tag_info = TagInfo(node_id="unknown")
         self.read_thread = None
         self.state_estimator = KalmanStateEstimator()
         
@@ -101,6 +97,10 @@ class UWBTag:
             )
             self.serial_connection.reset_input_buffer()
             self.serial_connection.reset_output_buffer()
+            # Give the serial port time to synchronize after reset
+            time.sleep(0.1)
+            # Final flush to clear any residual garbage
+            self.serial_connection.reset_input_buffer()
             self.is_connected = True
             logger.info("Connected to DWM1001 (Generic Mode)")
             return True
@@ -150,6 +150,7 @@ class UWBTag:
         try:
             self.serial_connection.write(b'\x0C\x00')
         except Exception:
+            logger.error(f"Failed to write location request for tag {self.id}")
             return LocationData(None, None)
 
         pos_data = None
@@ -159,10 +160,12 @@ class UWBTag:
         start_t = time.perf_counter()
         
         # We assume the loop cycle is faster than the serial baud rate transmission
-        while (time.perf_counter() - start_t) < 0.02: 
+        while (time.perf_counter() - start_t) < 0.05: 
             t, v = self._read_tlv_frame()
             
             if t is None or v is None:
+                # Suppress this to debug-level to avoid log spam - only log if needed
+                logger.debug(f"Failed to read TLV frame for tag {self.id} (Expected more data)")
                 continue 
 
             # Type 0x41 is Position
@@ -173,6 +176,7 @@ class UWBTag:
                 if qf == 0:
                     # We continue looping here because we might want to clear the rest 
                     # of the buffer, or we just accept we got a failed frame.
+                    logger.debug(f"Received position with quality 0 for tag {self.id}, treating as invalid.")
                     return LocationData(None, None)
                 
                 pos_data = Position(
@@ -180,10 +184,11 @@ class UWBTag:
                     y=y/1000.0, 
                     z=z/1000.0, 
                     quality=qf, 
+                    id=self.id,
                     timestamp=time.time()
                 )
                 
-                logger.debug(f"Raw Position Data: x={pos_data.x:.3f}m, y={pos_data.y:.3f}m, z={pos_data.z:.3f}m, qf={pos_data.quality}")
+                logger.debug(f"Raw Position Data of Tag {self.id}: x={pos_data.x:.3f}m, y={pos_data.y:.3f}m, z={pos_data.z:.3f}m, qf={pos_data.quality}")
                 # Note: The 'Distances' packet (0x48) might still be coming.
                 # It will stay in the OS serial buffer and be read as "garbage" 
                 # (skipped) in the next loop iteration, which is fine.
@@ -193,6 +198,7 @@ class UWBTag:
             elif t == 0x40:
                 if len(v) > 0 and v[0] != 0:
                     # Error code returned (e.g. Busy)
+                    logger.debug(f"Received error status for tag {self.id}: {v[0]}")
                     return LocationData(None, None)
 
         return LocationData(None, None)
@@ -206,12 +212,12 @@ class UWBTag:
         self.is_reading = True
         
         def read_loop():
-            logger.info("Starting high-speed position polling...")
+            logger.info(f"Starting high-speed position polling for tag {self.id}...")
             last_log_time = time.time()
             
             while self.is_reading:
                 
-                logger.debug(f"Time since last log: {time.time() - last_log_time:.2f}s")
+                logger.debug(f"Time since last log for tag {self.id}: {time.time() - last_log_time:.2f}s")
                 last_log_time = time.time()
                 
                 # 1. Get Data (Blocking call via serial, but fast)
@@ -224,7 +230,7 @@ class UWBTag:
                         # 2. Check if data is STALE (Duplicate)
                         # We compare X, Y, Z. If they are identical to the last read,
                         # the tag has not updated its calculation yet.
-                        logger.debug(f"Comparing positions: Last={self.last_position} vs New={loc_data.position}")
+                        logger.debug(f"Comparing positions for tag {self.id}: Last={self.last_position} vs New={loc_data.position}")
                         if (self.last_position is None) or (loc_data.position != self.last_position):
                             self.last_position = loc_data.position
                             process_update = True
@@ -242,7 +248,7 @@ class UWBTag:
                             else:
                                 self.state_estimator.update_uwb_range(meas, use_offset= False)
                         except Exception as e:
-                            logger.error(f"EKF Update Error: {e}")
+                            logger.error(f"EKF Update Error for tag {self.id}: {e}")
                             
                 # 5. NO SLEEP. 
                 # We loop immediately to catch the next UART byte as soon as it arrives.

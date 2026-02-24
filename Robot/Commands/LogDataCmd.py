@@ -36,7 +36,7 @@ class LogDataCmd(Command):
         self.path_following = path_following
         self.csv_manager = CSVFileManager()
     
-    def _delete_old_folders(self, base_dir, max_age_days=7):
+    def _delete_old_folders(self, base_dir, max_age_days):
         """Delete folders in base_dir that are older than max_age_days.
         
         Assumes folder names follow YYYYMMDD_HHMMSS format.
@@ -64,8 +64,8 @@ class LogDataCmd(Command):
                     shutil.rmtree(folder)
         
     def initialize(self):
-        # Clean up old log folders (older than 1 week)
-        self._delete_old_folders(Path.cwd() / 'logs', max_age_days=7)
+        # Clean up old log folders (older than 2 days)
+        self._delete_old_folders(Path.cwd() / 'logs', max_age_days=2)
         
         # record when logging begins and create a timestamped folder to hold all logs
         self.begin_timestamp = time.time()
@@ -118,10 +118,9 @@ class LogDataCmd(Command):
         positions = uwb.get_positions() or []
         
         # Log each position with its tag ID
-        for idx, position in enumerate(positions):
-            if position is not None and idx < len(uwb.tags):
-                tag_id = uwb.tags[idx].id
-                self.save_uwb_pos_to_csv(position, tag_id, self.uwb_file_path, timestamp=ts)
+        for position in positions:
+            if position is not None:
+                self.save_uwb_pos_to_csv(position, position.id, self.uwb_file_path, timestamp=ts)
 
         # Also record anchor information (text file) for debugging / reference
         anchors = uwb.get_latest_anchor_info()
