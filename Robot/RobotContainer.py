@@ -1,3 +1,4 @@
+from Robot.Commands import MotorMovementExampleCmd
 from Robot.Constants import Constants
 from structure.commands.InstantCommand import InstantCommand
 from structure.commands.SequentialCommandGroup import SequentialCommandGroup
@@ -34,8 +35,9 @@ class RobotContainer:
                     
     def begin_data_log(self):
         LogDataCmd(self.path_following).schedule()
-        ZeroIMUCmd(self.drive_train, self.path_following, schedule_followup=False).schedule()
-        PlotStateCmd().schedule()
+        #ZeroIMUCmd(self.drive_train, self.path_following, schedule_followup=False).schedule()
+        #PlotStateCmd().schedule()
+        MotorMovementExampleCmd(self.drive_train).schedule()
         
         # AlignIMUToWorldCmd(tau=0.5, duration=30.0).schedule()
                 

@@ -8,6 +8,8 @@ python -m venv --system-site-packages .venv
 
 In order to auto install required python Libraries run command below in the directory
     pip install -r requirements.txt
+    also run: sudo apt-get install python3-tk python3-pil python3-pil.imagetk 
+        (remove if adding python3-tk to requirements works)
 
 
 Network setup
