@@ -90,7 +90,8 @@ class KalmanStateEstimator:
         
         # Batch UWB measurement storage
         self._uwb_batch = {}  # {tag_id: (timestamp, position, offset, use_offset)}
-        self._uwb_batch_timeout = 0.025  # Maximum wait time in seconds
+        self._uwb_batch_timeout = 0.010  # Maximum wait time in seconds
+        self._uwb_batch_timer = None  # Timer for automatic timeout processing
         
         threading.Thread(target=self._run_loop, daemon=True).start()
 
@@ -467,6 +468,9 @@ class KalmanStateEstimator:
             
             print(f"[UWB Batch] Tag {tag_id} received: pos={tag_pos_meas}, batch_size={len(self._uwb_batch)}")
             
+            # Reset the timeout monitor when a new measurement arrives
+            self._reset_uwb_batch_timer()
+            
             # Check if we should process the batch
             should_process = False
             
@@ -474,17 +478,6 @@ class KalmanStateEstimator:
                 # We have measurements from at least 2 tags - process immediately
                 should_process = True
                 print(f"[UWB Batch] Trigger: multiple tags ({len(self._uwb_batch)} tags)")
-            elif len(self._uwb_batch) == 1:
-                # Only one measurement - check if we should wait or timeout
-                # Don't wait here, just return and let the next call trigger processing
-                # Check age of oldest measurement
-                oldest_time = min(t for t, _, _, _ in self._uwb_batch.values())
-                age_ms = (current_time - oldest_time) * 1000
-                if current_time - oldest_time >= self._uwb_batch_timeout:
-                    should_process = True
-                    print(f"[UWB Batch] Trigger: timeout ({age_ms:.1f}ms >= {self._uwb_batch_timeout*1000:.1f}ms)")
-                else:
-                    print(f"[UWB Batch] Waiting: {age_ms:.1f}ms / {self._uwb_batch_timeout*1000:.1f}ms")
             
             if should_process:
                 # Process all stored measurements as a single stacked update
@@ -492,6 +485,45 @@ class KalmanStateEstimator:
                 # Clear the batch
                 self._uwb_batch.clear()
                 print(f"[UWB Batch] Processed and cleared batch")
+    
+    def _reset_uwb_batch_timer(self):
+        """Reset the UWB batch timeout timer.
+        
+        This is called whenever a new measurement arrives, resetting the timeout
+        countdown to give the second tag time to arrive.
+        """
+        # Cancel any existing timer
+        if self._uwb_batch_timer is not None:
+            self._uwb_batch_timer.cancel()
+        
+        # Start a new timer with the batch timeout
+        self._uwb_batch_timer = threading.Timer(
+            self._uwb_batch_timeout,
+            self._uwb_batch_timeout_expired
+        )
+        self._uwb_batch_timer.daemon = True
+        self._uwb_batch_timer.start()
+    
+    def _uwb_batch_timeout_expired(self):
+        """Called when the UWB batch timeout expires.
+        
+        Automatically processes whatever measurements are in the batch,
+        even if only one tag has appeared.
+        """
+        with self._lock:
+            if not self._uwb_batch:
+                print(f"[UWB Batch] Timeout expired but batch is empty")
+                return
+            
+            if not self.is_initialized:
+                print(f"[UWB Batch] Timeout expired but filter not initialized")
+                return
+            
+            print(f"[UWB Batch] Timeout expired! Processing {len(self._uwb_batch)} measurements")
+            self._process_stacked_uwb_update()
+            # Clear the batch
+            self._uwb_batch.clear()
+            print(f"[UWB Batch] Timeout processing complete and batch cleared")
     
     def _process_stacked_uwb_update(self):
         """Process stored UWB measurements as a single stacked update.
