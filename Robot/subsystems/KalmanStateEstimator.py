@@ -245,7 +245,7 @@ class KalmanStateEstimator:
                 return np.array([[0, -vec[2], vec[1]],
                                  [vec[2], 0, -vec[0]],
                                  [-vec[1], vec[0], 0]])
-            F[3:6, 6:9] = R @ skew(v_body)
+            F[3:6, 6:9] = skew(-v_world)
             
             # Discretize and propagate covariance
             Phi = np.eye(9) + F * dt
@@ -302,7 +302,7 @@ class KalmanStateEstimator:
                     return np.array([[0, -v[2], v[1]],
                                      [v[2], 0, -v[0]],
                                      [-v[1], v[0], 0]])
-                H[:, 6:9] = R @ skew(o_b)
+                H[:, 6:9] = skew(-(R @ o_b))
 
             R_meas = np.eye(3) * self.R_uwb_range
 
@@ -425,7 +425,7 @@ class KalmanStateEstimator:
                 return np.array([[0, -v[2], v[1]],
                                  [v[2], 0, -v[0]],
                                  [-v[1], v[0], 0]])
-            H[0, 6:9] = -R_T[0, :] @ skew(v_world)
+            H[0, 6:9] = R_T[0, :] @ skew(v_world)
 
             R_meas = self.R_encoder_velocity  # scalar variance
 
@@ -531,8 +531,9 @@ class KalmanStateEstimator:
         for tag_id, (_, pos, _, _) in self._uwb_batch.items():
             if not self.is_initialized:
                 if np.all(np.isfinite(pos)):
-                    self.x[0:3] = pos  # Set initial position
+                    self.x[0:3] = pos
                     self.is_initialized = True
+                    self._uwb_batch.clear() # <--- FIXED: Prevent double-processing
                     return
         
         # Don't update if still not initialized
@@ -577,7 +578,8 @@ class KalmanStateEstimator:
             H = np.zeros((3, 9))
             H[:, 0:3] = np.eye(3)
             if np.any(o_b):
-                H[:, 6:9] = R @ skew(o_b)
+                # Match the logic in update_uwb_range
+                H[:, 6:9] = skew(-(R @ o_b))
             H_list.append(H)
         
         # Check if we have valid measurements
