@@ -144,15 +144,19 @@ class KalmanStateEstimator:
     def _run_loop(self):
         """Background thread to run predict at fixed dt intervals."""
         import time
-        next_time = time.time()
+        last_time = time.time()
         while True:
-            next_time += self.dt
             # Only run predict if filter has been initialized
             if self.is_initialized:
                 self.predict()
-            sleep_duration = next_time - time.time()
-            if sleep_duration > 0:
-                time.sleep(sleep_duration)
+                
+            # Sleep until next cycle
+            now = time.time()
+            elapsed = now - last_time
+            sleep_time = max(0.0, self.dt - elapsed)
+            time.sleep(sleep_time)
+            last_time = now
+
     
     def constant_velocity_predict(self):
         if not self.is_initialized:
@@ -205,7 +209,7 @@ class KalmanStateEstimator:
             
             # Get control inputs
             v = self.u_velocity
-            delta = self.u_steering
+            delta = np.clip(self.u_steering, -1.5, 1.5)
             
             # Bicycle model: yaw rate from steering geometry
             # ω = (v / L) * tan(δ)
@@ -308,11 +312,9 @@ class KalmanStateEstimator:
 
             S = H @ self.P @ H.T + R_meas
             try:
-                Sinv = np.linalg.inv(S)
+                K = np.linalg.solve(S, (self.P @ H.T).T).T
             except np.linalg.LinAlgError:
                 return
-
-            K = self.P @ H.T @ Sinv
 
             dx = (K @ y).flatten()
 
@@ -367,10 +369,9 @@ class KalmanStateEstimator:
 
             S = H @ self.P @ H.T + R_meas
             try:
-                Sinv = np.linalg.inv(S)
+                K = np.linalg.solve(S, (self.P @ H.T).T).T
             except np.linalg.LinAlgError:
                 return
-            K = self.P @ H.T @ Sinv
 
             dx = (K @ y).flatten()
             self._inject_error_state(dx)
@@ -603,12 +604,10 @@ class KalmanStateEstimator:
         # Kalman update
         S = H_stacked @ self.P @ H_stacked.T + R_stacked
         try:
-            Sinv = np.linalg.inv(S)
+            K = np.linalg.solve(S, (self.P @ H_stacked.T).T).T
         except np.linalg.LinAlgError:
             print(f"[UWB Batch] ERROR: Singular innovation covariance matrix")
             return
-        
-        K = self.P @ H_stacked.T @ Sinv
         dx = (K @ y).flatten()
                 
         # Inject error state
