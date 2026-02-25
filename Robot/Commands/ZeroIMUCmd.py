@@ -6,6 +6,9 @@ from Robot.Commands.FollowPathCmd import FollowPathCmd
 from Robot.subsystems.MotorControl import MotorControl
 from Robot.subsystems.PathFollowing import PathFollowing
 
+import time
+import threading
+
 
 class ZeroIMUCmd(Command):
     """Command that sets the IMU yaw offset so the current heading becomes zero.
@@ -84,7 +87,11 @@ class ZeroIMUCmd(Command):
         if interrupted and not self._applied:
             print("ZeroIMUCmd: interrupted before applying yaw offset")
         if self.schedule_followup:
-            FollowPathCmd(self.motor_control, self.path_following).schedule()
+            threading.Thread(target=self._schedule_followup).start()
+            
+    def _schedule_followup(self):
+        time.sleep(0.5)  # small delay to ensure IMU offset is applied before starting path following
+        FollowPathCmd(self.motor_control, self.path_following).schedule()
 
     def is_finished(self):
         return self._applied
