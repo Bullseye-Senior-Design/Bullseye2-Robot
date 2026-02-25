@@ -37,6 +37,7 @@ class DriveTrain(Subsystem):
             
             GPIO.output(self._backwheel_power_ssr_pin, GPIO.HIGH)
             GPIO.output(self._frontwheel_power_ssr_pin, GPIO.HIGH)
+            self.shutdown = False
 
             logger.info(f"DriveTrain initialized with SSR pins: {self._backwheel_forward_ssr_pin}, {self._backwheel_reverse_ssr_pin}, {self._backwheel_power_ssr_pin}, {self._frontwheel_power_ssr_pin}")
         
@@ -51,6 +52,9 @@ class DriveTrain(Subsystem):
         speed: -1.0 to 1.0 (negative for reverse)
         angle: 0 to 180 (90 is straight, <90 left, >90 right)
         """
+        if self.shutdown:
+            logger.warning("Attempted to set speed/angle after shutdown. Command ignored.")
+            return
         self._speed = speed
         self._angle = angle
 
@@ -95,11 +99,13 @@ class DriveTrain(Subsystem):
         self.set_speed_angle(0, 0)
     
     def close(self):
-        try:
-            self._dac.close()
-            self._front_encoder.close()
-            GPIO.cleanup()
-        except Exception:
-            pass
+        if not self.shutdown:
+            try:
+                self.shutdown = True
+                self._dac.close()
+                self._front_encoder.close()
+                GPIO.cleanup()
+            except Exception:
+                pass
                         
 
