@@ -69,7 +69,7 @@ class KalmanStateEstimator:
         # Process noise (continuous) in error-state (9x9)
         q_pos = 1e-3
         q_vel = 1e-4
-        q_att = 5e-2
+        q_att = 1e-1
         self.Qc = block_diag(np.eye(3) * q_pos, np.eye(3) * q_vel, np.eye(3) * q_att)
 
         # Measurement noise templates
