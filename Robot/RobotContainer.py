@@ -1,14 +1,16 @@
 from Robot.Constants import Constants
 from structure.commands.InstantCommand import InstantCommand
 from structure.commands.SequentialCommandGroup import SequentialCommandGroup
+import time
+
 from Robot.subsystems.sensors.UWB import UWB
 from Robot.subsystems.sensors.IMU import IMU
 from Robot.subsystems.PathFollowing import PathFollowing
 from Robot.subsystems.DriveTrain import DriveTrain
-import time
-
 from Robot.subsystems.sensors.BackWheelEncoder import BackWheelEncoder
 from Robot.subsystems.Clutches import Clutches
+from Robot.subsystems.HeaderHealerSwitches import HeaderHealerSwitches
+
 from Robot.Commands.LogDataCmd import LogDataCmd
 from Robot.Commands.PlotStateCmd import PlotStateCmd
 from Robot.Commands.MotorMovementExampleCmd import MotorMovementExampleCmd
@@ -25,6 +27,7 @@ class RobotContainer:
         self.clutches = Clutches()
         self.path_following = PathFollowing()
         self.drive_train = DriveTrain()
+        self.header_healer_switches = HeaderHealerSwitches()
         
          # Start subsystems
         self.clutches.start(left_clutch_pin=Constants.left_clutch_pin, right_clutch_pin=Constants.right_clutch_pin)
@@ -37,13 +40,14 @@ class RobotContainer:
         LogDataCmd(self.path_following).schedule()
         #ZeroIMUCmd(self.drive_train, self.path_following, schedule_followup=False).schedule()
         #PlotStateCmd().schedule()
-        MotorMovementExampleCmd(self.drive_train).schedule()
+        MotorMovementExampleCmd(self.drive_train, self.clutches).schedule()
         
         # AlignIMUToWorldCmd(tau=0.5, duration=30.0).schedule()
                 
     def shutdown(self):
-        self.back_Wheel_encoder.close()
         self.clutches.close()
         self.uwb.close_all()
         self.drive_train.stop()
         self.drive_train.close()
+        self.back_Wheel_encoder.close()
+        self.header_healer_switches.close()

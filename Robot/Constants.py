@@ -11,7 +11,7 @@ class Constants:
     # DAC Constants
     dac_spi_device = 0
     dac_spi_mode = 0
-    dac_max_freq_hz = 5000
+    dac_max_freq_hz = 10000
     dac_backwheel_channel = 0
     dac_frontwheel_channel = 1
     dac_resolution = 12
@@ -42,6 +42,10 @@ class Constants:
     # Clutches Constants
     left_clutch_pin = 17
     right_clutch_pin = 27
+    
+    # Header Healer Limit Switches Constants
+    header_limit_switch_pin = 18
+    healer_limit_switch_pin = 24
     
     # For the tag offsets:
     # +x : tag is forward of the robot center

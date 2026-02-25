@@ -1,0 +1,29 @@
+import time
+import threading
+from datetime import datetime
+import logging
+
+from Robot.Constants import Constants
+from Robot.subsystems.subsystemChildren.LimitSwitchReader import LimitSwitchReader
+from structure.Subsystem import Subsystem
+
+logger = logging.getLogger("HeaderHealerSwitches")
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
+
+import RPi.GPIO as GPIO
+
+class HeaderHealerSwitches(Subsystem):
+	def __init__(self):
+		self.header_switch_pin = Constants.header_limit_switch_pin
+		self.healer_switch_pin = Constants.healer_limit_switch_pin
+		self.header_switch_reader = LimitSwitchReader(pin=self.header_switch_pin, active_high=True, pull_up=True, debounce_ms=1, edge='rising')
+		self.healer_switch_reader = LimitSwitchReader(pin=self.healer_switch_pin, active_high=True, pull_up=True, debounce_ms=1, edge='rising')
+		self.header_switch_reader.start()
+		self.healer_switch_reader.start()
+		
+	
+	def close(self):
+		self.header_switch_reader.close()
+		self.healer_switch_reader.close()
+
+
