@@ -61,14 +61,17 @@ class DriveTrain(Subsystem):
 
     def _set_wheel_directions(self, is_reverse: bool):
         """Set SSRs for wheel direction based on speed sign."""
-        if not is_reverse:
-            # Forward
-            GPIO.output(self._backwheel_forward_ssr_pin, GPIO.HIGH)
-            GPIO.output(self._backwheel_reverse_ssr_pin, GPIO.LOW)
-        else:
-            # Reverse
-            GPIO.output(self._backwheel_forward_ssr_pin, GPIO.LOW)
-            GPIO.output(self._backwheel_reverse_ssr_pin, GPIO.HIGH)
+        try:
+            if not is_reverse:
+                # Forward
+                GPIO.output(self._backwheel_forward_ssr_pin, GPIO.HIGH)
+                GPIO.output(self._backwheel_reverse_ssr_pin, GPIO.LOW)
+            else:
+                # Reverse
+                GPIO.output(self._backwheel_forward_ssr_pin, GPIO.LOW)
+                GPIO.output(self._backwheel_reverse_ssr_pin, GPIO.HIGH)
+        except Exception as e:
+            logger.error(f"Error setting wheel directions: {e}")
             
     def disengage_frontwheel(self):
         GPIO.output(self._frontwheel_power_ssr_pin, GPIO.LOW)
