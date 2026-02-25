@@ -7,3 +7,4 @@ casadi
 smbus
 spidev
 python3-tk
+rpi-lgpio

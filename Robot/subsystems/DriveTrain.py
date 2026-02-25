@@ -38,10 +38,10 @@ class DriveTrain(Subsystem):
             GPIO.output(self._backwheel_power_ssr_pin, GPIO.HIGH)
             GPIO.output(self._frontwheel_power_ssr_pin, GPIO.HIGH)
 
-            logger.info(f"DriveTrain SPI initialized on bus {Constants.spi_bus}, device {Constants.dac_spi_device}, mode {Constants.dac_spi_mode}")
+            logger.info(f"DriveTrain initialized with SSR pins: {self._backwheel_forward_ssr_pin}, {self._backwheel_reverse_ssr_pin}, {self._backwheel_power_ssr_pin}, {self._frontwheel_power_ssr_pin}")
         
         except Exception as e:
-            logger.error(f"Failed to initialize SPI for DriveTrain: {e}")
+            logger.error(f"Failed to initialize DriveTrain: {e}")
         
         self._angle = 90 # Default to straight
         self._speed = 0 # Default to stopped

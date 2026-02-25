@@ -1,4 +1,3 @@
-from Robot.Commands import MotorMovementExampleCmd
 from Robot.Constants import Constants
 from structure.commands.InstantCommand import InstantCommand
 from structure.commands.SequentialCommandGroup import SequentialCommandGroup
@@ -12,6 +11,7 @@ from Robot.subsystems.sensors.BackWheelEncoder import BackWheelEncoder
 from Robot.subsystems.Clutches import Clutches
 from Robot.Commands.LogDataCmd import LogDataCmd
 from Robot.Commands.PlotStateCmd import PlotStateCmd
+from Robot.Commands.MotorMovementExampleCmd import MotorMovementExampleCmd
 from Robot.Commands.AlignIMUToWorldCmd import AlignIMUToWorldCmd
 from Robot.Commands.ZeroIMUCmd import ZeroIMUCmd
 from Robot.Commands.FollowPathCmd import FollowPathCmd
