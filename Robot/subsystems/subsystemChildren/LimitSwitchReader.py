@@ -4,7 +4,7 @@ import threading
 import RPi.GPIO as GPIO
 
 logger = logging.getLogger("LimitSwitchReader")
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
+logging.basicConfig(level=logging.INFO)
 
 class LimitSwitchReader:
     def __init__(self, pin: int, active_high: bool = True, pull_up: bool = True, debounce_ms: int = 50,
@@ -26,10 +26,19 @@ class LimitSwitchReader:
 
         self._running = False
         self._lock = threading.Lock()
+        self.isTriggered = False
 
     def _gpio_callback(self, channel):
-        # Keep callback extremely small: increment count only.
-        logger.debug(f"GPIO callback triggered on pin {channel}")
+        # Read the current pin state to determine edge direction
+        current_value = GPIO.input(channel)
+
+        # Set state based on edge detection
+        # If current value is HIGH, it was a rising edge -> state = True
+        # If current value is LOW, it was a falling edge -> state = False
+        with self._lock:
+            self.isTriggered = bool(current_value)
+
+        logger.debug(f"GPIO callback triggered on pin {channel}, isTriggered={self.isTriggered}")
 
     def start(self):
         """Start monitoring the GPIO pin"""
@@ -52,6 +61,11 @@ class LimitSwitchReader:
 
         GPIO.add_event_detect(self.pin, gedge, callback=self._gpio_callback, bouncetime=self.debounce_ms)
         logger.info(f"Started monitoring GPIO {self.pin} (active_high={self.active_high})")
+
+    def get_isTriggered(self) -> bool:
+        """Get the current state of the limit switch."""
+        with self._lock:
+            return self.isTriggered
 
     def close(self):
         """Stop monitoring and cleanup"""

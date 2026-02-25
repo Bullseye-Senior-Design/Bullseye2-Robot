@@ -29,8 +29,7 @@ class RobotContainer:
         self.drive_train = DriveTrain()
         self.header_healer_switches = HeaderHealerSwitches()
         
-         # Start subsystems
-        self.clutches.start(left_clutch_pin=Constants.left_clutch_pin, right_clutch_pin=Constants.right_clutch_pin)
+        # Start subsystems
         self.uwb.start(uwb_tag_data=Constants.uwb_tag_data, anchors_pos=None)
         self.back_Wheel_encoder.start()
         
@@ -38,9 +37,9 @@ class RobotContainer:
                     
     def begin_data_log(self):
         LogDataCmd(self.path_following).schedule()
-        #ZeroIMUCmd(self.drive_train, self.path_following, schedule_followup=False).schedule()
-        #PlotStateCmd().schedule()
-        MotorMovementExampleCmd(self.drive_train, self.clutches).schedule()
+        # ZeroIMUCmd(self.drive_train, self.path_following, schedule_followup=False).schedule()
+        # PlotStateCmd().schedule()
+        MotorMovementExampleCmd(self.drive_train, self.clutches, self.header_healer_switches).schedule()
         
         # AlignIMUToWorldCmd(tau=0.5, duration=30.0).schedule()
                 

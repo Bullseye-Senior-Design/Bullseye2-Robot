@@ -55,6 +55,7 @@ class DriveTrain(Subsystem):
         if self.shutdown:
             logger.warning("Attempted to set speed/angle after shutdown. Command ignored.")
             return
+        
         self._speed = speed
         self._angle = angle
 
@@ -78,16 +79,28 @@ class DriveTrain(Subsystem):
             logger.error(f"Error setting wheel directions: {e}")
             
     def disengage_frontwheel(self):
-        GPIO.output(self._frontwheel_power_ssr_pin, GPIO.LOW)
+        try:
+            GPIO.output(self._frontwheel_power_ssr_pin, GPIO.LOW)
+        except Exception as e:
+            logger.error(f"Failed to disengage front wheel: {e}")
 
     def engage_frontwheel(self):
-        GPIO.output(self._frontwheel_power_ssr_pin, GPIO.HIGH)
+        try:
+            GPIO.output(self._frontwheel_power_ssr_pin, GPIO.HIGH)
+        except Exception as e:
+            logger.error(f"Failed to engage front wheel: {e}")
         
     def disengage_backwheel(self):
-        GPIO.output(self._backwheel_power_ssr_pin, GPIO.LOW)
+        try:
+            GPIO.output(self._backwheel_power_ssr_pin, GPIO.LOW)
+        except Exception as e:
+            logger.error(f"Failed to disengage back wheel: {e}")
         
     def engage_backwheel(self):
-        GPIO.output(self._backwheel_power_ssr_pin, GPIO.HIGH)
+        try:
+            GPIO.output(self._backwheel_power_ssr_pin, GPIO.HIGH)
+        except Exception as e:
+            logger.error(f"Failed to engage back wheel: {e}")
 
     def get_current_commands(self):
         """Get current motor commands.
