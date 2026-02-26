@@ -4,7 +4,7 @@ import threading
 import RPi.GPIO as GPIO
 
 logger = logging.getLogger("LimitSwitchReader")
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.DEBUG)
 
 class LimitSwitchReader:
     def __init__(self, pin: int, active_high: bool = True, pull_up: bool = True, debounce_ms: int = 50,
@@ -36,9 +36,9 @@ class LimitSwitchReader:
         # If current value is HIGH, it was a rising edge -> state = True
         # If current value is LOW, it was a falling edge -> state = False
         with self._lock:
-            self.isTriggered = bool(current_value)
+            self.isTriggered = not bool(current_value) if self.active_high else bool(current_value)
 
-        logger.debug(f"GPIO callback triggered on pin {channel}, isTriggered={self.isTriggered}")
+        logger.debug(f"GPIO callback triggered on pin {channel}, isTriggered={self.isTriggered}, current_value={current_value}")
 
     def start(self):
         """Start monitoring the GPIO pin"""

@@ -3,8 +3,8 @@
 from structure.Subsystem import Subsystem
 from Robot.subsystems.KalmanStateEstimator import KalmanStateEstimator
 from Robot.Constants import Constants
-from Robot.subsystems.driveTrainChildren.DAC import DAC
-from Robot.subsystems.driveTrainChildren.FrontWheelEncoder import FrontWheelEncoder
+from Robot.subsystems.subsystemChildren.DAC import DAC
+from Robot.subsystems.subsystemChildren.FrontWheelEncoder import FrontWheelEncoder
 
 import math
 import logging

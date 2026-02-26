@@ -33,18 +33,18 @@ class Constants:
     # Back Wheel Constants
     backwheel_forward_ssr_pin = 21
     backwheel_reverse_ssr_pin = 20
-    backwheel_power_ssr_pin = 26
+    backwheel_power_ssr_pin = 27
     rear_motor_top_speed = 0.13
     
     # Front Wheel Constants
-    frontwheel_power_ssr_pin = 16
+    frontwheel_power_ssr_pin = 22
     
     # Clutches Constants
-    left_clutch_pin = 23
-    right_clutch_pin = 24
+    left_clutch_pin = 16
+    right_clutch_pin = 26
     
     # Header Healer Limit Switches Constants
-    header_limit_switch_pin = 18
+    header_limit_switch_pin = 23
     healer_limit_switch_pin = 24
     
     # For the tag offsets:
