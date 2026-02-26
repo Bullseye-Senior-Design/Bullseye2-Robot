@@ -1,33 +1,50 @@
+import logging
+
 import RPi.GPIO as GPIO
 
+from Robot.Constants import Constants
 from structure.Subsystem import Subsystem
+logger = logging.getLogger(f"{__name__}.Clutches")
+logger.setLevel(logging.INFO)  # Set to INFO for detailed output
 
 class Clutches(Subsystem):
     
-    def start(self, left_clutch_pin: int, right_clutch_pin: int):
+    def __init__(self):
         """Initialize clutch control GPIO pins and state."""
         # GPIO pin setup code here
-        self.left_clutch_pin = left_clutch_pin
-        self.right_clutch_pin = right_clutch_pin
+        self.left_clutch_pin = Constants.left_clutch_pin
+        self.right_clutch_pin = Constants.right_clutch_pin
         GPIO.setmode(GPIO.BCM)
         GPIO.setup(self.left_clutch_pin, GPIO.OUT)
         GPIO.setup(self.right_clutch_pin, GPIO.OUT)
     
     def engage_left_clutch(self):
         """Engage the left clutch."""
-        GPIO.output(self.left_clutch_pin, GPIO.HIGH)
+        try:
+            GPIO.output(self.left_clutch_pin, GPIO.HIGH)
+        except Exception as e:
+            logger.error(f"Failed to engage left clutch: {e}")
         
     def disengage_left_clutch(self):
         """Disengage the left clutch."""
-        GPIO.output(self.left_clutch_pin, GPIO.LOW)
+        try:
+            GPIO.output(self.left_clutch_pin, GPIO.LOW)
+        except Exception as e:
+            logger.error(f"Failed to disengage left clutch: {e}")
         
     def engage_right_clutch(self):
         """Engage the right clutch."""
-        GPIO.output(self.right_clutch_pin, GPIO.HIGH)
+        try:
+            GPIO.output(self.right_clutch_pin, GPIO.HIGH)
+        except Exception as e:
+            logger.error(f"Failed to engage right clutch: {e}")
         
     def disengage_right_clutch(self):
         """Disengage the right clutch."""
-        GPIO.output(self.right_clutch_pin, GPIO.LOW)
+        try:
+            GPIO.output(self.right_clutch_pin, GPIO.LOW)
+        except Exception as e:
+            logger.error(f"Failed to disengage right clutch: {e}")
         
     def close(self):
         """Cleanup GPIO pins."""

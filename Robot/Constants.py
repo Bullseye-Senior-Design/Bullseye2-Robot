@@ -43,6 +43,10 @@ class Constants:
     left_clutch_pin = 23
     right_clutch_pin = 24
     
+    # Header Healer Limit Switches Constants
+    header_limit_switch_pin = 18
+    healer_limit_switch_pin = 24
+    
     # For the tag offsets:
     # +x : tag is forward of the robot center
     # +y : tag is to the robot's left side
