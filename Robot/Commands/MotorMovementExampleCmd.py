@@ -10,11 +10,11 @@ class MotorMovementExampleCmd(Command):
 
         
     def initialize(self):
-        self.drive_train.set_speed_angle(1, 90) 
         
         pass
     
     def execute(self):
+        self.drive_train.set_speed_angle(1, 180) 
         pass
     
     def end(self, interrupted):

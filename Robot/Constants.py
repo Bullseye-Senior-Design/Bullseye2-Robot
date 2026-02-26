@@ -11,7 +11,7 @@ class Constants:
     # DAC Constants
     dac_spi_device = 0
     dac_spi_mode = 0
-    dac_max_freq_hz = 5000
+    dac_max_freq_hz = 10000
     dac_backwheel_channel = 0
     dac_frontwheel_channel = 1
     dac_resolution = 12
@@ -31,17 +31,17 @@ class Constants:
     counts_per_revolution = 6  # encoder pulses per wheel rotation
     
     # Back Wheel Constants
-    backwheel_forward_ssr_pin = 22
-    backwheel_reverse_ssr_pin = 27
-    backwheel_power_ssr_pin = 17
+    backwheel_forward_ssr_pin = 21
+    backwheel_reverse_ssr_pin = 20
+    backwheel_power_ssr_pin = 26
     rear_motor_top_speed = 0.13
     
     # Front Wheel Constants
-    frontwheel_power_ssr_pin = 23
+    frontwheel_power_ssr_pin = 16
     
     # Clutches Constants
-    left_clutch_pin = 17
-    right_clutch_pin = 27
+    left_clutch_pin = 23
+    right_clutch_pin = 24
     
     # For the tag offsets:
     # +x : tag is forward of the robot center

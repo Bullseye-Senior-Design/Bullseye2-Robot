@@ -46,6 +46,8 @@ class DAC:
         else:
             command = 0xB000 | value
 
+
+        logger.debug(f"Writing to DAC channel {channel}: input={input:.3f}, value={value}, command=0x{command:04X}")
         # Send two bytes (MSB first) to the DAC
         self._spi.xfer2([command >> 8, command & 0xFF])
     

@@ -61,7 +61,8 @@ class DriveTrain(Subsystem):
         is_reverse = speed < 0
         self._set_wheel_directions(is_reverse)
         self._dac.write_dac(self._dac_backwheel_channel, abs(speed))
-        self._dac.write_dac(self._dac_frontwheel_channel, abs(speed))
+        self._dac.write_dac(self._dac_frontwheel_channel, abs(angle - 90) / 90)  # Simple mapping for demonstration
+        logger.debug(f"Set speed: {speed}, angle: {angle}, is_reverse: {is_reverse}")
 
     def _set_wheel_directions(self, is_reverse: bool):
         """Set SSRs for wheel direction based on speed sign."""
