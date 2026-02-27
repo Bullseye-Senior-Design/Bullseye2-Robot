@@ -121,7 +121,10 @@ class DriveTrain(Subsystem):
                 self.shutdown = True
                 self._dac.close()
                 self._front_encoder.close()
-                GPIO.cleanup()
+                GPIO.cleanup(self._backwheel_forward_ssr_pin)
+                GPIO.cleanup(self._backwheel_reverse_ssr_pin)
+                GPIO.cleanup(self._backwheel_power_ssr_pin)
+                GPIO.cleanup(self._frontwheel_power_ssr_pin)
             except Exception:
                 pass
                         
