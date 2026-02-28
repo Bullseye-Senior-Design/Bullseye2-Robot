@@ -1,4 +1,6 @@
 import logging
+import threading
+import time
 from typing import Optional
 import spidev
 from Robot.Constants import Constants
@@ -7,6 +9,9 @@ logger = logging.getLogger(f"{__name__}.DriveTrain")
 logger.setLevel(logging.INFO)  # Set to DEBUG for detailed output
 
 class FrontWheelEncoder:
+    NOP = 0x00
+    READ_POS = 0x10
+    
     def __init__(self):
         try:
             self._spi = spidev.SpiDev()
@@ -15,12 +20,42 @@ class FrontWheelEncoder:
             self._spi.mode = Constants.frontwheel_encoder_spi_mode
             self._resolution = Constants.frontwheel_encoder_resolution
             self._max_position = Constants.frontwheel_encoder_max_position
+            self._position = None
+            self._lock = threading.Lock()
+            self._interval = 0.02  # 20ms update interval
 
             logger.info(f"FrontWheelEncoder SPI initialized on bus {Constants.spi_bus}, device {Constants.frontwheel_encoder_spi_device}, mode {Constants.frontwheel_encoder_spi_mode}")
+            
+            self.run()
         except Exception as e:
             logger.error(f"Failed to initialize SPI for FrontWheelEncoder: {e}")
             self._spi = None  # Set to None to allow no-op in _read_raw_position
 
+    def run(self):
+        """Start monitoring the GPIO pin"""
+        # Prevent multiple threads from being started
+        if self._running:
+            logger.warning(f"FrontWheel encoder already running. Ignoring run() call.")
+            return
+        
+        self._running = True
+        
+        def _update_loop():
+            while True:
+                time.sleep(self._interval)
+                self.read_position()
+        
+        threading.Thread(target=_update_loop, daemon=True).start()
+        
+    def get_position(self) -> Optional[float]:
+        
+        with self._lock:
+            if self._position is None:
+                return None
+            # Convert raw position to angle in degrees
+            angle = (self._position / self._max_position) * 360.0
+            return angle
+    
     def read_position(self) -> Optional[int]:
         """Read raw position data from encoder via SPI.
         
@@ -35,28 +70,29 @@ class FrontWheelEncoder:
             return None
 
         try:
-            # For most SPI absolute encoders:
-            # Send 2-3 bytes of 0x00 to clock out the position data
-            # Adjust based on your specific encoder protocol
-            bytes_to_read = (self._resolution + 7) // 8  # Round up to nearest byte
-            if bytes_to_read < 2:
-                bytes_to_read = 2
-            
-            # Read data from encoder
-            data = self._spi.readbytes(bytes_to_read)
-            
-            # Parse position based on resolution
-            # For 12-bit encoder in 2 bytes: MSB first
-            # Example: [0x1F, 0xA3] -> 0x1FA3 (12 bits used)
-            position = 0
-            for byte_val in data:
-                position = (position << 8) | byte_val
-            
-            # Mask to resolution bits
-            position &= self._max_position
-            
-            return position
+            # Step 1: send read command
+            resp = self._spi.xfer2([self.READ_POS])[0]
 
+            # Step 2: wait for 0x10 response
+            while True:
+                time.sleep(self._interval) 
+                resp = self._spi.xfer2([self.NOP])[0]
+                if resp == self.READ_POS:
+                    break
+            
+            time.sleep(self._interval) 
+            # Step 3: read MSB
+            msb = self._spi.xfer2([self.NOP])[0]
+
+            time.sleep(self._interval) 
+            # Step 4: read LSB
+            lsb = self._spi.xfer2([self.NOP])[0]
+
+            position = ((msb & 0x0F) << 8) | lsb
+            
+            with self._lock:
+                self._position = position
+            
         except Exception as e:
             logger.error(f"FrontWheelEncoder SPI read error: {e}")
             return None
