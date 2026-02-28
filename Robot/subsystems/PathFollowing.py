@@ -38,7 +38,7 @@ class PathFollowing(Subsystem):
         self.p = 25 # 12 may be better for computation capacity
         self.L = 0.25
         # crusing speed for reference trajectory generation, can be adjusted via set_nominal_speed() method
-        self.v_nom = Constants.rear_motor_top_speed / 2.0
+        self.v_nom = -Constants.rear_motor_top_speed
         self.ds = self.v_nom * self.Ts
         self.ds_ref =  self.v_nom * self.Ts  
         
