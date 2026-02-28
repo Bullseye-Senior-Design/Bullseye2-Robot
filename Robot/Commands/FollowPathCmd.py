@@ -25,7 +25,7 @@ class FollowPathCmd(Command):
         self,
         motor_control: MotorControl,
         path_following: PathFollowing,
-        speed_precent = 100,
+        speed_precent = 50,
     ):
         """Initialize FollowPathCmd with a simple straight path.
         
@@ -51,13 +51,30 @@ class FollowPathCmd(Command):
         start_x, start_y = current_state.pos[0], current_state.pos[1]
         start_yaw = state_estimator.euler[2]
         
-        # Create a simple straight path: 0.5 meters forward from current position
+        # Create a sinusoidal path with amplitude 0.5m and period 1/2 of path length
         distance = 3.048  # meters
         num_points = 100
         self.path_matrix = np.zeros((num_points, 3))
-        # Path goes forward in the direction of current yaw
-        self.path_matrix[:, 0] = start_x + np.linspace(0, distance, num_points) * np.cos(start_yaw)
-        self.path_matrix[:, 1] = start_y + np.linspace(0, distance, num_points) * np.sin(start_yaw)
+        
+        # Create sinusoidal path: oscillates perpendicular to direction of travel
+        s = np.linspace(0, distance, num_points)  # Forward distance along path
+        amplitude = 0.5  # meters
+        period = distance / 2  # Period is 1/2 of path length
+        
+        # Sinusoidal offset perpendicular to direction of travel
+        lateral_offset = amplitude * np.sin(2 * np.pi * s / period)
+        
+        # Forward motion in yaw direction
+        forward_x = s * np.cos(start_yaw)
+        forward_y = s * np.sin(start_yaw)
+        
+        # Perpendicular offset (90 degrees relative to yaw)
+        offset_x = -lateral_offset * np.sin(start_yaw)
+        offset_y = lateral_offset * np.cos(start_yaw)
+        
+        # Combine forward and lateral motion
+        self.path_matrix[:, 0] = start_x + forward_x + offset_x
+        self.path_matrix[:, 1] = start_y + forward_y + offset_y
         self.path_matrix[:, 2] = start_yaw  # Keep same heading
         
         # Set path and start navigation
