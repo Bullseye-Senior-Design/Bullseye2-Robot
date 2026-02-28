@@ -1,5 +1,7 @@
 """Motor control subsystem for commanding robot motors via I2C."""
 
+from typing import Optional
+
 from structure.Subsystem import Subsystem
 from Robot.subsystems.KalmanStateEstimator import KalmanStateEstimator
 from Robot.Constants import Constants
@@ -111,6 +113,14 @@ class DriveTrain(Subsystem):
         """
         return self._speed, self._angle
     
+    def get_frontwheel_position(self) -> Optional[float]:
+        """Get current front wheel encoder position.
+        
+        Returns:
+            float: Current position from encoder or None on error
+        """
+        return self._front_encoder.get_position()
+    
     def stop(self):
         """Stop motors (set speed and angle to zero)."""
         self.set_speed_angle(0, 0)
@@ -121,7 +131,10 @@ class DriveTrain(Subsystem):
                 self.shutdown = True
                 self._dac.close()
                 self._front_encoder.close()
-                GPIO.cleanup()
+                GPIO.cleanup(self._backwheel_forward_ssr_pin)
+                GPIO.cleanup(self._backwheel_reverse_ssr_pin)
+                GPIO.cleanup(self._backwheel_power_ssr_pin)
+                GPIO.cleanup(self._frontwheel_power_ssr_pin)
             except Exception:
                 pass
                         
