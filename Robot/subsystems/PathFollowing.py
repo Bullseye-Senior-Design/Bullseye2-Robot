@@ -42,17 +42,15 @@ class PathFollowing(Subsystem):
         self.ds = self.v_nom * self.Ts
         self.ds_ref =  self.v_nom * self.Ts  
         
-c
-        
         # Constraints
         self.v_bounds = [-Constants.rear_motor_top_speed, Constants.rear_motor_top_speed]
         self.delta_bounds = [-np.deg2rad(30), np.deg2rad(30)]
-        
+
         # State bounds
         self.lbx = np.array([-np.inf, -np.inf, -np.inf] * (self.p + 1) + 
-                           [self.v_bounds[0], self.delta_bounds[0]] * self.p)
+                            [self.v_bounds[0], self.delta_bounds[0]] * self.p)
         self.ubx = np.array([np.inf, np.inf, np.inf] * (self.p + 1) + 
-                           [self.v_bounds[1], self.delta_bounds[1]] * self.p)
+                            [self.v_bounds[1], self.delta_bounds[1]] * self.p)
         
         # Setup MPC solver
         self.solver, self.n_states, self.n_controls = self._setup_mpc()
