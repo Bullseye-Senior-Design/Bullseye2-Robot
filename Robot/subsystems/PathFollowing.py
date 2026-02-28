@@ -83,7 +83,7 @@ class PathFollowing(Subsystem):
         self._x_prev = None  # For warm starting
         
         # Path completion tracking
-        self.goal_tolerance = 0.1  # meters - distance threshold to consider goal reached
+        self.goal_tolerance = 0.33  # meters - distance threshold to consider goal reached
         
         # Get reference to state estimator
         self.state_estimator = KalmanStateEstimator()
