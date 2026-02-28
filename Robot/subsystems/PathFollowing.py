@@ -11,6 +11,7 @@ from Robot.Constants import Constants
 logger = logging.getLogger(f"{__name__}.PathFollowing")
 logger.setLevel(logging.INFO)
 
+# TODO Test changing cost function to Frenet Frame
 
 class PathFollowing(Subsystem):
     """Model Predictive Control Navigator for path following.
@@ -33,18 +34,20 @@ class PathFollowing(Subsystem):
         # ────────────────────────────────────────────────
         # Parameters & Constants
         # ────────────────────────────────────────────────
-        self.Ts = 0.1
-        self.p = 12
+        self.Ts = 0.3  # MPC sampling time (seconds)
+        self.p = 25 # 12 may be better for computation capacity
         self.L = 0.25
+        # crusing speed for reference trajectory generation, can be adjusted via set_nominal_speed() method
         self.v_nom = Constants.rear_motor_top_speed / 2.0
         self.ds = self.v_nom * self.Ts
-        self.ds_ref = 0.1  # Fixed arc-length spacing for reference trajectory (10 cm per MPC step)
+        self.ds_ref =  self.v_nom * self.Ts  
         
         # Weights (Q for state, R for input, Rd for rate of change, V for speed tracking)
-        self.Q_diag = np.array([10.0, 10.0, 1.0])
-        self.R_diag = np.array([0.1, 0.1])
-        self.Rd_diag = np.array([1.0, 5.0])
-        self.V_weight = 5.0  # Weight for speed tracking cost
+        self.Q_diag = np.array([3.0, 10.0]) # Weights for cross-track error (lateral), heading error (yaw), and unused component
+        self.Q_terminal_diag = np.array([5.0, 5.0, 1.0]) # Terminal weights for final state - higher to emphasize goal reaching
+        self.R_diag = np.array([0.1, 0.1]) # Penalize large control inputs, probably not needed for our application
+        self.Rd_diag = np.array([20.0, 20.0]) # Penalize large changes in the outputs, prevents the steering from oscillating between two extremes
+        self.V_weight = 5.0  # Weight for speed tracking cost 
         
         # Constraints
         self.v_bounds = [-Constants.rear_motor_top_speed, Constants.rear_motor_top_speed]
@@ -86,7 +89,7 @@ class PathFollowing(Subsystem):
         self.state_estimator = KalmanStateEstimator()
     
     def _setup_mpc(self):
-        """Setup the MPC solver using CasADi."""
+        """Setup the MPC solver using CasADi with Frenet Frame cost function."""
         # Symbolic states
         x = ca.SX.sym('x')
         y = ca.SX.sym('y')
@@ -126,14 +129,37 @@ class PathFollowing(Subsystem):
         for k in range(self.p):
             st = X[:, k]
             con = U[:, k]
+            ref_pose = ref_traj[:, k]
             
-            # Tracking cost
-            cost_fn += ca.mtimes([(st - ref_traj[:, k]).T, np.diag(self.Q_diag), 
-                                  (st - ref_traj[:, k])])
+            # Compute cross-track error (Frenet Frame)
+            # Vector from reference point to actual position
+            dx = st[0] - ref_pose[0]
+            dy = st[1] - ref_pose[1]
+            ref_theta = ref_pose[2]
+            
+            # Rotate to Frenet frame: cross-track error is perpendicular to path
+            # e_lateral = -dx * sin(theta_ref) + dy * cos(theta_ref)
+            e_lateral = -dx * ca.sin(ref_theta) + dy * ca.cos(ref_theta)
+            
+            # Heading error (yaw deviation from reference)
+            e_heading = st[2] - ref_pose[2]
+            
+            # Normalize heading error to [-pi, pi]
+            e_heading = ca.atan2(ca.sin(e_heading), ca.cos(e_heading))
+            
+            # Frenet Frame cost: penalize cross-track error and heading error
+            # Q_diag[0] now weights cross-track error (lateral deviation)
+            # Q_diag[1] weights heading error
+            # Q_diag[2] is unused in Frenet but kept for compatibility
+            cost_fn += self.Q_diag[0] * e_lateral**2
+            cost_fn += self.Q_diag[1] * e_heading**2
+            
             # Input effort cost
             cost_fn += ca.mtimes([con.T, np.diag(self.R_diag), con])
+            
             # Speed tracking cost (track desired speed reference)
             cost_fn += self.V_weight * (con[0] - v_ref[k])**2
+            
             # Smoothness cost
             u_compare = u_prev if k == 0 else U[:, k-1]
             cost_fn += ca.mtimes([(con - u_compare).T, np.diag(self.Rd_diag), 
@@ -145,9 +171,16 @@ class PathFollowing(Subsystem):
             st_next_euler = st + (self.Ts * f_value)
             g.append(st_next - st_next_euler)
         
-        # Terminal cost
-        cost_fn += ca.mtimes([(X[:, self.p] - ref_traj[:, self.p]).T, 
-                             np.diag(self.Q_diag), (X[:, self.p] - ref_traj[:, self.p])])
+        # Terminal cost (Frenet Frame) - uses higher weights for goal emphasis
+        dx_term = X[0, self.p] - ref_traj[0, self.p]
+        dy_term = X[1, self.p] - ref_traj[1, self.p]
+        ref_theta_term = ref_traj[2, self.p]
+        e_lateral_term = -dx_term * ca.sin(ref_theta_term) + dy_term * ca.cos(ref_theta_term)
+        e_heading_term = X[2, self.p] - ref_traj[2, self.p]
+        e_heading_term = ca.atan2(ca.sin(e_heading_term), ca.cos(e_heading_term))
+        
+        cost_fn += self.Q_terminal_diag[0] * e_lateral_term**2
+        cost_fn += self.Q_terminal_diag[1] * e_heading_term**2
         
         # Reshape for solver
         opt_vars = ca.vertcat(ca.reshape(X, -1, 1), ca.reshape(U, -1, 1))
@@ -181,14 +214,17 @@ class PathFollowing(Subsystem):
         y_wp = self.path_matrix[:, 1]
         theta_wp = self.path_matrix[:, 2]
         
+        # Compute cumulative arc-length of waypoints
         dx, dy = np.diff(x_wp), np.diff(y_wp)
         s_wp = np.cumsum(np.sqrt(dx**2 + dy**2))
         s_wp = np.insert(s_wp, 0, 0.0)
         
+        # Create interpolators for x, y, and theta as functions of arc-length
         interp_x = interp1d(s_wp, x_wp, kind='cubic', fill_value='extrapolate')
         interp_y = interp1d(s_wp, y_wp, kind='cubic', fill_value='extrapolate')
         interp_theta = interp1d(s_wp, theta_wp, kind='cubic', fill_value='extrapolate')
         
+        # Find closest point on path to current state
         distances = np.sqrt((x_wp - cur_state[0])**2 + (y_wp - cur_state[1])**2)
         closest_idx = np.argmin(distances)
         
@@ -228,6 +264,9 @@ class PathFollowing(Subsystem):
             clamped_percent = np.clip(speed_percent, -100, 100)
             self.v_nom = (clamped_percent / 100.0) * Constants.rear_motor_top_speed
             self.ds = self.v_nom * self.Ts
+            
+            self.ds_ref = self.v_nom * self.Ts  # Update reference spacing based on new speed
+            
             logger.debug(f"Set nominal speed: {speed_percent}% -> {self.v_nom:.3f} m/s")
     
     def get_nominal_speed(self):
@@ -409,6 +448,15 @@ class PathFollowing(Subsystem):
                     self._delta_cmd = delta_cmd
                     self._last_u = np.array([v_cmd, delta_cmd])
                     self._x_prev = res['x']
+                
+                # Check for zero velocity command when not at goal
+                distance_to_goal = self._get_distance_to_goal(cur_state)
+                if abs(v_cmd) < 0.01 and distance_to_goal is not None and distance_to_goal > self.goal_tolerance:
+                    logger.error(
+                        "MPC commanding zero velocity but not at goal! Distance to goal: %.3f m (tolerance: %.3f m)",
+                        distance_to_goal,
+                        self.goal_tolerance
+                    )
                 
                 elapsed = time.time() - start_time
                 logger.debug(
