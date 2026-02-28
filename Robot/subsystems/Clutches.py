@@ -17,6 +17,16 @@ class Clutches(Subsystem):
         GPIO.setmode(GPIO.BCM)
         GPIO.setup(self.left_clutch_pin, GPIO.OUT)
         GPIO.setup(self.right_clutch_pin, GPIO.OUT)
+
+    def engage_clutches(self):
+        """Engage both clutches."""
+        self.engage_left_clutch()
+        self.engage_right_clutch()
+
+    def disengage_clutches(self):
+        """Disengage both clutches."""
+        self.disengage_left_clutch()
+        self.disengage_right_clutch()
     
     def engage_left_clutch(self):
         """Engage the left clutch."""
