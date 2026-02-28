@@ -25,6 +25,7 @@ class FollowPathCmd(Command):
         self,
         motor_control: MotorControl,
         path_following: PathFollowing,
+        speed = 1.0,
     ):
         """Initialize FollowPathCmd with a simple straight path.
         
@@ -36,6 +37,8 @@ class FollowPathCmd(Command):
         self.path_following = path_following
         self.add_requirement(motor_control)
         self.add_requirement(path_following)
+        
+        self.speed = speed
         
         self._last_update_time = 0.0
         
@@ -68,6 +71,8 @@ class FollowPathCmd(Command):
         
         # Save reference path to CSV
         self._save_reference_path()
+        
+        self.path_following.set_nominal_speed(Constants.rear_motor_top_speed  * self.speed)
         
         self.path_following.start_path_following()
         
