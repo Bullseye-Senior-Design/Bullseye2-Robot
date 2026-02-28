@@ -44,7 +44,8 @@ class FollowPathCmd(Command):
         
     def initialize(self):
         """Start path following."""
-        
+        """
+        ##### Sine Path #####
         # Get current position from EKF
         state_estimator = KalmanStateEstimator()
         current_state = state_estimator.get_state()
@@ -98,7 +99,44 @@ class FollowPathCmd(Command):
         self.path_following.start_path_following()
         
         self._last_update_time = time.time()
+        logger.info("FollowPathCmd: Path following initialized") """
+
+
+        #### Straight Line Path #####
+        # Get current position from EKF
+        state_estimator = KalmanStateEstimator()
+        current_state = state_estimator.get_state()
+        start_x, start_y = current_state.pos[0], current_state.pos[1]
+        start_yaw = state_estimator.euler[2]
+        
+        # Create a simple straight path: 0.5 meters forward from current position
+        distance = 3.048  # meters
+        num_points = 100
+        self.path_matrix = np.zeros((num_points, 3))
+        # Path goes forward in the direction of current yaw
+        self.path_matrix[:, 0] = start_x + np.linspace(0, distance, num_points) * np.cos(start_yaw)
+        self.path_matrix[:, 1] = start_y + np.linspace(0, distance, num_points) * np.sin(start_yaw)
+        self.path_matrix[:, 2] = start_yaw  # Keep same heading
+        
+        # Set path and start navigation
+        self.path_following.set_path(self.path_matrix)
+        
+        # Print start and target positions
+        start_pos = self.path_matrix[0]
+        target_pos = self.path_matrix[-1]
+        logger.info(f"Path Following - Start Position: x={start_pos[0]:.3f}m, y={start_pos[1]:.3f}m, yaw={np.degrees(start_pos[2]):.1f}°")
+        logger.info(f"Path Following - Target Position: x={target_pos[0]:.3f}m, y={target_pos[1]:.3f}m, yaw={np.degrees(target_pos[2]):.1f}°")
+        
+        # Save reference path to CSV
+        self._save_reference_path()
+        
+        self.path_following.set_nominal_speed(self.speed)
+        
+        self.path_following.start_path_following()
+        
+        self._last_update_time = time.time()
         logger.info("FollowPathCmd: Path following initialized")
+    
     
 
     def execute(self):
