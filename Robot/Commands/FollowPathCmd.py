@@ -25,7 +25,8 @@ class FollowPathCmd(Command):
         self,
         motor_control: MotorControl,
         path_following: PathFollowing,
-        speed_precent = 50,
+        #speed_precent = 100 # for forward path
+        speed_precent = -100, # for Reverse path
     ):
         """Initialize FollowPathCmd with a simple straight path.
         
@@ -121,7 +122,7 @@ class FollowPathCmd(Command):
         # Path goes reverse in the direction of current yaw
         self.path_matrix[:, 0] = start_x - np.linspace(0, distance, num_points) * np.cos(start_yaw)
         self.path_matrix[:, 1] = start_y - np.linspace(0, distance, num_points) * np.sin(start_yaw)
-        self.path_matrix[:, 2] = start_yaw  # Keep same heading
+        self.path_matrix[:, 2] = start_yaw + np.pi  # Keep same heading
         
         # Set path and start navigation
         self.path_following.set_path(self.path_matrix)
