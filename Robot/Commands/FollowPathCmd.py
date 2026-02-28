@@ -102,7 +102,7 @@ class FollowPathCmd(Command):
         self._last_update_time = time.time()
         logger.info("FollowPathCmd: Path following initialized")
 
-"""
+    """
         #### Straight Line Path #####
         # Get current position from EKF
         state_estimator = KalmanStateEstimator()
