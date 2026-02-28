@@ -45,7 +45,7 @@ class FollowPathCmd(Command):
         
     def initialize(self):
         """Start path following."""
-        """
+        
         ##### Sine Path #####
         # Get current position from EKF
         state_estimator = KalmanStateEstimator()
@@ -60,7 +60,7 @@ class FollowPathCmd(Command):
         
         # Create sinusoidal path: oscillates perpendicular to direction of travel
         s = np.linspace(0, distance, num_points)  # Forward distance along path
-        amplitude = 0.5  # meters
+        amplitude = 0.25  # meters
         period = distance / 2  # Period is 1/2 of path length
         
         # Sinusoidal offset perpendicular to direction of travel
@@ -100,9 +100,9 @@ class FollowPathCmd(Command):
         self.path_following.start_path_following()
         
         self._last_update_time = time.time()
-        logger.info("FollowPathCmd: Path following initialized") """
+        logger.info("FollowPathCmd: Path following initialized")
 
-
+"""
         #### Straight Line Path #####
         # Get current position from EKF
         state_estimator = KalmanStateEstimator()
@@ -142,6 +142,7 @@ class FollowPathCmd(Command):
         
         self._last_update_time = time.time()
         logger.info("FollowPathCmd: Path following initialized")
+        """
     
     
 
