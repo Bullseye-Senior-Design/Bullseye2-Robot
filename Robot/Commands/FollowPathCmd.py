@@ -148,4 +148,4 @@ class FollowPathCmd(Command):
 
     def is_finished(self):
         """Command runs until cancelled."""
-        return self.path_following.is_at_goal(0.1)
+        return self.path_following.is_at_goal(0.33)
