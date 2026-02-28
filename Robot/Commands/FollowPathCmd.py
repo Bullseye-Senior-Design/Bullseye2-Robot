@@ -64,6 +64,10 @@ class FollowPathCmd(Command):
         # Sinusoidal offset perpendicular to direction of travel
         lateral_offset = amplitude * np.sin(2 * np.pi * s / period)
         
+        # Derivative of lateral offset for correct yaw angle
+        lateral_offset_derivative = amplitude * (2 * np.pi / period) * np.cos(2 * np.pi * s / period)
+        yaw_offset = np.arctan(lateral_offset_derivative)
+        
         # Forward motion in yaw direction
         forward_x = s * np.cos(start_yaw)
         forward_y = s * np.sin(start_yaw)
@@ -75,7 +79,7 @@ class FollowPathCmd(Command):
         # Combine forward and lateral motion
         self.path_matrix[:, 0] = start_x + forward_x + offset_x
         self.path_matrix[:, 1] = start_y + forward_y + offset_y
-        self.path_matrix[:, 2] = start_yaw  # Keep same heading
+        self.path_matrix[:, 2] = start_yaw + yaw_offset  # Yaw follows the path curvature
         
         # Set path and start navigation
         self.path_following.set_path(self.path_matrix)
