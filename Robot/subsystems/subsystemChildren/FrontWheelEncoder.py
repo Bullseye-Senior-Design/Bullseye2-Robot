@@ -21,6 +21,7 @@ class FrontWheelEncoder:
             self._resolution = Constants.frontwheel_encoder_resolution
             self._max_position = Constants.frontwheel_encoder_max_position
             self._position = None
+            self._running = False
             self._lock = threading.Lock()
             self._interval = 0.02  # 20ms update interval
 
@@ -100,6 +101,7 @@ class FrontWheelEncoder:
     def close(self):
         if self._spi:
             try:
+                self._running = False
                 self._spi.close()
             except Exception:
                 pass
