@@ -7,7 +7,7 @@ import math
 import logging
 
 logger = logging.getLogger("MotorMovementExampleCmd")
-logging.basicConfig(level=logging.INFO)
+logger.setLevel(level=logging.INFO)
 
 class MotorMovementExampleCmd(Command):
     def __init__(self, drive_train: DriveTrain, clutches: Clutches, header_healer_switches: HeaderHealerSwitches):
@@ -23,6 +23,8 @@ class MotorMovementExampleCmd(Command):
     def initialize(self):
         self.start_time = time.time()
         self.speed = 1
+        self.clutches.set_green_status_led(True)
+        self.clutches.set_red_status_led(False)
         
             
         pass
@@ -32,7 +34,11 @@ class MotorMovementExampleCmd(Command):
         # Cycle between -1 and 1 with a period of 10 seconds
         self.speed = math.sin(elapsed_time * 2 * math.pi / 10.0)
         self.drive_train.set_speed_angle(self.speed, 180)
-        logger.debug(f"Front wheel position: {self.drive_train.get_frontwheel_position()}")
+        #logger.debug(f"")
+        #logger.debug(f"Front wheel position: {self.drive_train.get_frontwheel_position()}")
+        self.drive_train.engage_backwheel()
+        self.drive_train.engage_frontwheel()
+        self.clutches.engage_clutches()
 
         if self.header_healer_switches.get_header_switch_triggered():
             logger.debug("Header switch triggered: Engaging clutches and disengaging wheels")
