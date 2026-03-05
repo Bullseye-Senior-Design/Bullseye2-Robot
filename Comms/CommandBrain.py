@@ -76,14 +76,16 @@ class CommandBrain:
     - Thread-safe access to shared data
     """
 
-    def __init__(self, pi_controller_receiver=None):
+    def __init__(self, pi_controller_receiver=None, drivetrain=None):
         """
         Initialize CommandBrain with references to subsystems
 
         Args:
             pi_controller_receiver: PiControllerReceiver subsystem instance
+            drivetrain: DriveTrain subsystem instance for motor control
         """
         self.pi_controller_receiver = pi_controller_receiver
+        self.drivetrain = drivetrain
         self.robot_data = RobotBrainData()
 
         # Thread management
@@ -93,6 +95,9 @@ class CommandBrain:
 
         # Serial connection for receiving from ControllerMessager
         self.controller_ser = None
+        
+        # TELEOP mode control flag
+        self._teleop_active = False
 
         if DEBUG:
             print("[CommandBrain] Initialized")
@@ -132,6 +137,18 @@ class CommandBrain:
             self._update_threads.append(joystick_thread)
             if DEBUG:
                 print("[CommandBrain] Started controller data update thread")
+        
+        # Start TELEOP control thread (if DriveTrain is available)
+        if self.drivetrain:
+            teleop_thread = threading.Thread(
+                target=self._teleop_control_loop,
+                daemon=True,
+                name="TeleopControl"
+            )
+            teleop_thread.start()
+            self._update_threads.append(teleop_thread)
+            if DEBUG:
+                print("[CommandBrain] Started TELEOP control thread")
 
     def _update_battery_data(self):
         """
@@ -254,6 +271,51 @@ class CommandBrain:
                 print(f"[ERROR] Error updating controller data: {e}")
                 time.sleep(SUBSYSTEM_UPDATE_RATE)
 
+    def _teleop_control_loop(self):
+        """
+        Continuously process TELEOP mode joystick inputs and send to DriveTrain.
+        Runs in background thread.
+        
+        Maps:
+        - left_y: -1.0 to 1.0 (throttle) -> sent as t: -1.00 to 1.00
+        - right_x: -1.0 to 1.0 (steering) -> sent as s: -1.00 to 1.00
+        """
+        while self._running:
+            try:
+                # Only process if TELEOP is active
+                if self._teleop_active:
+                    with self._data_lock:
+                        controller_data = self.robot_data.controller_data
+                    
+                    # Get joystick inputs
+                    throttle = controller_data.left_y      # -1.0 to 1.0
+                    steering = controller_data.right_x     # -1.0 to 1.0
+                    
+                    # Send command to DriveTrain via set_speed_angle
+                    # Throttle maps to speed, steering maps to angle
+                    if self.drivetrain:
+                        # Convert steering (-1.0 to 1.0) to angle (0 to 180)
+                        # steering=-1.0 -> angle=180 (full left)
+                        # steering=0 -> angle=90 (straight)
+                        # steering=1.0 -> angle=0 (full right)
+                        angle = 90 - (steering * 90)
+                        angle = max(0, min(180, angle))  # Clamp to 0-180
+                        
+                        self.drivetrain.set_speed_angle(throttle, angle)
+                        
+                        if DEBUG and (abs(throttle) > 0.01 or abs(steering) > 0.01):
+                            print(f"[TELEOP] t: {throttle:.2f} s: {steering:.2f}")
+                
+                elif self.drivetrain and not self._teleop_active:
+                    # Stop motors when TELEOP is not active
+                    self.drivetrain.stop()
+                
+                time.sleep(SUBSYSTEM_UPDATE_RATE)
+            
+            except Exception as e:
+                print(f"[ERROR] Error in TELEOP control loop: {e}")
+                time.sleep(SUBSYSTEM_UPDATE_RATE)
+
     def _handle_state_change(self, new_state):
         """
         Handle robot state changes and execute mode-specific logic
@@ -277,25 +339,28 @@ class CommandBrain:
             # Emergency stop - disable all systems
             if DEBUG:
                 print("[MODE] DISABLED: Emergency stop - all systems disabled")
-            # TODO: Add logic to stop motors, disable actuators, etc.
+            self._teleop_active = False
+            if self.drivetrain:
+                self.drivetrain.stop()
 
         elif new_state == State.TELEOP:
-            # Manual control mode
+            # Manual control mode - enable joystick input handling
             if DEBUG:
                 print("[MODE] TELEOP: Manual control enabled")
-            # TODO: Add logic for teleop control (joystick input handling)
+            self._teleop_active = True
 
         elif new_state == State.AUTONOMOUS:
             # Autonomous/path following mode
             if DEBUG:
                 print("[MODE] AUTONOMOUS: Path following enabled")
+            self._teleop_active = False
             # TODO: Add logic for autonomous navigation
 
         elif new_state == State.TEST:
             # Test mode (same as teleop for now)
             if DEBUG:
                 print("[MODE] TEST: Test mode enabled (same as teleop)")
-            # TODO: Add test-specific logic if needed
+            self._teleop_active = True
 
     def set_mode(self, mode):
         """
@@ -417,11 +482,13 @@ def main():
     # Initialize subsystems (these would be created in main.py normally)
     try:
         from Robot.subsystems.PiControllerReceiver import PiControllerReceiver
+        from Robot.subsystems.DriveTrain import DriveTrain
 
         print("[INFO] Initializing subsystems...")
         controller_receiver = PiControllerReceiver()
+        drivetrain = DriveTrain()
 
-        brain = CommandBrain(pi_controller_receiver=controller_receiver)
+        brain = CommandBrain(pi_controller_receiver=controller_receiver, drivetrain=drivetrain)
         brain.start()
         print("[OK] CommandBrain started successfully\n")
 
