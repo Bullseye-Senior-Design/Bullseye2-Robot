@@ -41,22 +41,15 @@ class ZeroIMUCmd(Command):
         self._samples = []
 
     def execute(self):
-        if self._applied:
+        if not self._imu.is_calibrated():
             return
-
-        try:
-            euler = self._imu.get_euler()
-        except Exception as e:
-            print(f"ZeroIMUCmd: IMU.get_euler() exception: {e}")
-            return
+        
+        euler = self._imu.get_euler()
 
         if not euler or len(euler) < 1:
             return
 
-        try:
-            heading_deg = float(euler[0])
-        except Exception:
-            return
+        heading_deg = float(euler[0])
 
         # store sample
         self._samples.append(heading_deg)

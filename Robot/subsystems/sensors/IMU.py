@@ -90,6 +90,8 @@ class IMU():
         self.sensor.offsets_gyroscope = (-1, -4, -1)
         self.sensor.offsets_magnetometer = (-839, -601, -413)
         
+        self._is_calibrated = False
+        
         print("IMU offset values: {}, {}, {}".format(
             self.sensor.offsets_accelerometer,
             self.sensor.offsets_gyroscope,
@@ -203,6 +205,9 @@ class IMU():
         
         threading.Thread(target=_update_loop, daemon=True).start()
         
+    def is_calibrated(self) -> bool:
+        with self._lock:
+            return self._is_calibrated
 
     def print_library_calibration(self) -> None:
         """Read and print calibration information from the underlying sensor library (if present).
@@ -225,6 +230,9 @@ class IMU():
             print("  Accelerometer offsets:", accel_off)
             print("  Gyroscope offsets:", gyro_off) 
             print("  Magnetometer offsets:", mag_off)
+            
+            with self._lock:
+                self._is_calibrated = True
         
         
         threading.Thread(target=begin, daemon=True).start()
