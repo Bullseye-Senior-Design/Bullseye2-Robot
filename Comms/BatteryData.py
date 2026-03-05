@@ -6,3 +6,5 @@ class BatteryData:
     power: float
     state_of_charge: float
     time_remaining: float
+
+# test 
