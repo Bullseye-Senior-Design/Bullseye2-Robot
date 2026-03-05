@@ -1,4 +1,5 @@
 from Comms.JoystickData import JoystickData
+from Comms.StateData import StateData, State
 import serial
 import time
 import pygame
@@ -14,6 +15,22 @@ UPDATE_RATE = 0.05          # ~20 Hz
 
 
 def main():
+    # Initialize current state
+    current_state = State.DISABLED
+    
+    # Print mode selection instructions
+    print("\n" + "="*50)
+    print("BULLSEYE CONTROLLER MESSAGER")
+    print("="*50)
+    print("MODE SELECTION:")
+    print("  D-Pad UP    -> TELEOP")
+    print("  D-Pad RIGHT -> AUTONOMOUS (Path Following)")
+    print("  D-Pad LEFT  -> TEST (WARNING)")
+    print("  B Button    -> DISABLED (Emergency Stop)")
+    print("="*50)
+    print(f"Current Mode: {current_state.name}")
+    print("="*50)
+
     # ==== Serial ====
     try:
         ser = serial.Serial(PORT, BAUD, timeout=1)
@@ -35,6 +52,13 @@ def main():
     joystick = pygame.joystick.Joystick(0)
     joystick.init()
     print(f"[OK] Detected controller: {joystick.get_name()}")
+
+    # Track previous button states to detect presses (not holds)
+    prev_dpad_up = False
+    prev_dpad_down = False
+    prev_dpad_left = False
+    prev_dpad_right = False
+    prev_btn_B = False
 
     try:
         while True:
@@ -75,6 +99,13 @@ def main():
             btn_share = joystick.get_button(6) if joystick.get_numbuttons() > 6 else False
             btn_options = joystick.get_button(7) if joystick.get_numbuttons() > 7 else False
 
+            # Read D-pad states
+            dpad_x, dpad_y = joystick.get_hat(0)
+            dpad_up = dpad_y == 1
+            dpad_down = dpad_y == -1
+            dpad_right = dpad_x == 1
+            dpad_left = dpad_x == -1
+
             # Debug: Print button presses
             if DEBUG:
                 if btn_A:
@@ -98,13 +129,6 @@ def main():
                 if btn_options:
                     print("button(7-Options) pressed")
 
-            # Read D-pad states
-            dpad_x, dpad_y = joystick.get_hat(0)
-            dpad_up = dpad_y == 1
-            dpad_down = dpad_y == -1
-            dpad_right = dpad_x == 1
-            dpad_left = dpad_x == -1
-
             # Debug: Print D-pad presses
             if DEBUG:
                 if dpad_up:
@@ -115,6 +139,58 @@ def main():
                     print("dpad(left) pressed")
                 if dpad_right:
                     print("dpad(right) pressed")
+
+            # ===== MODE SELECTION LOGIC =====
+            state_changed = False
+            new_state = current_state
+
+            # Check for mode change inputs (only on press, not hold)
+            if dpad_up and not prev_dpad_up:
+                new_state = State.TELEOP
+                state_changed = True
+                print("🔄 MODE CHANGE: TELEOP (Manual Control)")
+            elif dpad_right and not prev_dpad_right:
+                new_state = State.AUTONOMOUS
+                state_changed = True
+                print("🔄 MODE CHANGE: AUTONOMOUS (Path Following)")
+            elif dpad_left and not prev_dpad_left:
+                new_state = State.TEST
+                state_changed = True
+                print("🔄 MODE CHANGE: TEST (Same as Teleop)")
+            elif btn_B and not prev_btn_B:
+                new_state = State.DISABLED
+                state_changed = True
+                print("🛑 EMERGENCY STOP: DISABLED")
+
+            # Update current state if changed
+            if state_changed:
+                current_state = new_state
+                print(f"Current Mode: {current_state.name}")
+                
+                # Send state change command over serial
+                state_data = StateData(
+                    state=current_state,
+                    path_speed=None,  # Not used in this context
+                    path_id=None      # Not used in this context
+                )
+                
+                # Send state command as JSON
+                import json
+                state_command = {
+                    "type": "state_change",
+                    "state": current_state.value,
+                    "state_name": current_state.name
+                }
+                ser.write((json.dumps(state_command) + "\n").encode())
+                if DEBUG:
+                    print(f"[STATE] Sent: {json.dumps(state_command)}")
+
+            # Update previous button states
+            prev_dpad_up = dpad_up
+            prev_dpad_down = dpad_down
+            prev_dpad_left = dpad_left
+            prev_dpad_right = dpad_right
+            prev_btn_B = btn_B
 
             # Apply deadzone
             left_x = 0 if abs(left_x) < DEADZONE else left_x
@@ -148,7 +224,7 @@ def main():
                 btn_options=btn_options,
             )
 
-            # Send over serial
+            # Send over serial (only joystick data, state commands sent separately above)
             ser.write(f"{data.left_x:.2f},{data.left_y:.2f},{data.right_x:.2f},{data.right_y:.2f}\n".encode())
 
             time.sleep(UPDATE_RATE)
