@@ -75,18 +75,16 @@ class CommandBrain:
     - Thread-safe access to shared data
     """
     
-    def __init__(self, pi_controller_receiver=None, bms=None, motor_control=None):
+    def __init__(self, pi_controller_receiver=None, bms=None):
         """
         Initialize CommandBrain with references to subsystems
         
         Args:
             pi_controller_receiver: PiControllerReceiver subsystem instance
             bms: BMS (Battery Management System) instance
-            motor_control: MotorControl subsystem instance
         """
         self.pi_controller_receiver = pi_controller_receiver
         self.bms = bms
-        self.motor_control = motor_control
         self.robot_data = RobotBrainData()
         
         # Thread management
@@ -134,10 +132,6 @@ class CommandBrain:
                     with self._data_lock:
                         self.robot_data.controller_data = joystick_data
                         self.robot_data.controller_last_update = time.time()
-                    
-                    # Process FREE_DRIVE mode commands
-                    if self.robot_data.mode == "FREE_DRIVE" and self.motor_control:
-                        self._process_free_drive_input(joystick_data)
                     
                     if DEBUG:
                         # Only print when there's actual input (not all zeros/defaults)
