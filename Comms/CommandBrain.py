@@ -225,13 +225,10 @@ class CommandBrain:
                                 # Deserialize joystick packet into our data class
                                 try:
                                     # Filter out any non-joystick fields (e.g. "type")
-                                    filtered = {k: msg[k] for k in JoystickData.__annotations__.keys() if k in msg}
+                                    filtered = {k: msg[k] for k in ControllerData.__annotations__.keys() if k in msg}
 
-                                    if JoystickDataModel is not None:
-                                        model = JoystickDataModel(**filtered)
-                                        joystick = JoystickData(**model.dict())
-                                    else:
-                                        joystick = JoystickData(**filtered)
+                                    # Pydantic provides validation automatically
+                                    joystick = ControllerData(**filtered)
 
                                     with self._data_lock:
                                         self.robot_data.controller_data = joystick
@@ -431,7 +428,7 @@ class CommandBrain:
             )
 
     def get_controller_data(self):
-        """Get current controller input data as JoystickData object"""
+        """Get current controller input data as ControllerData object"""
         with self._data_lock:
             return self.robot_data.controller_data
 

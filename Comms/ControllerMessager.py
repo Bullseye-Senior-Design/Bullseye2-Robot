@@ -209,8 +209,8 @@ def main():
             #l2_axis = 0 if abs(l2_axis) < DEADZONE else l2_axis
             #r2_axis = 0 if abs(r2_axis) < DEADZONE else r2_axis
 
-            # Create JoystickData object with all fields in correct order
-            data = JoystickData(
+            # Create ControllerData object with all fields in correct order
+            data = ControllerData(
                 left_x=left_x,
                 left_y=left_y,
                 right_x=right_x,
