@@ -1,6 +1,6 @@
-from dataclasses import dataclass
-@dataclass 
-class BatteryData:
+from pydantic import BaseModel
+
+class BatteryData(BaseModel):
     voltage: float
     current: float
     power: float
