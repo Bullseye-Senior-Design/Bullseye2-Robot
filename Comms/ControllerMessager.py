@@ -82,9 +82,11 @@ def main():
             left_x = joystick.get_axis(0)
             left_y = joystick.get_axis(1)
             left_y = -left_y  # Invert Y-axis for intuitive control
+            print(f"Left Stick: ({left_x:.2f}, {left_y:.2f})")  # Debug: Print left stick values
             right_x = joystick.get_axis(2)
             right_y = joystick.get_axis(3)
             right_y = -right_y  # Invert Y-axis for intuitive control
+            print(f"Right Stick: ({right_x:.2f}, {right_y:.2f})")  # Debug: Print right stick values
 
             #l2_axis = joystick.get_axis(4) if joystick.get_numaxes() > 4 else 0.0
             #r2_axis = joystick.get_axis(5) if joystick.get_numaxes() > 5 else 0.0
@@ -131,6 +133,7 @@ def main():
             
             # Debug: Print button presses
             if DEBUG:
+                print("Buttons pressed:")
                 if btn_A:
                     print("button(0-A) pressed")
                 if btn_B:
