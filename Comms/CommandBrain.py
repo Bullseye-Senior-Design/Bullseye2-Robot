@@ -40,11 +40,13 @@ class RobotBrainData:
         self.mode = State.DISABLED  # Current mode (DISABLED, AUTONOMOUS, TELEOP, TEST)
 
         # Battery data from BMS
-        self.battery_voltage = 0.0      # Volts
-        self.battery_current = 0.0      # Amps
-        self.battery_power = 0.0        # Watts
-        self.battery_soc = 0.0          # State of Charge (%)
-        self.battery_time_remaining = 0.0  # Minutes
+        self.battery_data = BatteryData(
+            voltage=0.0,
+            current=0.0,
+            power=0.0,
+            state_of_charge=0.0,
+            time_remaining=0.0
+        )
 
         # Controller input data (from PiControllerReceiver)
         self.controller_data = ControllerData(
@@ -159,23 +161,15 @@ class CommandBrain:
         while self._running:
             try:
                 if self.bms:
-                    battery_data = self.bms.read_smartshunt()
+                    self.robot_data.battery_data = self.bms.read_smartshunt()
                 else:
-                    battery_data = None
+                    logger.warning("BMS subsystem not available, battery data will be last update")
+                    pass
 
-                if battery_data:
-                    with self._data_lock:
-                        self.robot_data.battery_voltage = battery_data.voltage
-                        self.robot_data.battery_current = battery_data.current
-                        self.robot_data.battery_power = battery_data.power
-                        self.robot_data.battery_soc = battery_data.state_of_charge
-                        self.robot_data.battery_time_remaining = battery_data.time_remaining
-                        self.robot_data.battery_last_update = time.time()
-
-                    logger.debug(f"Battery: V:{battery_data.voltage:.2f}V "
-                                 f"I:{battery_data.current:.2f}A "
-                                 f"P:{battery_data.power:.1f}W "
-                                 f"SOC:{battery_data.state_of_charge:.1f}%")
+                logger.debug(f"Battery: V:{self.robot_data.battery_data.voltage:.2f}V "
+                                f"I:{self.robot_data.battery_data.current:.2f}A "
+                                f"P:{self.robot_data.battery_data.power:.1f}W "
+                                f"SOC:{self.robot_data.battery_data.state_of_charge:.1f}%")
 
                 time.sleep(SUBSYSTEM_UPDATE_RATE)
 
@@ -391,31 +385,12 @@ class CommandBrain:
             RobotBrainData: Current state of all monitored systems
         """
         with self._data_lock:
-            # Create a copy so external code doesn't interfere
-            data_copy = RobotBrainData()
-            data_copy.mode = self.robot_data.mode
-            data_copy.battery_voltage = self.robot_data.battery_voltage
-            data_copy.battery_current = self.robot_data.battery_current
-            data_copy.battery_power = self.robot_data.battery_power
-            data_copy.battery_soc = self.robot_data.battery_soc
-            data_copy.battery_time_remaining = self.robot_data.battery_time_remaining
-            data_copy.controller_data = self.robot_data.controller_data
-            data_copy.last_command = self.robot_data.last_command
-            data_copy.battery_last_update = self.robot_data.battery_last_update
-            data_copy.controller_last_update = self.robot_data.controller_last_update
-            data_copy.state_last_update = self.robot_data.state_last_update
-            return data_copy
+            return self.robot_data
 
     def get_battery_data(self):
         """Get current battery data as BatteryData object"""
         with self._data_lock:
-            return BatteryData(
-                voltage=self.robot_data.battery_voltage,
-                current=self.robot_data.battery_current,
-                power=self.robot_data.battery_power,
-                state_of_charge=self.robot_data.battery_soc,
-                time_remaining=self.robot_data.battery_time_remaining
-            )
+            return self.robot_data.battery_data
 
     def get_controller_data(self):
         """Get current controller input data as ControllerData object"""
@@ -437,11 +412,11 @@ class CommandBrain:
         print("="*50)
         print(f"Mode: {data.mode.name}")
         print(f"\nBATTERY:")
-        print(f"  Voltage: {data.battery_voltage:.2f}V")
-        print(f"  Current: {data.battery_current:.2f}A")
-        print(f"  Power: {data.battery_power:.1f}W")
-        print(f"  SOC: {data.battery_soc:.1f}%")
-        print(f"  Time Remaining: {data.battery_time_remaining:.1f} min")
+        print(f"  Voltage: {data.battery_data.voltage:.2f}V")
+        print(f"  Current: {data.battery_data.current:.2f}A")
+        print(f"  Power: {data.battery_data.power:.1f}W")
+        print(f"  SOC: {data.battery_data.state_of_charge:.1f}%")
+        print(f"  Time Remaining: {data.battery_data.time_remaining:.1f} min")
         print(f"\nCONTROLLER:")
         ctrl = data.controller_data
         print(f"  Left Stick: X={ctrl.left_x:.2f}, Y={ctrl.left_y:.2f}")
