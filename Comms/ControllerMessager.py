@@ -63,9 +63,6 @@ def main():
     joystick = pygame.joystick.Joystick(0)
     joystick.init()
     print(f"[OK] Detected controller: {joystick.get_name()}")
-    print(f"Number of controller: {pygame.joystick.get_count()}")
-    print(f"Number of axes: {joystick.get_numaxes()}")
-    print(f"Number of buttons: {joystick.get_numbuttons()}")
 
     # Track previous button states to detect presses (not holds)
     prev_dpad_up = False
@@ -76,7 +73,7 @@ def main():
 
     try:
         while True:
-            #pygame.event.pump()  # Process event queue
+            pygame.event.pump()  # Process event queue
 
             # Read joystick axes
             left_x = joystick.get_axis(0)
