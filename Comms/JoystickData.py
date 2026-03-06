@@ -28,7 +28,6 @@ class JoystickData:
     btn_share: bool
     btn_options: bool
 
-
 if BaseModel is not None:
     class JoystickDataModel(BaseModel):
         left_x: float

@@ -103,12 +103,12 @@ def main():
             btn_B = joystick.get_button(1)
             btn_X = joystick.get_button(2)
             btn_Y = joystick.get_button(3)
-            btn_LB = joystick.get_button(4) if joystick.get_numbuttons() > 4 else False
-            btn_RB = joystick.get_button(5) if joystick.get_numbuttons() > 5 else False
-            btn_LS = joystick.get_button(8) if joystick.get_numbuttons() > 8 else False
-            btn_RS = joystick.get_button(9) if joystick.get_numbuttons() > 9 else False
-            btn_share = joystick.get_button(6) if joystick.get_numbuttons() > 6 else False
-            btn_options = joystick.get_button(7) if joystick.get_numbuttons() > 7 else False
+            btn_LB = joystick.get_button(9)
+            btn_RB = joystick.get_button(10)
+            btn_LS = joystick.get_button(7)
+            btn_RS = joystick.get_button(8)
+            btn_share = joystick.get_button(4)
+            btn_options = joystick.get_button(6)
 
             # Read D-pad states
             #dpad_x, dpad_y = joystick.get_hat(0)
@@ -134,17 +134,17 @@ def main():
                 if btn_Y:
                     print("button(3-Y) pressed")
                 if btn_LB:
-                    print("button(4-LB) pressed")
+                    print("button(9-LB) pressed")
                 if btn_RB:
-                    print("button(5-RB) pressed")
+                    print("button(10-RB) pressed")
                 if btn_LS:
-                    print("button(8-LS) pressed")
+                    print("button(7-LS) pressed")
                 if btn_RS:
-                    print("button(9-RS) pressed")
+                    print("button(8-RS) pressed")
                 if btn_share:
-                    print("button(6-Share) pressed")
+                    print("button(4-Share) pressed")
                 if btn_options:
-                    print("button(7-Options) pressed")
+                    print("button(6-Options) pressed")
 
             # Debug: Print D-pad presses
             if DEBUG:
