@@ -55,7 +55,7 @@ class DriveFigure8(Command):
         # clamp for safety (motor_control also clamps internally)
         angle_deg = max(-30.0, min(30.0, angle_deg))
 
-        self.motor_control.set_speed_angle(self.speed_percent, int(angle_deg))
+        self.motor_control.set_speed_angle(self.speed_percent, round(angle_deg))
 
     def end(self, interrupted):
         # stop the motors when the command finishes or is preempted
