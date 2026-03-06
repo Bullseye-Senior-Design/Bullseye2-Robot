@@ -33,6 +33,7 @@ class _LowPassIIR:
 
 class IMU():
     _instance = None
+    sensor: Optional[adafruit_bno055.BNO055_I2C]
 
     # When a new instance is created, sets it to the same global instance
     def __new__(cls):
@@ -44,13 +45,21 @@ class IMU():
         return cls._instance
 
     def _start(self):
-        i2c = board.I2C() # uses board.SCL and board.SDA
-        self.sensor = adafruit_bno055.BNO055_I2C(i2c)
-
+        # Initialize sensor data with default values
+        self.sensor = None
         self.acceleration = (0.0, 0.0, 0.0)
         self.gyro = (0.0, 0.0, 0.0)
         self.magnetic = (0.0, 0.0, 0.0)
         self.quat = (0.0, 0.0, 0.0, 1.0)
+        
+        try:
+            i2c = board.I2C() # uses board.SCL and board.SDA
+            self.sensor = adafruit_bno055.BNO055_I2C(i2c)
+            logger.info("IMU sensor initialized successfully")
+        except Exception as e:
+            logger.error(f"Failed to initialize IMU sensor: {e}")
+            logger.warning("IMU will return zero values for all readings")
+            # Continue with sensor = None
 
         self.interval = 0.01  # update interval in seconds
         self.mag_interval = self.interval * 5
@@ -86,20 +95,26 @@ class IMU():
         self._quat_est_cached = (0.0, 0.0, 0.0, 1.0)
         self._is_offset_set = False
 
-        self.sensor.offsets_accelerometer = (-26, 0, -50)
-        self.sensor.offsets_gyroscope = (-1, -4, -1)
-        self.sensor.offsets_magnetometer = (-839, -601, -413)
-        
-        print("IMU offset values: {}, {}, {}".format(
-            self.sensor.offsets_accelerometer,
-            self.sensor.offsets_gyroscope,
-            self.sensor.offsets_magnetometer))
+        # Set calibration offsets only if sensor initialized successfully
+        if self.sensor is not None:
+            try:
+                self.sensor.offsets_accelerometer = (-26, 0, -50)
+                self.sensor.offsets_gyroscope = (-1, -4, -1)
+                self.sensor.offsets_magnetometer = (-839, -601, -413)
+                
+                logger.info("IMU offset values: {}, {}, {}".format(
+                    self.sensor.offsets_accelerometer,
+                    self.sensor.offsets_gyroscope,
+                    self.sensor.offsets_magnetometer))
+            except Exception as e:
+                logger.error(f"Failed to set IMU calibration offsets: {e}")
 
         # Print any library-provided calibration info (if available)
         # self.print_library_calibration()
 
         # Start continuous update loop immediately (calibration runs in parallel)
-        self.begin()
+        if self.sensor is not None:
+            self.begin()
 
     def get_gyro(self) -> tuple:
         with self._lock:
@@ -117,6 +132,14 @@ class IMU():
     def get_quat(self) -> tuple:
         with self._lock:
             return tuple(self.quat)
+    
+    def is_available(self) -> bool:
+        """Check if IMU sensor is available and initialized.
+        
+        Returns:
+            bool: True if sensor is initialized and working, False otherwise
+        """
+        return self.sensor is not None
     
     def set_yaw_offset(self, yaw_offset_deg: float) -> None:
         """Set a yaw offset (degrees). The offset is stored and applied to
@@ -211,6 +234,10 @@ class IMU():
         prints whatever calibration/status/offset information is available. It is safe
         to call even if the sensor object doesn't expose these fields.
         """
+        if self.sensor is None:
+            logger.warning("Cannot print calibration - IMU sensor not initialized")
+            return
+            
         def begin():
             while not self.sensor.calibrated:
                 self.sensor.calibration_status
@@ -283,15 +310,25 @@ class IMU():
         magnetic: Optional[Tuple[float, float, float]] = None
         quat: Optional[Tuple[float, float, float, float]] = None
         
-        accel_val = self.sensor.acceleration
-        gyro_val = self.sensor.gyro
-        mag_val = None
-        if(self.mag_interval_elapsed()):
-            try:
-                mag_val = self.sensor.magnetic
-            except Exception as e:
-                print(f"IMU Readings - Mag: {e}")
-        quat_val = self.sensor.quaternion
+        # Skip update if sensor not initialized
+        if self.sensor is None:
+            time.sleep(self.interval)
+            return
+        
+        try:
+            accel_val = self.sensor.acceleration
+            gyro_val = self.sensor.gyro
+            mag_val = None
+            if(self.mag_interval_elapsed()):
+                try:
+                    mag_val = self.sensor.magnetic
+                except Exception as e:
+                    logger.debug(f"IMU Readings - Mag: {e}")
+            quat_val = self.sensor.quaternion
+        except Exception as e:
+            logger.error(f"Failed to read IMU sensor data: {e}")
+            time.sleep(self.interval)
+            return
         # print(f"IMU Readings - Accel: {accel_val}, Gyro: {gyro_val}, Mag: {mag_val}, Quat: {quat_val}")
 
         # Use the pre-read values if available
@@ -393,6 +430,6 @@ class IMU():
 
         # avoid busy loop
         time.sleep(self.interval)
-             
+                     
     def end(self):
         pass

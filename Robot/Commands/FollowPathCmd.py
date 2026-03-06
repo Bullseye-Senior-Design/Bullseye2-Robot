@@ -3,7 +3,7 @@ import time
 import numpy as np
 from Robot.subsystems.PathFollowing import PathFollowing
 from Robot.subsystems.KalmanStateEstimator import KalmanStateEstimator
-from Robot.subsystems.MotorControl import MotorControl
+from Robot.subsystems.DriveTrain import DriveTrain
 import logging
 from Robot.Constants import Constants
 from pathlib import Path
@@ -23,7 +23,7 @@ class FollowPathCmd(Command):
 
     def __init__(
         self,
-        motor_control: MotorControl,
+        drive_train: DriveTrain,
         path_following: PathFollowing,
     ):
         """Initialize FollowPathCmd with a simple straight path.
@@ -32,9 +32,9 @@ class FollowPathCmd(Command):
             update_rate_hz: Rate at which to update motor commands
         """
         super().__init__()
-        self.motor_control = motor_control
+        self.drive_train = drive_train
         self.path_following = path_following
-        self.add_requirement(motor_control)
+        self.add_requirement(drive_train)
         self.add_requirement(path_following)
         
         self._last_update_time = 0.0
@@ -91,8 +91,8 @@ class FollowPathCmd(Command):
             
             logger.debug(f"FollowPathCmd: v_cmd={v_cmd:.2f} m/s, delta_cmd={delta_cmd:.2f} rad -> speed={speed_percent}%, angle={angle_deg} deg")
             
-            # Send to motors via MotorControl subsystem
-            self.motor_control.set_speed_angle(speed_percent, angle_deg)
+            # Send to motors via DriveTrain subsystem
+            self.drive_train.set_speed_angle(speed_percent, angle_deg)
             
         except Exception as e:
             logger.info(f"FollowPathCmd: Error in execute: {e}")
@@ -103,7 +103,7 @@ class FollowPathCmd(Command):
         self.path_following.stop_path_following()
         
         # Stop motors
-        self.motor_control.stop()
+        self.drive_train.stop()
                 
         if interrupted:
             print("FollowPathCmd: interrupted")
