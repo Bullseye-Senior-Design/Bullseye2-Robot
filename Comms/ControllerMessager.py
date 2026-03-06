@@ -62,7 +62,10 @@ def main():
         sys.exit(1)
     joystick = pygame.joystick.Joystick(0)
     joystick.init()
-    print(f"[OK] Detected controller: {joystick.get_name()}")
+    if joystick:
+        print(f"[OK] Detected controller: {joystick.get_name()}")
+    else:
+        print("[OK] Detected a controller, but could not get its name.")
 
     # Track previous button states to detect presses (not holds)
     prev_dpad_up = False
