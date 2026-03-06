@@ -1,6 +1,7 @@
 from typing import Optional
 from enum import Enum 
 from pydantic import BaseModel
+from dataclasses import dataclass
 
 class State(Enum):
     DISABLED = 0
@@ -8,6 +9,7 @@ class State(Enum):
     TELEOP = 2
     TEST = 3
 
+@dataclass
 class StateData(BaseModel):
     state: State
     path_speed: Optional[float]
