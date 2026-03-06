@@ -77,9 +77,14 @@ def main():
 
             # Read joystick axes
             left_x = joystick.get_axis(0)
+            print(f"axis(0) - {left_x:.2f}")
             left_y = joystick.get_axis(1)
+            print(f"axis(1) - {left_y:.2f}")
             right_x = joystick.get_axis(2)
+            print(f"axis(2) - {right_x:.2f}")
             right_y = joystick.get_axis(3)
+            print(f"axis(3) - {right_y:.2f}")
+            
             #l2_axis = joystick.get_axis(4) if joystick.get_numaxes() > 4 else 0.0
             #r2_axis = joystick.get_axis(5) if joystick.get_numaxes() > 5 else 0.0
 
