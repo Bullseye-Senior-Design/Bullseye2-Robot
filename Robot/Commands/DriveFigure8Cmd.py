@@ -21,15 +21,21 @@ class DriveFigure8Cmd(Command):
     ``False``).  The loop period can be adjusted with ``self._period``.
     """
 
-    def __init__(self, motor_control: MotorControl, speed_percent: int = 100, period: float = 10.0):
+    def __init__(self, motor_control: MotorControl, speed_percent: int = 100, 
+                 turning_radius: float = 0.25, top_speed: float = 0.13):
         super().__init__()
         self.motor_control = motor_control
         self.add_requirement(motor_control)
         self._imu = IMU()
 
         # runtime parameters
-        self.speed_percent = speed_percent            # forward speed
-        self._period = float(period)                  # seconds for one full left+right cycle
+        self.speed_percent = speed_percent            # forward speed (percent)
+        
+        # Calculate period from vehicle kinematics.
+        # period = circumference / speed = (2π × turning_radius) / top_speed
+        # This ensures one period approximately traces a circular path with the given turning radius,
+        # resulting in a well-proportioned figure-8 pattern.
+        self._period = (2.0 * math.pi * turning_radius) / top_speed
 
         # state filled in initialize()
         self._start_time: float | None = None
