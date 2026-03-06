@@ -240,11 +240,12 @@ def main():
             )
 
             # Send over serial (joystick data as JSON; state commands sent separately above)
-            joystick_payload = {
-                "type": "joystick",
-                **data.model_dump(),        
-            }
-            ser.write((json.dumps(joystick_payload) + "\n").encode())
+            #joystick_payload = {
+                #"type": "joystick",
+                #**asdict(data),        
+            #}
+            #ser.write((json.dumps(joystick_payload) + "\n").encode())
+            
             #if DEBUG:
                 #print(f"[JOYSTICK] Sent: {json.dumps(joystick_payload)}")
 
