@@ -227,8 +227,8 @@ def main():
                 btn_RB=btn_RB,
                 btn_LS=btn_LS,
                 btn_RS=btn_RS,
-                #btn_R2=r2_axis > DEADZONE,
-                #btn_L2=l2_axis > DEADZONE,
+                btn_R2= 0,
+                btn_L2= 0,
                 btn_share=btn_share,
                 btn_options=btn_options,
             )
