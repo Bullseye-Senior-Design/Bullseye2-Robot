@@ -16,6 +16,7 @@ from Robot.Commands.ZeroIMUCmd import ZeroIMUCmd
 from Robot.Commands.MiniBullseyeControlCmd import MiniBullseyeControlCmd
 from Robot.Commands.FollowPathCmd import FollowPathCmd
 from Robot.Commands.WaitCmd import WaitCmd
+from Robot.Commands.DriveFigure8Cmd import DriveFigure8Cmd
 
 
 class RobotContainer:
@@ -39,9 +40,11 @@ class RobotContainer:
         LogDataCmd(self.path_following).schedule()
         calibrate_cmds=SequentialCommandGroup()
         calibrate_cmds.add_commands(
+            DriveFigure8Cmd(self.motor_control, speed_percent=50, period=10.0),
             WaitCmd(2.0),   
             ZeroIMUCmd(self.motor_control, self.path_following, schedule_followup=False)
         )
+        calibrate_cmds.schedule()
             
         
         # PlotStateCmd().schedule()
