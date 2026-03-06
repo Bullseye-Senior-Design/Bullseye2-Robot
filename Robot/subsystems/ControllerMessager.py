@@ -1,17 +1,21 @@
-from Comms.JoystickData import JoystickData
-from Comms.StateData import StateData, State
+import json
 import serial
 import time
 import pygame
 import sys
 
+from Comms.JoystickData import JoystickData
+from Comms.StateData import State
+from Robot.Constants import Constants
+from dataclasses import asdict
+
 # ==== CONFIG ====
 DEBUG = True                # Set to True for debugging output
 ErrTEST = False             # Set to True to allow running without serial connection (for testing without hardware)
-PORT = "/dev/ttyUSB0"       # change if needed
-BAUD = 19200
-DEADZONE = 0.15
-UPDATE_RATE = 0.05          # ~20 Hz
+PORT = Constants.controller_serial_port
+BAUD = Constants.serial_baud_rate
+DEADZONE = Constants.controller_deadzone
+UPDATE_RATE = Constants.controller_update_rate  # ~20 Hz
 
 
 def main():
@@ -167,15 +171,7 @@ def main():
                 current_state = new_state
                 print(f"Current Mode: {current_state.name}")
                 
-                # Send state change command over serial
-                state_data = StateData(
-                    state=current_state,
-                    path_speed=None,  # Not used in this context
-                    path_id=None      # Not used in this context
-                )
-                
-                # Send state command as JSON
-                import json
+                # Send state change command as JSON
                 state_command = {
                     "type": "state_change",
                     "state": current_state.value,
@@ -224,8 +220,14 @@ def main():
                 btn_options=btn_options,
             )
 
-            # Send over serial (only joystick data, state commands sent separately above)
-            ser.write(f"{data.left_x:.2f},{data.left_y:.2f},{data.right_x:.2f},{data.right_y:.2f}\n".encode())
+            # Send over serial (joystick data as JSON; state commands sent separately above)
+            joystick_payload = {
+                "type": "joystick",
+                **asdict(data),
+            }
+            ser.write((json.dumps(joystick_payload) + "\n").encode())
+            if DEBUG:
+                print(f"[JOYSTICK] Sent: {json.dumps(joystick_payload)}")
 
             time.sleep(UPDATE_RATE)
 

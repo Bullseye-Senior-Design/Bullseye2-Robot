@@ -22,11 +22,17 @@ from Comms.JoystickData import JoystickData
 from Comms.BatteryData import BatteryData
 from Comms.StateData import StateData, State
 
+# Optional pydantic support for JSON deserialization
+try:
+    from Comms.JoystickData import JoystickDataModel
+except ImportError:
+    JoystickDataModel = None
+
+from Robot.Constants import Constants
+
 # ==== DEBUG/CONFIGURATION ====
 DEBUG = True                    # Set to True for debugging output
-SUBSYSTEM_UPDATE_RATE = 0.1     # ~10 Hz for subsystem polling
-CONTROLLER_SERIAL_PORT = "/dev/ttyUSB1"  # Port for receiving from ControllerMessager
-BAUD_RATE = 19200
+SUBSYSTEM_UPDATE_RATE = Constants.controller_update_rate  # ~10 Hz for subsystem polling
 
 # ==== ROBOT STATE DATA ====
 class RobotBrainData:
@@ -76,16 +82,18 @@ class CommandBrain:
     - Thread-safe access to shared data
     """
 
-    def __init__(self, pi_controller_receiver=None, drivetrain=None):
+    def __init__(self, pi_controller_receiver=None, drivetrain=None, bms=None):
         """
         Initialize CommandBrain with references to subsystems
 
         Args:
             pi_controller_receiver: PiControllerReceiver subsystem instance
             drivetrain: DriveTrain subsystem instance for motor control
+            bms: BMS subsystem instance
         """
         self.pi_controller_receiver = pi_controller_receiver
         self.drivetrain = drivetrain
+        self.bms = bms
         self.robot_data = RobotBrainData()
 
         # Thread management
@@ -157,9 +165,10 @@ class CommandBrain:
         """
         while self._running:
             try:
-                # Import BMS module and call read_smartshunt
-                from Robot.subsystems import BMS
-                battery_data = BMS.read_smartshunt()
+                if self.bms:
+                    battery_data = self.bms.read_smartshunt()
+                else:
+                    battery_data = None
 
                 if battery_data:
                     with self._data_lock:
@@ -189,9 +198,9 @@ class CommandBrain:
         """
         try:
             # Initialize serial connection to receive from ControllerMessager
-            self.controller_ser = serial.Serial(CONTROLLER_SERIAL_PORT, BAUD_RATE, timeout=1)
+            self.controller_ser = serial.Serial(Constants.controller_serial_port, Constants.serial_baud_rate, timeout=1)
             if DEBUG:
-                print(f"[CommandBrain] Connected to controller receiver on {CONTROLLER_SERIAL_PORT}")
+                print(f"[CommandBrain] Connected to controller receiver on {Constants.controller_serial_port}")
 
             while self._running:
                 try:
@@ -203,7 +212,10 @@ class CommandBrain:
                             # Try to parse as JSON (state change commands)
                             msg = json.loads(line)
 
-                            if msg.get("type") == "state_change":
+                            # Determine packet type
+                            packet_type = msg.get("type")
+
+                            if packet_type == "state_change":
                                 new_state_value = msg.get("state")
                                 new_state_name = msg.get("state_name")
 
@@ -216,9 +228,29 @@ class CommandBrain:
                                 except ValueError:
                                     print(f"[ERROR] Invalid state value: {new_state_value}")
 
+                            elif packet_type == "joystick" or ("left_x" in msg and "right_x" in msg):
+                                # Deserialize joystick packet into our data class
+                                try:
+                                    # Filter out any non-joystick fields (e.g. "type")
+                                    filtered = {k: msg[k] for k in JoystickData.__annotations__.keys() if k in msg}
+
+                                    if JoystickDataModel is not None:
+                                        model = JoystickDataModel(**filtered)
+                                        joystick = JoystickData(**model.dict())
+                                    else:
+                                        joystick = JoystickData(**filtered)
+
+                                    with self._data_lock:
+                                        self.robot_data.controller_data = joystick
+                                        self.robot_data.controller_last_update = time.time()
+
+                                    if DEBUG:
+                                        print(f"[JOYSTICK] Received: {joystick}")
+                                except Exception as e:
+                                    print(f"[ERROR] Failed to parse joystick packet: {e}")
+
                         except json.JSONDecodeError:
-                            # Not JSON, could be joystick data or other format
-                            # For now, just log it
+                            # Not JSON; log if debug
                             if DEBUG and line:
                                 print(f"[Controller] Raw data: {line}")
 
@@ -483,12 +515,14 @@ def main():
     try:
         from Robot.subsystems.PiControllerReceiver import PiControllerReceiver
         from Robot.subsystems.DriveTrain import DriveTrain
+        from Robot.subsystems.BMS import BMS
 
         print("[INFO] Initializing subsystems...")
         controller_receiver = PiControllerReceiver()
         drivetrain = DriveTrain()
+        bms = BMS()
 
-        brain = CommandBrain(pi_controller_receiver=controller_receiver, drivetrain=drivetrain)
+        brain = CommandBrain(pi_controller_receiver=controller_receiver, drivetrain=drivetrain, bms=bms)
         brain.start()
         print("[OK] CommandBrain started successfully\n")
 

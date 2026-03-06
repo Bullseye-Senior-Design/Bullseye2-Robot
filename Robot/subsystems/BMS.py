@@ -1,18 +1,15 @@
 import serial
 from Comms.BatteryData import BatteryData
-
-# Update this if needed (check with: ls /dev/ttyUSB*)
-SERIAL_PORT = "/dev/ttyUSB0"
-BAUD_RATE = 19200
+from Robot.Constants import Constants
+from structure.Subsystem import Subsystem
 
 # Fields we care about
 TARGET_FIELDS = {"V", "I", "P", "SOC", "TTG"}
 PRINTDEBUG = False
 
+
 def parse_value(key, value):
-    """
-    Convert Victron raw values to human-readable units
-    """
+    """Convert Victron raw values to human-readable units."""
     if key == "V":      # mV -> V
         return float(value) / 1000
     elif key == "I":    # mA -> A
@@ -27,12 +24,31 @@ def parse_value(key, value):
     else:
         return value
 
-def read_smartshunt():
-    data = {}
 
-    with serial.Serial(SERIAL_PORT, BAUD_RATE, timeout=1) as ser:
+class BMS(Subsystem):
+    """BMS subsystem for reading battery data from a Victron SmartShunt."""
+
+    def __init__(self):
+        super().__init__()
+        self._ser = None
+        self._connect_serial()
+
+    def _connect_serial(self):
+        try:
+            self._ser = serial.Serial(Constants.bms_serial_port, Constants.serial_baud_rate, timeout=1)
+        except serial.SerialException as e:
+            print(f"[BMS] Could not open serial port {Constants.bms_serial_port}: {e}")
+            self._ser = None
+
+    def read_smartshunt(self):
+        """Read one SmartShunt packet and return BatteryData."""
+        if self._ser is None:
+            self._connect_serial()
+            return None
+
+        data = {}
         while True:
-            line = ser.readline().decode(errors="ignore").strip()
+            line = self._ser.readline().decode(errors="ignore").strip()
 
             # VE.Direct packets end with a checksum
             if line.startswith("Checksum"):
@@ -49,19 +65,14 @@ def read_smartshunt():
 
             if "\t" in line:
                 key, value = line.split("\t", 1)
-
                 if key in TARGET_FIELDS:
                     data[key] = parse_value(key, value)
 
-if __name__ == "__main__":
-    while True:
-        battery_data = read_smartshunt()
-
-        if PRINTDEBUG:
-            print("SmartShunt Data:")
-            print(f" Voltage (V): {battery_data.voltage}")
-            print(f" Current (A): {battery_data.current}")
-            print(f" Power (W):   {battery_data.power}")
-            print(f" SOC (%):     {battery_data.state_of_charge}")      #Update everytime SOC changes by 0.5%
-            print(f" TTG (min):   {battery_data.time_remaining}")
-            print("-" * 30)
+    def close(self):
+        """Close the serial connection."""
+        if self._ser is not None:
+            try:
+                self._ser.close()
+            except Exception:
+                pass
+            self._ser = None

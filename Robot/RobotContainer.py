@@ -5,6 +5,7 @@ from Robot.subsystems.sensors.UWB import UWB
 from Robot.subsystems.sensors.IMU import IMU
 from Robot.subsystems.PathFollowing import PathFollowing
 from Robot.subsystems.DriveTrain import DriveTrain
+from Robot.subsystems.BMS import BMS
 import time
 
 from Robot.subsystems.sensors.BackWheelEncoder import BackWheelEncoder
@@ -24,6 +25,7 @@ class RobotContainer:
         self.clutches = Clutches()
         self.path_following = PathFollowing()
         self.drive_train = DriveTrain()
+        self.bms = BMS()
         
          # Start subsystems
         self.clutches.start(left_clutch_pin=Constants.left_clutch_pin, right_clutch_pin=Constants.right_clutch_pin)
@@ -45,3 +47,4 @@ class RobotContainer:
         self.uwb.close_all()
         self.drive_train.stop()
         self.drive_train.close()
+        self.bms.close()
