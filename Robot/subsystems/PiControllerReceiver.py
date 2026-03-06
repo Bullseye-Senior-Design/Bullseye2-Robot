@@ -1,4 +1,4 @@
-from Comms.ControllerData import JoystickData
+from Comms.ControllerData import ControllerData
 from Robot.Constants import Constants
 from structure.Subsystem import Subsystem
 import serial
@@ -10,7 +10,7 @@ class PiControllerReceiver(Subsystem):
         super().__init__()
         
         # Initialize local joystick data with default values
-        self.joystick_data = JoystickData(
+        self.joystick_data = ControllerData(
             left_x=0.0,
             left_y=0.0,
             right_x=0.0,
@@ -72,21 +72,11 @@ class PiControllerReceiver(Subsystem):
             if isinstance(data, dict) and data.get("type") != "joystick":
                 return
 
-            # Filter out any extra fields (e.g. "type") before constructing objects
-            filtered_data = {k: data[k] for k in JoystickData.__annotations__.keys() if k in data}
+            # Filter out any extra fields (e.g. "type") before constructing Pydantic model
+            filtered_data = {k: data[k] for k in ControllerData.model_fields.keys() if k in data}
 
-            # Deserialize into our data class (using pydantic if available)
-            if hasattr(JoystickData, "__annotations__"):
-                try:
-                    # Try using Pydantic model if available
-                    from Comms.ControllerData import JoystickDataModel
-                    model = JoystickDataModel(**filtered_data)
-                    self.joystick_data = JoystickData(**model.dict())
-                except Exception:
-                    # Fallback to dataclass construction if pydantic not available or fails
-                    self.joystick_data = JoystickData(**filtered_data)
-            else:
-                self.joystick_data = JoystickData(**filtered_data)
+            # Deserialize into Pydantic model
+            self.joystick_data = ControllerData(**filtered_data)
 
         except Exception as e:
             print(f"[ERROR] Error reading joystick data: {e}")

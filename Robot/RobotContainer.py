@@ -1,4 +1,5 @@
 from Robot.Constants import Constants
+from Robot.subsystems.PiControllerReceiver import PiControllerReceiver
 from structure.commands.InstantCommand import InstantCommand
 from structure.commands.SequentialCommandGroup import SequentialCommandGroup
 from Robot.subsystems.sensors.UWB import UWB
@@ -27,7 +28,9 @@ class RobotContainer:
         self.path_following = PathFollowing()
         self.drive_train = DriveTrain()
         self.bms = BMS()
-        self.command_brain = CommandBrain()
+        self.controller_receiver = PiControllerReceiver()
+        self.brain = CommandBrain(pi_controller_receiver=self.controller_receiver, drivetrain=self.drive_train, bms=self.bms)
+        self.brain.start()
         
          # Start subsystems
         self.clutches.start(left_clutch_pin=Constants.left_clutch_pin, right_clutch_pin=Constants.right_clutch_pin)

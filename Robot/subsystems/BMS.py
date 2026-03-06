@@ -7,24 +7,6 @@ from structure.Subsystem import Subsystem
 TARGET_FIELDS = {"V", "I", "P", "SOC", "TTG"}
 PRINTDEBUG = False
 
-
-def parse_value(key, value):
-    """Convert Victron raw values to human-readable units."""
-    if key == "V":      # mV -> V
-        return float(value) / 1000
-    elif key == "I":    # mA -> A
-        return float(value) / 1000
-    elif key == "P":    # W
-        return float(value)
-    elif key == "SOC":  # 0.1% -> %
-        return float(value) / 10
-    elif key == "TTG":  # minutes
-        num = float(value)
-        return num  # Return as float for time_remaining
-    else:
-        return value
-
-
 class BMS(Subsystem):
     """BMS subsystem for reading battery data from a Victron SmartShunt."""
 
@@ -66,7 +48,7 @@ class BMS(Subsystem):
             if "\t" in line:
                 key, value = line.split("\t", 1)
                 if key in TARGET_FIELDS:
-                    data[key] = parse_value(key, value)
+                    data[key] = self.parse_value(key, value)
 
     def close(self):
         """Close the serial connection."""
@@ -76,3 +58,19 @@ class BMS(Subsystem):
             except Exception:
                 pass
             self._ser = None
+
+    def parse_value(self, key, value):
+        """Convert Victron raw values to human-readable units."""
+        if key == "V":      # mV -> V
+            return float(value) / 1000
+        elif key == "I":    # mA -> A
+            return float(value) / 1000
+        elif key == "P":    # W
+            return float(value)
+        elif key == "SOC":  # 0.1% -> %
+            return float(value) / 10
+        elif key == "TTG":  # minutes
+            num = float(value)
+            return num  # Return as float for time_remaining
+        else:
+            return value
