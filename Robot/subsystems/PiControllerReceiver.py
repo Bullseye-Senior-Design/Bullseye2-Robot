@@ -1,4 +1,4 @@
-from Comms.JoystickData import JoystickData
+from Comms.ControllerData import JoystickData
 from Robot.Constants import Constants
 from structure.Subsystem import Subsystem
 import serial
@@ -79,7 +79,7 @@ class PiControllerReceiver(Subsystem):
             if hasattr(JoystickData, "__annotations__"):
                 try:
                     # Try using Pydantic model if available
-                    from Comms.JoystickData import JoystickDataModel
+                    from Comms.ControllerData import JoystickDataModel
                     model = JoystickDataModel(**filtered_data)
                     self.joystick_data = JoystickData(**model.dict())
                 except Exception:
