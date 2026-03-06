@@ -77,8 +77,8 @@ def main():
             left_y = joystick.get_axis(1)
             right_x = joystick.get_axis(2)
             right_y = joystick.get_axis(3)
-            l2_axis = joystick.get_axis(4) if joystick.get_numaxes() > 4 else 0.0
-            r2_axis = joystick.get_axis(5) if joystick.get_numaxes() > 5 else 0.0
+            #l2_axis = joystick.get_axis(4) if joystick.get_numaxes() > 4 else 0.0
+            #r2_axis = joystick.get_axis(5) if joystick.get_numaxes() > 5 else 0.0
 
             # Debug: Print axis values
             if DEBUG:
@@ -188,8 +188,8 @@ def main():
                     "state_name": current_state.name
                 }
                 ser.write((json.dumps(state_command) + "\n").encode())
-                if DEBUG:
-                    print(f"[STATE] Sent: {json.dumps(state_command)}")
+                #if DEBUG:
+                    #print(f"[STATE] Sent: {json.dumps(state_command)}")
 
             # Update previous button states
             prev_dpad_up = dpad_up
@@ -203,8 +203,8 @@ def main():
             left_y = 0 if abs(left_y) < DEADZONE else left_y
             right_x = 0 if abs(right_x) < DEADZONE else right_x
             right_y = 0 if abs(right_y) < DEADZONE else right_y
-            l2_axis = 0 if abs(l2_axis) < DEADZONE else l2_axis
-            r2_axis = 0 if abs(r2_axis) < DEADZONE else r2_axis
+            #l2_axis = 0 if abs(l2_axis) < DEADZONE else l2_axis
+            #r2_axis = 0 if abs(r2_axis) < DEADZONE else r2_axis
 
             # Create JoystickData object with all fields in correct order
             data = JoystickData(
@@ -224,8 +224,8 @@ def main():
                 btn_RB=btn_RB,
                 btn_LS=btn_LS,
                 btn_RS=btn_RS,
-                btn_R2=r2_axis > DEADZONE,
-                btn_L2=l2_axis > DEADZONE,
+                #btn_R2=r2_axis > DEADZONE,
+                #btn_L2=l2_axis > DEADZONE,
                 btn_share=btn_share,
                 btn_options=btn_options,
             )
