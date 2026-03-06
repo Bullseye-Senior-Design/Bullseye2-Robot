@@ -6,7 +6,7 @@ from Robot.subsystems.MotorControl import MotorControl
 from Robot.subsystems.sensors.IMU import IMU
 
 
-class DriveFigure8(Command):
+class DriveFigure8Cmd(Command):
     """Drive the vehicle in an open-loop figure‑8 pattern.
 
     The command does **not** rely on any localization subsystem; all
@@ -60,6 +60,7 @@ class DriveFigure8(Command):
     def end(self, interrupted):
         # stop the motors when the command finishes or is preempted
         self.motor_control.set_speed_angle(0, 0)
+        print(f"DriveFigure8Cmd driven. IMU should be calibrated: {self._imu.is_calibrated()}")
 
     def is_finished(self):
         return self._imu.is_calibrated()

@@ -309,7 +309,11 @@ class IMU():
             gyro = gyro_val # type: ignore
         if mag_val is not None and all(v is not None for v in mag_val):
             magnetic = mag_val # type: ignore
-        if all(v is not None for v in quat_val):
+        if quat_val is None:
+            logger.debug("Quaternion value is None from sensor")
+        elif not all(v is not None for v in quat_val):
+            logger.debug(f"Quaternion contains None values: {quat_val}")
+        elif all(v is not None for v in quat_val):
             quat = quat_val # type: ignore
 
         # Apply low-pass filter (if samples present)
@@ -361,6 +365,8 @@ class IMU():
             quat_arr = np.asarray(quat, dtype=float)
             # convert sensor quaternion (w, x, y, z) to estimator order [qx,qy,qz,qw]
             q_est = MathUtil.quat_sensor_to_estimator(quat_arr)
+        else:
+            logger.debug("Quaternion is None - skipping quaternion processing")
             # apply configured yaw offset before sending to estimator
             with self._lock:
                 yaw_off = float(self._yaw_offset_rad)

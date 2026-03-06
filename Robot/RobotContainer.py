@@ -15,6 +15,8 @@ from Robot.Commands.AlignIMUToWorldCmd import AlignIMUToWorldCmd
 from Robot.Commands.ZeroIMUCmd import ZeroIMUCmd
 from Robot.Commands.MiniBullseyeControlCmd import MiniBullseyeControlCmd
 from Robot.Commands.FollowPathCmd import FollowPathCmd
+from Robot.Commands.WaitCmd import WaitCmd
+from Robot.Commands.DriveFigure8Cmd import DriveFigure8Cmd
 
 
 class RobotContainer:
@@ -31,12 +33,20 @@ class RobotContainer:
         self.uwb.start(uwb_tag_data=Constants.uwb_tag_data, anchors_pos=None)
         self.back_Wheel_encoder.start(pin=Constants.back_right_encoder_pin, active_high=True, pull_up=True, debounce_ms=10, edge='falling', wheel_circumference=Constants.wheel_circumference, counts_per_revolution=Constants.counts_per_revolution)
         
-        self.motor_control.default_command(MiniBullseyeControlCmd(self.motor_control, self.path_following))
+        # self.motor_control.default_command(MiniBullseyeControlCmd(self.motor_control, self.path_following))
         #self.path_following.default_command(FollowPathCmd(self.motor_control, self.path_following))
                     
     def begin_data_log(self):
         LogDataCmd(self.path_following).schedule()
-        ZeroIMUCmd(self.motor_control, self.path_following, schedule_followup=False).schedule()
+        calibrate_cmds=SequentialCommandGroup()
+        calibrate_cmds.add_commands(
+            DriveFigure8Cmd(self.motor_control, speed_percent=50, period=10.0),
+            WaitCmd(2.0),   
+            ZeroIMUCmd(self.motor_control, self.path_following, schedule_followup=False)
+        )
+        calibrate_cmds.schedule()
+            
+        
         # PlotStateCmd().schedule()
         
         # AlignIMUToWorldCmd(tau=0.5, duration=30.0).schedule()

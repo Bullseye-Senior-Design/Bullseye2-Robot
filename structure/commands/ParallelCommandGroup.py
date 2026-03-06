@@ -13,7 +13,7 @@ class ParallelCommandGroup(Command):
     def initialize(self):        
         # initalize the all commands
         for command in self.commands:
-            command.initalize()
+            command.initialize()
         
     
     def execute(self):
