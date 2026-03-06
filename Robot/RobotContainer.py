@@ -15,6 +15,7 @@ from Robot.Commands.AlignIMUToWorldCmd import AlignIMUToWorldCmd
 from Robot.Commands.ZeroIMUCmd import ZeroIMUCmd
 from Robot.Commands.MiniBullseyeControlCmd import MiniBullseyeControlCmd
 from Robot.Commands.FollowPathCmd import FollowPathCmd
+from Robot.Commands.WaitCmd import WaitCmd
 
 
 class RobotContainer:
@@ -38,7 +39,7 @@ class RobotContainer:
         LogDataCmd(self.path_following).schedule()
         calibrate_cmds=SequentialCommandGroup()
         calibrate_cmds.add_commands(
-            
+            WaitCmd(2.0),   
             ZeroIMUCmd(self.motor_control, self.path_following, schedule_followup=False)
         )
             
