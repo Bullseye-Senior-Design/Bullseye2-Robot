@@ -18,16 +18,9 @@ import threading
 import json
 import sys
 
-from Comms.JoystickData import JoystickData
+from Comms.ControllerData import ControllerData
 from Comms.BatteryData import BatteryData
 from Comms.StateData import StateData, State
-
-# Optional pydantic support for JSON deserialization
-try:
-    from Comms.JoystickData import JoystickDataModel
-except ImportError:
-    JoystickDataModel = None
-
 from Robot.Constants import Constants
 
 # ==== DEBUG/CONFIGURATION ====
@@ -49,7 +42,7 @@ class RobotBrainData:
         self.battery_time_remaining = 0.0  # Minutes
 
         # Controller input data (from PiControllerReceiver)
-        self.controller_data = JoystickData(
+        self.controller_data = ControllerData(
             left_x=0.0, left_y=0.0,
             right_x=0.0, right_y=0.0,
             dpad_up=False, dpad_down=False,
