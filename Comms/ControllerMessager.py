@@ -3,6 +3,10 @@ import serial
 import time
 import pygame
 import sys
+import os
+
+# Add the parent directory to the Python path so Comms module can be found
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from Comms.JoystickData import JoystickData
 from Comms.StateData import State
