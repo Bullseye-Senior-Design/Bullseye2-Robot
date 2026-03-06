@@ -17,11 +17,16 @@ import time
 import threading
 import json
 import sys
+import logging
 
 from Comms.ControllerData import ControllerData
 from Comms.BatteryData import BatteryData
 from Comms.StateData import StateData, State
 from Robot.Constants import Constants
+
+# ==== LOGGING CONFIGURATION ====
+logger = logging.getLogger(f"{__name__}.CommandBrain")
+logger.setLevel(logging.INFO)  # Set to DEBUG for detailed output
 
 # ==== DEBUG/CONFIGURATION ====
 DEBUG = True                    # Set to True for debugging output
@@ -100,8 +105,7 @@ class CommandBrain:
         # TELEOP mode control flag
         self._teleop_active = False
 
-        if DEBUG:
-            print("[CommandBrain] Initialized")
+        logger.info("CommandBrain initialized")
 
     def start(self):
         """Start all monitoring threads"""
@@ -113,8 +117,7 @@ class CommandBrain:
         )
         battery_thread.start()
         self._update_threads.append(battery_thread)
-        if DEBUG:
-            print("[CommandBrain] Started battery update thread")
+        logger.info("Started battery update thread")
 
         # Start controller receiver thread
         controller_thread = threading.Thread(
@@ -124,8 +127,7 @@ class CommandBrain:
         )
         controller_thread.start()
         self._update_threads.append(controller_thread)
-        if DEBUG:
-            print("[CommandBrain] Started controller receiver thread")
+        logger.info("Started controller receiver thread")
 
         # Start controller data monitoring thread (if PiControllerReceiver is available)
         if self.pi_controller_receiver:
@@ -136,8 +138,7 @@ class CommandBrain:
             )
             joystick_thread.start()
             self._update_threads.append(joystick_thread)
-            if DEBUG:
-                print("[CommandBrain] Started controller data update thread")
+            logger.info("Started controller data update thread")
         
         # Start TELEOP control thread (if DriveTrain is available)
         if self.drivetrain:
@@ -148,8 +149,7 @@ class CommandBrain:
             )
             teleop_thread.start()
             self._update_threads.append(teleop_thread)
-            if DEBUG:
-                print("[CommandBrain] Started TELEOP control thread")
+            logger.info("Started TELEOP control thread")
 
     def _update_battery_data(self):
         """
@@ -172,16 +172,15 @@ class CommandBrain:
                         self.robot_data.battery_time_remaining = battery_data.time_remaining
                         self.robot_data.battery_last_update = time.time()
 
-                    if DEBUG:
-                        print(f"[Battery] V:{battery_data.voltage:.2f}V "
-                              f"I:{battery_data.current:.2f}A "
-                              f"P:{battery_data.power:.1f}W "
-                              f"SOC:{battery_data.state_of_charge:.1f}%")
+                    logger.debug(f"Battery: V:{battery_data.voltage:.2f}V "
+                                 f"I:{battery_data.current:.2f}A "
+                                 f"P:{battery_data.power:.1f}W "
+                                 f"SOC:{battery_data.state_of_charge:.1f}%")
 
                 time.sleep(SUBSYSTEM_UPDATE_RATE)
 
             except Exception as e:
-                print(f"[ERROR] Error updating battery data: {e}")
+                logger.error(f"Error updating battery data: {e}")
                 time.sleep(SUBSYSTEM_UPDATE_RATE)
 
     def _receive_controller_commands(self):
@@ -192,8 +191,7 @@ class CommandBrain:
         try:
             # Initialize serial connection to receive from ControllerMessager
             self.controller_ser = serial.Serial(Constants.controller_serial_port, Constants.serial_baud_rate, timeout=1)
-            if DEBUG:
-                print(f"[CommandBrain] Connected to controller receiver on {Constants.controller_serial_port}")
+            logger.info(f"Connected to controller receiver on {Constants.controller_serial_port}")
 
             while self._running:
                 try:
@@ -216,10 +214,9 @@ class CommandBrain:
                                 try:
                                     new_state = State(new_state_value)
                                     self._handle_state_change(new_state)
-                                    if DEBUG:
-                                        print(f"[STATE] Received: {new_state_name} ({new_state_value})")
+                                    logger.info(f"State received: {new_state_name} ({new_state_value})")
                                 except ValueError:
-                                    print(f"[ERROR] Invalid state value: {new_state_value}")
+                                    logger.error(f"Invalid state value: {new_state_value}")
 
                             elif packet_type == "joystick" or ("left_x" in msg and "right_x" in msg):
                                 # Deserialize joystick packet into our data class
@@ -234,24 +231,22 @@ class CommandBrain:
                                         self.robot_data.controller_data = joystick
                                         self.robot_data.controller_last_update = time.time()
 
-                                    if DEBUG:
-                                        print(f"[JOYSTICK] Received: {joystick}")
+                                    logger.debug(f"Joystick received: {joystick}")
                                 except Exception as e:
-                                    print(f"[ERROR] Failed to parse joystick packet: {e}")
+                                    logger.error(f"Failed to parse joystick packet: {e}")
 
                         except json.JSONDecodeError:
                             # Not JSON; log if debug
-                            if DEBUG and line:
-                                print(f"[Controller] Raw data: {line}")
+                            if line:
+                                logger.debug(f"Controller raw data: {line}")
 
                 except Exception as e:
-                    print(f"[ERROR] Error reading controller command: {e}")
+                    logger.error(f"Error reading controller command: {e}")
                     time.sleep(0.1)
 
         except serial.SerialException as e:
-            print(f"[ERROR] Could not connect to controller receiver: {e}")
-            if DEBUG:
-                print("[CommandBrain] Running without controller command receiver")
+            logger.error(f"Could not connect to controller receiver: {e}")
+            logger.info("Running without controller command receiver")
 
     def _update_controller_data(self):
         """
@@ -267,30 +262,29 @@ class CommandBrain:
                         self.robot_data.controller_data = joystick_data
                         self.robot_data.controller_last_update = time.time()
 
-                    if DEBUG:
-                        # Only print when there's actual input (not all zeros/defaults)
-                        has_input = (
-                            abs(joystick_data.left_x) > 0.01 or
-                            abs(joystick_data.left_y) > 0.01 or
-                            abs(joystick_data.right_x) > 0.01 or
-                            abs(joystick_data.right_y) > 0.01 or
-                            any([
-                                joystick_data.btn_A, joystick_data.btn_B,
-                                joystick_data.btn_X, joystick_data.btn_Y,
-                                joystick_data.dpad_up, joystick_data.dpad_down,
-                                joystick_data.dpad_left, joystick_data.dpad_right
-                            ])
-                        )
-                        if has_input:
-                            print(f"[Controller] LX:{joystick_data.left_x:.2f} "
-                                  f"LY:{joystick_data.left_y:.2f} "
-                                  f"RX:{joystick_data.right_x:.2f} "
-                                  f"RY:{joystick_data.right_y:.2f}")
+                    # Only log when there's actual input (not all zeros/defaults)
+                    has_input = (
+                        abs(joystick_data.left_x) > 0.01 or
+                        abs(joystick_data.left_y) > 0.01 or
+                        abs(joystick_data.right_x) > 0.01 or
+                        abs(joystick_data.right_y) > 0.01 or
+                        any([
+                            joystick_data.btn_A, joystick_data.btn_B,
+                            joystick_data.btn_X, joystick_data.btn_Y,
+                            joystick_data.dpad_up, joystick_data.dpad_down,
+                            joystick_data.dpad_left, joystick_data.dpad_right
+                        ])
+                    )
+                    if has_input:
+                        logger.debug(f"Controller: LX:{joystick_data.left_x:.2f} "
+                                     f"LY:{joystick_data.left_y:.2f} "
+                                     f"RX:{joystick_data.right_x:.2f} "
+                                     f"RY:{joystick_data.right_y:.2f}")
 
                 time.sleep(SUBSYSTEM_UPDATE_RATE)
 
             except Exception as e:
-                print(f"[ERROR] Error updating controller data: {e}")
+                logger.error(f"Error updating controller data: {e}")
                 time.sleep(SUBSYSTEM_UPDATE_RATE)
 
     def _teleop_control_loop(self):
@@ -325,8 +319,8 @@ class CommandBrain:
                         
                         self.drivetrain.set_speed_angle(throttle, angle)
                         
-                        if DEBUG and (abs(throttle) > 0.01 or abs(steering) > 0.01):
-                            print(f"[TELEOP] t: {throttle:.2f} s: {steering:.2f}")
+                        if abs(throttle) > 0.01 or abs(steering) > 0.01:
+                            logger.debug(f"TELEOP: t: {throttle:.2f} s: {steering:.2f}")
                 
                 elif self.drivetrain and not self._teleop_active:
                     # Stop motors when TELEOP is not active
@@ -335,7 +329,7 @@ class CommandBrain:
                 time.sleep(SUBSYSTEM_UPDATE_RATE)
             
             except Exception as e:
-                print(f"[ERROR] Error in TELEOP control loop: {e}")
+                logger.error(f"Error in TELEOP control loop: {e}")
                 time.sleep(SUBSYSTEM_UPDATE_RATE)
 
     def _handle_state_change(self, new_state):
@@ -351,37 +345,33 @@ class CommandBrain:
             self.robot_data.mode = new_state
             self.robot_data.state_last_update = time.time()
 
-        if DEBUG and old_state != new_state:
-            print(f"[CommandBrain] Mode changed: {old_state.name} -> {new_state.name}")
+        if old_state != new_state:
+            logger.info(f"Mode changed: {old_state.name} -> {new_state.name}")
 
         # ===== MODE-SPECIFIC LOGIC =====
         # This is where future logic for different operating modes will go
 
         if new_state == State.DISABLED:
             # Emergency stop - disable all systems
-            if DEBUG:
-                print("[MODE] DISABLED: Emergency stop - all systems disabled")
+            logger.info("MODE DISABLED: Emergency stop - all systems disabled")
             self._teleop_active = False
             if self.drivetrain:
                 self.drivetrain.stop()
 
         elif new_state == State.TELEOP:
             # Manual control mode - enable joystick input handling
-            if DEBUG:
-                print("[MODE] TELEOP: Manual control enabled")
+            logger.info("MODE TELEOP: Manual control enabled")
             self._teleop_active = True
 
         elif new_state == State.AUTONOMOUS:
             # Autonomous/path following mode
-            if DEBUG:
-                print("[MODE] AUTONOMOUS: Path following enabled")
+            logger.info("MODE AUTONOMOUS: Path following enabled")
             self._teleop_active = False
             # TODO: Add logic for autonomous navigation
 
         elif new_state == State.TEST:
             # Test mode (same as teleop for now)
-            if DEBUG:
-                print("[MODE] TEST: Test mode enabled (same as teleop)")
+            logger.info("MODE TEST: Test mode enabled (same as teleop)")
             self._teleop_active = True
 
     def set_mode(self, mode):
@@ -464,8 +454,7 @@ class CommandBrain:
 
     def shutdown(self):
         """Gracefully shutdown the CommandBrain"""
-        if DEBUG:
-            print("[CommandBrain] Shutting down...")
+        logger.info("CommandBrain shutting down...")
 
         self._running = False
 
@@ -478,17 +467,16 @@ class CommandBrain:
             try:
                 self.controller_ser.close()
             except Exception as e:
-                print(f"[ERROR] Error closing controller serial: {e}")
+                logger.error(f"Error closing controller serial: {e}")
 
         # Close PiControllerReceiver if available
         if self.pi_controller_receiver:
             try:
                 self.pi_controller_receiver.close()
             except Exception as e:
-                print(f"[ERROR] Error closing controller receiver: {e}")
+                logger.error(f"Error closing controller receiver: {e}")
 
-        if DEBUG:
-            print("[CommandBrain] Shutdown complete")
+        logger.info("CommandBrain shutdown complete")
 
 
 # ==== INTERACTIVE TEST MENU ====

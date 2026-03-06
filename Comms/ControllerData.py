@@ -1,5 +1,7 @@
 from pydantic import BaseModel
+from dataclasses import dataclass
 
+@dataclass
 class ControllerData(BaseModel):
     left_x: float
     left_y: float
