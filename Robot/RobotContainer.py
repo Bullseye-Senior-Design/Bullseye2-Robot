@@ -15,6 +15,7 @@ from Robot.Commands.PlotStateCmd import PlotStateCmd
 from Robot.Commands.AlignIMUToWorldCmd import AlignIMUToWorldCmd
 from Robot.Commands.ZeroIMUCmd import ZeroIMUCmd
 from Robot.Commands.FollowPathCmd import FollowPathCmd
+from Comms.CommandBrain import CommandBrain
 
 
 class RobotContainer:
@@ -26,6 +27,7 @@ class RobotContainer:
         self.path_following = PathFollowing()
         self.drive_train = DriveTrain()
         self.bms = BMS()
+        self.command_brain = CommandBrain()
         
          # Start subsystems
         self.clutches.start(left_clutch_pin=Constants.left_clutch_pin, right_clutch_pin=Constants.right_clutch_pin)
