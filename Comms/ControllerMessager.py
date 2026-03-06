@@ -16,6 +16,7 @@ from dataclasses import asdict
 # ==== CONFIG ====
 DEBUG = True                # Set to True for debugging output
 ErrTEST = False             # Set to True to allow running without serial connection (for testing without hardware)
+MENU = False
 PORT = Constants.controller_serial_port
 BAUD = Constants.serial_baud_rate
 DEADZONE = Constants.controller_deadzone
@@ -26,18 +27,20 @@ def main():
     # Initialize current state
     current_state = State.DISABLED
     
+    if MENU:
+         # Print mode selection instructions
+        print("\n" + "="*50)
+        print("BULLSEYE CONTROLLER MESSAGER - MODE SELECTION")
+        print("="*50)
+        print("Press the corresponding button to select mode:")
+        print("  D-Pad UP    -> TELEOP")
+        print("  D-Pad RIGHT -> AUTONOMOUS (Path Following)")
+        print("  D-Pad LEFT  -> TEST (WARNING)")
+        print("  B Button    -> DISABLED (Emergency Stop)")
+        print("="*50)
+        print(f"Current Mode: {current_state.name}")
+        print("="*50)
     # Print mode selection instructions
-    print("\n" + "="*50)
-    print("BULLSEYE CONTROLLER MESSAGER")
-    print("="*50)
-    print("MODE SELECTION:")
-    print("  D-Pad UP    -> TELEOP")
-    print("  D-Pad RIGHT -> AUTONOMOUS (Path Following)")
-    print("  D-Pad LEFT  -> TEST (WARNING)")
-    print("  B Button    -> DISABLED (Emergency Stop)")
-    print("="*50)
-    print(f"Current Mode: {current_state.name}")
-    print("="*50)
 
     # ==== Serial ====
     try:
