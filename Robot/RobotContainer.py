@@ -36,7 +36,13 @@ class RobotContainer:
                     
     def begin_data_log(self):
         LogDataCmd(self.path_following).schedule()
-        ZeroIMUCmd(self.motor_control, self.path_following, schedule_followup=False).schedule()
+        calibrate_cmds=SequentialCommandGroup()
+        calibrate_cmds.add_commands(
+            
+            ZeroIMUCmd(self.motor_control, self.path_following, schedule_followup=False)
+        )
+            
+        
         # PlotStateCmd().schedule()
         
         # AlignIMUToWorldCmd(tau=0.5, duration=30.0).schedule()
