@@ -108,12 +108,18 @@ def main():
             btn_options = joystick.get_button(7) if joystick.get_numbuttons() > 7 else False
 
             # Read D-pad states
-            dpad_x, dpad_y = joystick.get_hat(0)
-            dpad_up = dpad_y == 1
-            dpad_down = dpad_y == -1
-            dpad_right = dpad_x == 1
-            dpad_left = dpad_x == -1
+            #dpad_x, dpad_y = joystick.get_hat(0)
+            #dpad_up = dpad_y == 1
+            #dpad_down = dpad_y == -1
+            #dpad_right = dpad_x == 1
+            #dpad_left = dpad_x == -1
 
+            # Alternative D-pad reading (some controllers might not use hats)
+            dpad_up = joystick.get_button(11)
+            dpad_down = joystick.get_button(12)
+            dpad_left = joystick.get_button(13)
+            dpad_right = joystick.get_button(14)
+            
             # Debug: Print button presses
             if DEBUG:
                 if btn_A:
