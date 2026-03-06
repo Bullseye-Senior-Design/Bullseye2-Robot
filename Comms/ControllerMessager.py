@@ -76,7 +76,7 @@ def main():
 
     try:
         while True:
-            pygame.event.pump()  # Process event queue
+            #pygame.event.pump()  # Process event queue
 
             # Read joystick axes
             left_x = joystick.get_axis(0)
