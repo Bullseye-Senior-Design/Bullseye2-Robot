@@ -239,8 +239,8 @@ def main():
                 **asdict(data),
             }
             ser.write((json.dumps(joystick_payload) + "\n").encode())
-            if DEBUG:
-                print(f"[JOYSTICK] Sent: {json.dumps(joystick_payload)}")
+            #if DEBUG:
+                #print(f"[JOYSTICK] Sent: {json.dumps(joystick_payload)}")
 
             time.sleep(UPDATE_RATE)
 
