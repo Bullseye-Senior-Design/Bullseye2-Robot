@@ -222,7 +222,7 @@ class IMU():
             while mag_calibration_level < 3:
                 with self._lock:
                     sys, gyro, accel, mag = self.sensor.calibration_status
-                mag_calibration_level = mag
+                mag_calibration_level = sys
                 logger.debug(f"Calibration Status: System={sys}, Gyro={gyro}, Accel={accel}, Mag={mag}")
                 time.sleep(0.1)
             
@@ -232,10 +232,10 @@ class IMU():
                 mag_off = self.sensor.offsets_magnetometer
             
             logger.info("IMU: Library Calibration Offsets:")
-            logger.info(f"  Accelerometer offsets: {accel_off}")
-            logger.info(f"  Gyroscope offsets: {gyro_off}")
-            logger.info(f"  Magnetometer offsets: {mag_off}")
-
+            logger.info("  Accelerometer offsets:", accel_off)
+            logger.info("  Gyroscope offsets:", gyro_off)
+            logger.info("  Magnetometer offsets:", mag_off)
+            
             with self._lock:
                 self._is_mag_calibrated = True
         
@@ -314,11 +314,7 @@ class IMU():
             gyro = gyro_val # type: ignore
         if mag_val is not None and all(v is not None for v in mag_val):
             magnetic = mag_val # type: ignore
-        if quat_val is None:
-            logger.debug("Quaternion value is None from sensor")
-        elif not all(v is not None for v in quat_val):
-            logger.debug(f"Quaternion contains None values: {quat_val}")
-        elif all(v is not None for v in quat_val):
+        if all(v is not None for v in quat_val):
             quat = quat_val # type: ignore
 
         # Apply low-pass filter (if samples present)
@@ -370,12 +366,10 @@ class IMU():
             quat_arr = np.asarray(quat, dtype=float)
             # convert sensor quaternion (w, x, y, z) to estimator order [qx,qy,qz,qw]
             q_est = MathUtil.quat_sensor_to_estimator(quat_arr)
-        else:
-            logger.debug("Quaternion is None - skipping quaternion processing")
-            # apply configured yaw offset before sending to estimator
             with self._lock:
                 yaw_off = float(self._yaw_offset_rad)
-            if self._is_offset_set:
+            
+            if self._is_offset_set :
                 q_yaw = MathUtil.euler_to_quat(np.array([0.0, 0.0, yaw_off]))
                 q_est = MathUtil.quat_mul(q_yaw, q_est)
                 q_est = MathUtil.quat_normalize(q_est)
@@ -407,6 +401,8 @@ class IMU():
                     q_yaw = MathUtil.euler_to_quat(np.array([0.0, 0.0, self._yaw_offset_rad]))
                     q_est_cached = MathUtil.quat_mul(q_yaw, q_est_cached)
                     q_est_cached = MathUtil.quat_normalize(q_est_cached)
+                    self._quat_est_cached = tuple(q_est_cached)
+                else:
                     self._quat_est_cached = tuple(q_est_cached)
 
 
