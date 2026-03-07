@@ -15,9 +15,11 @@ class RobotState:
     def _start(self):
         self._enabled = False
         self._teleop_enabled = False
+        self._autonomous_enabled = False
         self._test_enabled = False
         
         self._teleop_to_be_initialized = False
+        self._autonomous_to_be_initialized = False
         self._test_to_be_initialized = False
         self._disabled_to_be_initialized = False
         

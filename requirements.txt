@@ -7,3 +7,5 @@ casadi
 smbus
 spidev
 pydantic
+rpi-lgpio
+tk
