@@ -42,7 +42,7 @@ class RobotContainer:
         calibrate_cmds.add_commands(
             DriveFigure8Cmd(self.motor_control),
             WaitCmd(2.0),   
-            ZeroIMUCmd(self.motor_control, self.path_following, schedule_followup=False)
+            ZeroIMUCmd(self.motor_control, self.path_following, schedule_followup=False),
         )
         calibrate_cmds.schedule()
             

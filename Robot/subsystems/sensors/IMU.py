@@ -218,11 +218,13 @@ class IMU():
         """
         def begin():
             mag_calibration_level = 0
+            sys_cal_level = 0
             # wait until magnetometer calibration level reaches 3 (fully calibrated)
-            while mag_calibration_level < 3:
+            while mag_calibration_level < 3 or sys_cal_level < 1:
                 with self._lock:
                     sys, gyro, accel, mag = self.sensor.calibration_status
                 mag_calibration_level = mag
+                sys_cal_level = sys
                 logger.debug(f"Calibration Status: System={sys}, Gyro={gyro}, Accel={accel}, Mag={mag}")
                 time.sleep(0.1)
             
