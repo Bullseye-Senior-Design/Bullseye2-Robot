@@ -142,22 +142,21 @@ class KalmanStateEstimator:
             return self.u_velocity, self.u_steering
     
     def _run_loop(self):
-        """Background thread to run predict at fixed dt intervals."""
+        """Background thread to run predict at actual measured dt intervals."""
         import time
-        last_time = time.time()
+        last_predict_time = time.time()
         while True:
             # Only run predict if filter has been initialized
             if self.is_initialized:
-                self.predict()
+                now = time.time()
+                actual_dt = now - last_predict_time
+                if actual_dt > 0:
+                    self.predict(actual_dt)
+                    last_predict_time = now
                 
-            # Sleep until next cycle
-            now = time.time()
-            elapsed = now - last_time
-            sleep_time = max(0.0, self.dt - elapsed)
-            time.sleep(sleep_time)
-            last_time = now
+            # Sleep until next cycle (target rate)
+            time.sleep(self.dt * 0.5)  # Sleep for half the target dt to avoid oversleeping
 
-    
     def constant_velocity_predict(self):
         if not self.is_initialized:
             return
@@ -183,7 +182,7 @@ class KalmanStateEstimator:
             Qd = Phi @ (self.Qc * dt) @ Phi.T
             self.P = Phi @ self.P @ Phi.T + Qd
 
-    def predict(self):
+    def predict(self, actual_dt: float | None = None):
         """Bicycle kinematic model prediction.
         
         Model: Two-wheel bicycle (front steerable, rear drive)
@@ -193,19 +192,24 @@ class KalmanStateEstimator:
         
         Kinematics:
           Yaw rate: ω = (v / L) * tan(δ)
-          Body velocity: v_body = [v, 0, 0]
-          World velocity: v_world = R(q) @ v_body
+          Uses filter's velocity estimate for position integration
         
         Integration:
-          pos = pos + v_world * dt
+          pos = pos + vel_filter * dt
           q = q ⊗ exp(0.5 * [0, 0, ω] * dt)
+        
+        Args:
+            actual_dt: Actual elapsed time [s]. If None, uses self.dt.
         """
         # Don't predict if not yet initialized
         if not self.is_initialized:
             return
 
         with self._lock:
-            dt = self.dt
+            dt = actual_dt if actual_dt is not None else self.dt
+            
+            # Clamp dt to reasonable range to prevent instability
+            dt = np.clip(dt, 0.001, 0.1)
             
             # Get control inputs
             v = self.u_velocity
@@ -218,21 +222,17 @@ class KalmanStateEstimator:
             else:
                 omega_z = (v / self.L) * np.tan(delta)
             
-            # Body-frame velocity (rear wheel point)
-            v_body = np.array([v, 0.0, 0.0])
-            
             # Current rotation (body to world)
             q = MathUtil.quat_normalize(self.quat)
             R = MathUtil.quat_to_rotmat(q)
             
-            # Transform to world frame
-            v_world = R @ v_body
+            # Position integration using FILTER'S velocity estimate
+            # This preserves Kalman corrections from measurements
+            self.x[0:3] = self.pos + self.vel * dt
             
-            # Position integration
-            self.x[0:3] = self.pos + v_world * dt
-            
-            # Velocity state
-            self.x[3:6] = v_world
+            # Velocity remains as-is (will be corrected by measurements)
+            # DO NOT overwrite with kinematic model - let filter estimate it
+            # The encoder velocity measurement will constrain this properly
             
             # Orientation integration
             omega_body = np.array([0.0, 0.0, omega_z])
@@ -244,12 +244,12 @@ class KalmanStateEstimator:
             F = np.zeros((9, 9))
             F[0:3, 3:6] = np.eye(3)  # position ← velocity
             
-            # velocity ← attitude (∂(R @ v_body)/∂θ ≈ R @ [v_body]ₓ)
+            # velocity ← attitude (∂(R @ v)/∂θ for current velocity)
             def skew(vec):
                 return np.array([[0, -vec[2], vec[1]],
                                  [vec[2], 0, -vec[0]],
                                  [-vec[1], vec[0], 0]])
-            F[3:6, 6:9] = skew(-v_world)
+            F[3:6, 6:9] = skew(-self.vel)
             
             # Discretize and propagate covariance
             Phi = np.eye(9) + F * dt
