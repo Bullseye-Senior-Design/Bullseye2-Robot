@@ -93,6 +93,9 @@ class KalmanStateEstimator:
         self._uwb_batch_timeout = 0.010  # Maximum wait time in seconds
         self._uwb_batch_timer = None  # Timer for automatic timeout processing
         
+        # Last UWB positions for innovation filtering
+        self._last_uwb_pos = {}  # tag_id: (timestamp, pos)
+        
         threading.Thread(target=self._run_loop, daemon=True).start()
 
     # --- Helpers to access parts of the full state
@@ -529,11 +532,12 @@ class KalmanStateEstimator:
             return
                 
         # Check for any valid measurement to initialize
-        for tag_id, (_, pos, _, _) in self._uwb_batch.items():
+        for tag_id, (timestamp, pos, _, _) in self._uwb_batch.items():
             if not self.is_initialized:
                 if np.all(np.isfinite(pos)):
                     self.x[0:3] = pos
                     self.is_initialized = True
+                    self._last_uwb_pos[tag_id] = (timestamp, pos)
                     self._uwb_batch.clear() # <--- FIXED: Prevent double-processing
                     return
         
@@ -549,18 +553,34 @@ class KalmanStateEstimator:
         z_list = []
         h_list = []
         H_list = []
+        processed_tags = []
         
         def skew(v):
             return np.array([[0, -v[2], v[1]],
                              [v[2], 0, -v[0]],
                              [-v[1], v[0], 0]])
         
+        max_speed_mps = 25 * 0.44704  # 25 mph to m/s
+        
         for tag_id in sorted(self._uwb_batch.keys()):
-            _, pos, offset, use_off = self._uwb_batch[tag_id]
+            timestamp, pos, offset, use_off = self._uwb_batch[tag_id]
             
             # Skip non-finite measurements
             if not np.all(np.isfinite(pos)):
                 continue
+            
+            # Innovation filter: check implied speed
+            if tag_id in self._last_uwb_pos:
+                prev_timestamp, prev_pos = self._last_uwb_pos[tag_id]
+                dt = timestamp - prev_timestamp
+                if dt > 0:
+                    distance = np.linalg.norm(pos - prev_pos)
+                    implied_speed = distance / dt
+                    if implied_speed > max_speed_mps:
+                        logger.warning(f"Skipping UWB tag {tag_id}: implied speed {implied_speed:.2f} m/s > {max_speed_mps:.2f} m/s")
+                        continue  # skip this measurement
+            
+            processed_tags.append(tag_id)
             
             # Decide whether to apply the offset
             o_b = np.zeros(3)
@@ -616,6 +636,11 @@ class KalmanStateEstimator:
         # Update covariance (Joseph form for numerical stability)
         I = np.eye(9)
         self.P = (I - K @ H_stacked) @ self.P @ (I - K @ H_stacked).T + K @ R_stacked @ K.T
+        
+        # Update last positions for processed tags
+        for tag_id in processed_tags:
+            timestamp, pos, _, _ = self._uwb_batch[tag_id]
+            self._last_uwb_pos[tag_id] = (timestamp, pos)
         
     def _inject_error_state(self, dx: np.ndarray):
         """Inject 9-vector error state into the full state x and renormalize quaternion.
