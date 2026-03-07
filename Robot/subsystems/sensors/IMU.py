@@ -222,7 +222,7 @@ class IMU():
             while mag_calibration_level < 3:
                 with self._lock:
                     sys, gyro, accel, mag = self.sensor.calibration_status
-                mag_calibration_level = sys
+                mag_calibration_level = mag
                 logger.debug(f"Calibration Status: System={sys}, Gyro={gyro}, Accel={accel}, Mag={mag}")
                 time.sleep(0.1)
             
