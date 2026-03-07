@@ -108,7 +108,7 @@ class BackWheelEncoder:
             #logger.info(f"count ={self._count} reset for next interval")
             self._velocity = distance / dt
             logger.debug(f"Encoder velocity: {self._velocity:.3f} m/s over dt={dt:.3f}s with count={count}")
-            self.state_estimator.update_encoder_velocity(self._velocity)
+            # self.state_estimator.update_encoder_velocity(self._velocity)
                 
             # Reset for next 
             self._last_update_time = current_time
