@@ -60,7 +60,7 @@ class DriveFigure8Cmd(Command):
     def end(self, interrupted):
         # stop the motors when the command finishes or is preempted
         self.motor_control.set_speed_angle(0, 0)
-        print(f"DriveFigure8Cmd driven. IMU should be calibrated: {self._imu.is_calibrated()}")
+        print(f"DriveFigure8Cmd driven. IMU should be calibrated: {self._imu.is_mag_calibrated()}")
 
     def is_finished(self):
-        return self._imu.is_calibrated()
+        return self._imu.is_mag_calibrated()

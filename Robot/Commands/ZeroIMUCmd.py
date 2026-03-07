@@ -41,7 +41,7 @@ class ZeroIMUCmd(Command):
         self._samples = []
 
     def execute(self):
-        if not self._imu.is_calibrated():
+        if not self._imu.is_mag_calibrated():
             return
         
         euler = self._imu.get_euler()
