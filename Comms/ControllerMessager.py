@@ -4,14 +4,16 @@ import time
 import pygame
 import sys
 import os
+import threading
 
 # Add the parent directory to the Python path so Comms module can be found
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from Comms.ControllerData import ControllerData
-from Comms.StateData import State
+from Comms.StateData import State, StateData
+from Comms.BatteryData import BatteryData
+from Comms.DataPacket import DataPacket
 from Robot.Constants import Constants
-from dataclasses import asdict
 
 # ==== CONFIG ====
 DEBUG = True                # Set to True for debugging output
@@ -21,6 +23,35 @@ PORT = Constants.controller_serial_port
 BAUD = Constants.serial_baud_rate
 DEADZONE = Constants.controller_deadzone
 UPDATE_RATE = Constants.controller_update_rate  # ~20 Hz
+
+
+# Shared battery data (updated by receiver thread)
+_battery_data: BatteryData = BatteryData(voltage=0.0, current=0.0, power=0.0, state_of_charge=0.0, time_remaining=0.0)
+_battery_lock = threading.Lock()
+
+
+def _receive_robot_data(ser: serial.Serial):
+    """Background thread that receives DataPackets from the robot (e.g. battery data)."""
+    global _battery_data
+    while True:
+        try:
+            line = ser.readline().decode(errors="ignore").strip()
+            if not line:
+                continue
+            try:
+                packet = DataPacket.model_validate_json(line)
+                if packet.type == "battery":
+                    with _battery_lock:
+                        _battery_data = BatteryData.model_validate_json(packet.json_data)
+                    if DEBUG:
+                        with _battery_lock:
+                            b = _battery_data
+                        print(f"[BATTERY] V:{b.voltage:.2f}V  I:{b.current:.2f}A  SOC:{b.state_of_charge:.1f}%  TTG:{b.time_remaining:.0f}min")
+            except Exception as e:
+                if DEBUG:
+                    print(f"[RECV] Could not parse: {line} -> {e}")
+        except Exception:
+            break
 
 
 def main():
@@ -43,10 +74,14 @@ def main():
     # Print mode selection instructions
 
     # ==== Serial ====
+    ser = None
     try:
         ser = serial.Serial(PORT, BAUD, timeout=1)
         time.sleep(2)
         print(f"[OK] Connected to XBee on {PORT} at {BAUD} baud")
+        # Start background thread to receive data from robot
+        recv_thread = threading.Thread(target=_receive_robot_data, args=(ser,), daemon=True, name="RobotReceiver")
+        recv_thread.start()
     except serial.SerialException:
         if ErrTEST:
              print(f"[TEST MODE] Could not open serial port {PORT}, but continuing in test mode.")
@@ -189,16 +224,14 @@ def main():
             if state_changed:
                 current_state = new_state
                 print(f"Current Mode: {current_state.name}")
-                
-                # Send state change command as JSON
-                state_command = {
-                    "type": "state_change",
-                    "state": current_state.value,
-                    "state_name": current_state.name
-                }
-                ser.write((json.dumps(state_command) + "\n").encode())
-                #if DEBUG:
-                    #print(f"[STATE] Sent: {json.dumps(state_command)}")
+
+                # Send state change as DataPacket
+                state_data = StateData(state=current_state, path_speed=None, path_id=None)
+                packet = DataPacket(type="state", json_data=state_data.model_dump_json())
+                if ser:
+                    ser.write((packet.model_dump_json() + "\n").encode())
+                if DEBUG:
+                    print(f"[STATE] Sent: {packet.model_dump_json()}")
 
             # Update previous button states
             prev_dpad_up = dpad_up
@@ -233,21 +266,19 @@ def main():
                 btn_RB=btn_RB,
                 btn_LS=btn_LS,
                 btn_RS=btn_RS,
-                btn_R2= 0,
-                btn_L2= 0,
+                btn_R2= False,
+                btn_L2= False,
                 btn_share=btn_share,
                 btn_options=btn_options,
             )
 
-            # Send over serial (joystick data as JSON; state commands sent separately above)
-            joystick_payload = {
-                "type": "joystick",
-                **data.model_dump()  # Convert ControllerData to dict and unpack into payload
-            }
-            ser.write((json.dumps(joystick_payload) + "\n").encode())
-            
+            # Send controller data as DataPacket
+            packet = DataPacket(type="controller", json_data=data.model_dump_json())
+            if ser:
+                ser.write((packet.model_dump_json() + "\n").encode())
+
             #if DEBUG:
-                #print(f"[JOYSTICK] Sent: {json.dumps(joystick_payload)}")
+                #print(f"[JOYSTICK] Sent: {packet.model_dump_json()}")
 
             time.sleep(UPDATE_RATE)
 
@@ -255,7 +286,8 @@ def main():
     except KeyboardInterrupt:
         print("\nExiting...")
     finally:
-        ser.close()
+        if ser:
+            ser.close()
         pygame.quit()
     
 if __name__ == "__main__":

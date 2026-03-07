@@ -33,6 +33,12 @@ class RobotState:
         
         return should_boot_test
     
+    def should_init_autonomous(self):
+        should_boot_autonomous = self._enabled and self._autonomous_to_be_initialized
+        self._autonomous_to_be_initialized = False
+        
+        return should_boot_autonomous
+    
     def should_init_disable(self):
         should_boot_disable = not self._enabled and self._disabled_to_be_initialized
         self._disabled_to_be_initialized = False
@@ -44,6 +50,9 @@ class RobotState:
     
     def is_teleop_enabled(self):
         return self._teleop_enabled
+    
+    def is_autonomous_enabled(self):
+        return self._autonomous_enabled
     
     def is_test_enabled(self):
         return self._test_enabled
@@ -70,8 +79,19 @@ class RobotState:
         self._test_to_be_initialized = True
         return True
     
+    def enable_autonomous(self):
+        if self._enabled:
+            print("Cannot enable autonomous, robot is already enabled")
+            return False
+        
+        self._enabled = True
+        self._autonomous_enabled = True
+        self._autonomous_to_be_initialized = True
+        return True
+
     def disable_robot(self):
         self._enabled = False
         self._teleop_enabled = False
         self._test_enabled = False
+        self._autonomous_enabled = False
         self._disabled_to_be_initialized = True

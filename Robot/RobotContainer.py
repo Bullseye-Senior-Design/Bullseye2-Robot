@@ -1,5 +1,5 @@
+from Robot.Commands.DefaultMovementCmd import DefaultMovementCmd
 from Robot.Constants import Constants
-from Robot.subsystems.PiControllerReceiver import PiControllerReceiver
 from structure.commands.InstantCommand import InstantCommand
 from structure.commands.SequentialCommandGroup import SequentialCommandGroup
 from Robot.subsystems.sensors.UWB import UWB
@@ -16,7 +16,7 @@ from Robot.Commands.PlotStateCmd import PlotStateCmd
 from Robot.Commands.AlignIMUToWorldCmd import AlignIMUToWorldCmd
 from Robot.Commands.ZeroIMUCmd import ZeroIMUCmd
 from Robot.Commands.FollowPathCmd import FollowPathCmd
-from Comms.CommandBrain import CommandBrain
+from Comms.PiCommThread import PiCommThread
 
 
 class RobotContainer:
@@ -28,14 +28,16 @@ class RobotContainer:
         self.path_following = PathFollowing()
         self.drive_train = DriveTrain()
         self.bms = BMS()
-        self.controller_receiver = PiControllerReceiver()
-        self.brain = CommandBrain(pi_controller_receiver=self.controller_receiver, drivetrain=self.drive_train, bms=self.bms)
-        self.brain.start()
+        self.comm_thread = PiCommThread(bms=self.bms)
+        self.comm_thread.start()
         
-         # Start subsystems
+        # Start subsystems
         self.clutches.start(left_clutch_pin=Constants.left_clutch_pin, right_clutch_pin=Constants.right_clutch_pin)
         self.uwb.start(uwb_tag_data=Constants.uwb_tag_data, anchors_pos=None)
         self.back_Wheel_encoder.start()
+        self.drive_train.default_command(DefaultMovementCmd(self.drive_train, 
+                                                            lambda: self.comm_thread.get_controller_data().left_y, 
+                                                            lambda: self.comm_thread.get_controller_data().right_x))
         
         #self.path_following.default_command(FollowPathCmd(self.drive_train, self.path_following))
                     
@@ -53,5 +55,4 @@ class RobotContainer:
         self.drive_train.stop()
         self.drive_train.close()
         self.bms.close()
-        self.controller_receiver.close()
-        self.brain.shutdown()
+        self.comm_thread.close()
