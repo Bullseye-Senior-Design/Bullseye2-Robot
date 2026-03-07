@@ -43,7 +43,7 @@ class RobotContainer:
             DriveFigure8Cmd(self.motor_control),
             WaitCmd(2.0),   
             ZeroIMUCmd(self.motor_control, self.path_following, schedule_followup=False),
-            InstantCommand(lambda: self.path_following.default_command(FollowPathCmd(self.motor_control, self.path_following)))
+            InstantCommand(lambda: self.motor_control.default_command(MiniBullseyeControlCmd(self.motor_control, self.path_following)))
         )
         calibrate_cmds.schedule()
             
