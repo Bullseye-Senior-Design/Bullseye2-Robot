@@ -577,7 +577,7 @@ class KalmanStateEstimator:
             
             # Prediction h(x) = p + R @ o_b
             h = self.pos + R @ o_b
-            logger.debug(f"UWB batch tag_id={tag_id} offset applied: body_offset={o_b}, tag_pos_after_offset={h}")
+            logger.debug(f"UWB batch tag_id={tag_id} offset applied: pos_before_offset={pos}, tag_pos_after_offset={h}")
             h_list.append(h)
             
             
