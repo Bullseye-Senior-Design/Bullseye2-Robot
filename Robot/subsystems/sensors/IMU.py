@@ -90,7 +90,7 @@ class IMU():
         self.sensor.offsets_gyroscope = (-1, -4, -1)
         self.sensor.offsets_magnetometer = (-839, -601, -413)
         
-        self._is_calibrated = False
+        self._is_mag_calibrated = False
         
         print("IMU offset values: {}, {}, {}".format(
             self.sensor.offsets_accelerometer,
@@ -98,7 +98,7 @@ class IMU():
             self.sensor.offsets_magnetometer))
 
         # Print any library-provided calibration info (if available)
-        self.print_library_calibration()
+        self.log_mag_calibration_status()
 
         # Start continuous update loop immediately (calibration runs in parallel)
         self.begin()
@@ -205,34 +205,38 @@ class IMU():
         
         threading.Thread(target=_update_loop, daemon=True).start()
         
-    def is_calibrated(self) -> bool:
+    def is_mag_calibrated(self) -> bool:
         with self._lock:
-            return self._is_calibrated
+            return self._is_mag_calibrated
 
-    def print_library_calibration(self) -> None:
-        """Read and print calibration information from the underlying sensor library (if present).
+    def log_mag_calibration_status(self) -> None:
+        """Read and log calibration information from the underlying sensor library (if present).
 
         This tries several common attributes/methods found on Adafruit BNO055 wrappers and
-        prints whatever calibration/status/offset information is available. It is safe
+        logs whatever calibration/status/offset information is available. It is safe
         to call even if the sensor object doesn't expose these fields.
         """
         def begin():
-            while not self.sensor.calibrated:
-                self.sensor.calibration_status
-                sys, gyro, accel, mag = self.sensor.calibration_status
-                print(f"Calibration Status: System={sys}, Gyro={gyro}, Accel={accel}, Mag={mag}")
+            mag_calibration_level = 0
+            # wait until magnetometer calibration level reaches 3 (fully calibrated)
+            while mag_calibration_level < 3:
+                with self._lock:
+                    sys, gyro, accel, mag = self.sensor.calibration_status
+                mag_calibration_level = mag
+                logger.debug(f"Calibration Status: System={sys}, Gyro={gyro}, Accel={accel}, Mag={mag}")
                 time.sleep(0.1)
             
-            accel_off = self.sensor.offsets_accelerometer
-            gyro_off = self.sensor.offsets_gyroscope
-            mag_off = self.sensor.offsets_magnetometer
-            print("IMU: Library Calibration Offsets:")
-            print("  Accelerometer offsets:", accel_off)
-            print("  Gyroscope offsets:", gyro_off) 
-            print("  Magnetometer offsets:", mag_off)
+            with self._lock:
+                accel_off = self.sensor.offsets_accelerometer
+                gyro_off = self.sensor.offsets_gyroscope
+                mag_off = self.sensor.offsets_magnetometer
+            logger.info("IMU: Library Calibration Offsets:")
+            logger.info("  Accelerometer offsets:", accel_off)
+            logger.info("  Gyroscope offsets:", gyro_off)
+            logger.info("  Magnetometer offsets:", mag_off)
             
             with self._lock:
-                self._is_calibrated = True
+                self._is_mag_calibrated = True
         
         
         threading.Thread(target=begin, daemon=True).start()
