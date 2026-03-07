@@ -230,11 +230,12 @@ class IMU():
                 accel_off = self.sensor.offsets_accelerometer
                 gyro_off = self.sensor.offsets_gyroscope
                 mag_off = self.sensor.offsets_magnetometer
-            logger.info("IMU: Library Calibration Offsets:")
-            logger.info("  Accelerometer offsets:", accel_off)
-            logger.info("  Gyroscope offsets:", gyro_off)
-            logger.info("  Magnetometer offsets:", mag_off)
             
+            logger.info("IMU: Library Calibration Offsets:")
+            logger.info(f"  Accelerometer offsets: {accel_off}")
+            logger.info(f"  Gyroscope offsets: {gyro_off}")
+            logger.info(f"  Magnetometer offsets: {mag_off}")
+
             with self._lock:
                 self._is_mag_calibrated = True
         
