@@ -40,7 +40,7 @@ class RobotContainer:
         LogDataCmd(self.path_following).schedule()
         calibrate_cmds=SequentialCommandGroup()
         calibrate_cmds.add_commands(
-            DriveFigure8Cmd(self.motor_control, speed_percent=50, period=10.0),
+            DriveFigure8Cmd(self.motor_control),
             WaitCmd(2.0),   
             ZeroIMUCmd(self.motor_control, self.path_following, schedule_followup=False)
         )
