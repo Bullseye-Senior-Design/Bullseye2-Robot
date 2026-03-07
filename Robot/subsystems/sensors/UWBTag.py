@@ -217,7 +217,6 @@ class UWBTag:
             
             while self.is_reading:
                 
-                logger.debug(f"Time since last log for tag {self.id}: {time.time() - last_log_time:.2f}s")
                 last_log_time = time.time()
                 
                 # 1. Get Data (Blocking call via serial, but fast)
@@ -230,13 +229,13 @@ class UWBTag:
                         # 2. Check if data is STALE (Duplicate)
                         # We compare X, Y, Z. If they are identical to the last read,
                         # the tag has not updated its calculation yet.
-                        logger.debug(f"Comparing positions for tag {self.id}: Last={self.last_position} vs New={loc_data.position}")
                         if (self.last_position is None) or (loc_data.position != self.last_position):
                             self.last_position = loc_data.position
                             process_update = True
                     
                     # 3. Only update EKF if the data is NEW
                     if process_update:
+                        logger.debug(f"New position for tag {self.id}: x={loc_data.position.x:.3f}m, y={loc_data.position.y:.3f}m, z={loc_data.position.z:.3f}m, qf={loc_data.position.quality}")
                         try:
                             meas = np.array([
                                 loc_data.position.x, 

@@ -531,6 +531,7 @@ class KalmanStateEstimator:
         # Check for any valid measurement to initialize
         for tag_id, (_, pos, _, _) in self._uwb_batch.items():
             if not self.is_initialized:
+
                 if np.all(np.isfinite(pos)):
                     self.x[0:3] = pos
                     self.is_initialized = True
@@ -561,6 +562,9 @@ class KalmanStateEstimator:
             # Skip non-finite measurements
             if not np.all(np.isfinite(pos)):
                 continue
+            
+            # ignore z component of UWB measurement to prevent vertical ping-ponging
+            pos[2] = self.pos[2]
             
             # Decide whether to apply the offset
             o_b = np.zeros(3)
