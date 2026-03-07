@@ -53,3 +53,5 @@ class RobotContainer:
         self.drive_train.stop()
         self.drive_train.close()
         self.bms.close()
+        self.controller_receiver.close()
+        self.brain.shutdown()
