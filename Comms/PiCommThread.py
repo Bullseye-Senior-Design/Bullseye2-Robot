@@ -130,6 +130,10 @@ class PiCommThread:
             while self._running:
                 try:
                     # Read line from serial
+                    if(self.controller_ser.in_waiting == 0):
+                        logger.debug("No data available from controller")
+                        continue
+                    
                     line = self.controller_ser.readline().decode().strip()
 
                     packet = DataPacket.model_validate_json(line)
