@@ -60,7 +60,7 @@ class FollowPathCmd(Command):
         
         # Create sinusoidal path: oscillates perpendicular to direction of travel
         s = np.linspace(0, distance, num_points)  # Forward distance along path
-        amplitude = 0.25  # meters
+        amplitude = 0.35  # meters
         period = distance  # Period is path length
         
         # Sinusoidal offset perpendicular to direction of travel
