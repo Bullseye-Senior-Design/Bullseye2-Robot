@@ -242,9 +242,10 @@ def main():
             # Send over serial (joystick data as JSON; state commands sent separately above)
             joystick_payload = {
                 "type": "joystick",
-                **data.model_dump(),        
+                **data.model_dump()  # Convert ControllerData to dict and unpack into payload
             }
             ser.write((json.dumps(joystick_payload) + "\n").encode())
+            
             #if DEBUG:
                 #print(f"[JOYSTICK] Sent: {json.dumps(joystick_payload)}")
 
