@@ -24,7 +24,7 @@ from Robot.subsystems.KalmanStateEstimator import KalmanStateEstimator
 
 # Configure logging
 logger = logging.getLogger(f"UWBTag")
-logger.setLevel(logging.DEBUG)  # Set to DEBUG for detailed output
+logger.setLevel(logging.INFO)  # Set to DEBUG for detailed output
 
 @dataclass
 class Position:
@@ -235,7 +235,6 @@ class UWBTag:
                     
                     # 3. Only update EKF if the data is NEW
                     if process_update:
-                        logger.debug(f"New position for tag {self.id}: x={loc_data.position.x:.3f}m, y={loc_data.position.y:.3f}m, z={loc_data.position.z:.3f}m, qf={loc_data.position.quality}")
                         try:
                             meas = np.array([
                                 loc_data.position.x, 
