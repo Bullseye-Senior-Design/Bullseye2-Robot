@@ -17,7 +17,7 @@ class ControllerData(BaseModel):
     btn_RB: bool
     btn_LS: bool
     btn_RS: bool
-    btn_R2: bool
-    btn_L2: bool
+    btn_R2: float
+    btn_L2: float
     btn_share: bool
     btn_options: bool

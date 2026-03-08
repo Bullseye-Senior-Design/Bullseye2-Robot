@@ -51,12 +51,13 @@ class Constants:
 
     # Controller/BMS Serial
     serial_baud_rate = 19200
-    controller_serial_port = "/dev/ttyAMA0"
+    controller_serial_port = "/dev/ttyUSB0"
+    pi_serial_port = "/dev/ttyAMA0"
     bms_serial_port = "/dev/ttyUSB1"
 
     # Controller input handling
     controller_deadzone = 0.15
-    controller_update_rate = 1.0  # seconds (20 Hz)
+    controller_update_rate = 0.5  # seconds (20 Hz)
 
     #BMS Constants
     bms_update_interval = 1.0  # seconds between reads

@@ -17,8 +17,10 @@ from Robot.Constants import Constants
 
 # ==== CONFIG ====
 DEBUG = True                # Set to True for debugging output
+DEBUGPRINT = True           # Set to True for debug print statements
 ErrTEST = False             # Set to True to allow running without serial connection (for testing without hardware)
 MENU = False
+ESTOP = False              # If True, pressing the Y button will immediately send a DISABLED state to the robot (emergency stop)
 PORT = Constants.controller_serial_port
 BAUD = Constants.serial_baud_rate
 DEADZONE = Constants.controller_deadzone
@@ -54,23 +56,25 @@ def _receive_robot_data(ser: serial.Serial):
             break
 
 
+
+def printmenu():
+    print("\n" + "="*50)
+    print("BULLSEYE CONTROLLER MESSAGER - MODE SELECTION")
+    print("="*50)
+    print("Press the corresponding button to select mode:")
+    print("  D-Pad UP    -> TELEOP")
+    print("  D-Pad RIGHT -> AUTONOMOUS (Path Following)")
+    print("  D-Pad LEFT  -> TEST (WARNING)")
+    print("  D-Pad DOWN  -> (Show Battery Data)")
+    print("  Y Button    -> DISABLED (Emergency Stop)")
+    print("="*50) 
 def main():
     # Initialize current state
     current_state = State.DISABLED
     
     if MENU:
          # Print mode selection instructions
-        print("\n" + "="*50)
-        print("BULLSEYE CONTROLLER MESSAGER - MODE SELECTION")
-        print("="*50)
-        print("Press the corresponding button to select mode:")
-        print("  D-Pad UP    -> TELEOP")
-        print("  D-Pad RIGHT -> AUTONOMOUS (Path Following)")
-        print("  D-Pad LEFT  -> TEST (WARNING)")
-        print("  B Button    -> DISABLED (Emergency Stop)")
-        print("="*50)
-        print(f"Current Mode: {current_state.name}")
-        print("="*50)
+        printmenu()
     # Print mode selection instructions
 
     # ==== Serial ====
@@ -108,6 +112,8 @@ def main():
     prev_dpad_left = False
     prev_dpad_right = False
     prev_btn_B = False
+    l2_prev = -1.0
+    r2_prev = -1.0
 
     try:
         while True:
@@ -121,8 +127,8 @@ def main():
             right_y = joystick.get_axis(3)
             right_y = -right_y  # Invert Y-axis for intuitive control
 
-            #l2_axis = joystick.get_axis(4) if joystick.get_numaxes() > 4 else 0.0
-            #r2_axis = joystick.get_axis(5) if joystick.get_numaxes() > 5 else 0.0
+            l2_axis = joystick.get_axis(4)
+            r2_axis = joystick.get_axis(5)
 
             # Debug: Print axis values
             if DEBUG:
@@ -134,10 +140,12 @@ def main():
                     print(f"axis(2) - {right_x:.2f}")
                 if abs(right_y) > DEADZONE:
                     print(f"axis(3) - {right_y:.2f}")
-                #if abs(l2_axis) > DEADZONE:
-                    #print(f"axis(4-L2) - {l2_axis:.2f}")
-                #if abs(r2_axis) > DEADZONE:
-                    #print(f"axis(5-R2) - {r2_axis:.2f}")
+                if abs(l2_axis - l2_prev) > 0.01:  # Only print if changed significantly to reduce spam
+                    print(f"axis(4-L2) - {l2_axis:.2f}")
+                if abs(r2_axis - r2_prev) > 0.01:  # Only print if changed significantly to reduce spam
+                    print(f"axis(5-R2) - {r2_axis:.2f}")
+            l2_prev = l2_axis
+            r2_prev = r2_axis
 
             # Read button states
             btn_A = joystick.get_button(0)
@@ -151,18 +159,21 @@ def main():
             btn_share = joystick.get_button(4)
             btn_options = joystick.get_button(6)
 
-            # Read D-pad states
-            #dpad_x, dpad_y = joystick.get_hat(0)
-            #dpad_up = dpad_y == 1
-            #dpad_down = dpad_y == -1
-            #dpad_right = dpad_x == 1
-            #dpad_left = dpad_x == -1
-
-            # Alternative D-pad reading (some controllers might not use hats)
+            # Alternative D-pad reading
             dpad_up = joystick.get_button(11)
             dpad_down = joystick.get_button(12)
             dpad_left = joystick.get_button(13)
             dpad_right = joystick.get_button(14)
+
+            if ESTOP and btn_Y:
+                print("EMERGENCY STOP ACTIVATED!")
+                current_state = State.DISABLED
+                state_data = StateData(state=current_state, path_speed=None, path_id=None)
+                packet = DataPacket(type="state", json_data=state_data.model_dump_json())
+                if ser:
+                    ser.write((packet.model_dump_json() + "\n").encode())
+                print(f"[STATE] Sent: {packet.model_dump_json()}")
+                continue  # Skip rest of loop to immediately send stop command
             
             # Debug: Print button presses
             if DEBUG:
@@ -203,27 +214,38 @@ def main():
             new_state = current_state
 
             # Check for mode change inputs (only on press, not hold)
-            if dpad_up and not prev_dpad_up:
-                new_state = State.TELEOP
-                state_changed = True
-                print("🔄 MODE CHANGE: TELEOP (Manual Control)")
-            elif dpad_right and not prev_dpad_right:
-                new_state = State.AUTONOMOUS
-                state_changed = True
-                print("🔄 MODE CHANGE: AUTONOMOUS (Path Following)")
-            elif dpad_left and not prev_dpad_left:
-                new_state = State.TEST
-                state_changed = True
-                print("🔄 MODE CHANGE: TEST (Same as Teleop)")
-            elif btn_B and not prev_btn_B:
-                new_state = State.DISABLED
-                state_changed = True
-                print("🛑 EMERGENCY STOP: DISABLED")
+            if current_state != State.DISABLED:
+                if btn_B:
+                    new_state = State.DISABLED
+                    state_changed = True
+                    if MENU:
+                        printmenu()
+            elif current_state == State.DISABLED:    
+                if dpad_up and not prev_dpad_up:
+                    new_state = State.TELEOP
+                    state_changed = True
+                    print("🔄 MODE CHANGE: TELEOP (Manual Control)")
+                elif dpad_right and not prev_dpad_right:
+                    new_state = State.AUTONOMOUS
+                    state_changed = True
+                    print("🔄 MODE CHANGE: AUTONOMOUS (Path Following)")
+                elif dpad_left and not prev_dpad_left:
+                    new_state = State.TEST
+                    state_changed = True
+                    print("🔄 MODE CHANGE: TEST (Same as Teleop)")
+                elif dpad_down and not prev_dpad_down:
+                    with _battery_lock:
+                        b = _battery_data
+                    print(f"🔋 BATTERY DATA: V:{b.voltage:.2f}V")  
+                    print(f" I:{b.current:.2f}A")  
+                    print(f" SOC:{b.state_of_charge:.1f}%")
+                    hours = int(b.time_remaining // 60)
+                    minutes = int(b.time_remaining % 60)     
+                    print(f" TTG:{hours}h {minutes}m")
 
             # Update current state if changed
             if state_changed:
                 current_state = new_state
-                print(f"Current Mode: {current_state.name}")
 
                 # Send state change as DataPacket
                 state_data = StateData(state=current_state, path_speed=None, path_id=None)
@@ -245,8 +267,8 @@ def main():
             left_y = 0 if abs(left_y) < DEADZONE else left_y
             right_x = 0 if abs(right_x) < DEADZONE else right_x
             right_y = 0 if abs(right_y) < DEADZONE else right_y
-            #l2_axis = 0 if abs(l2_axis) < DEADZONE else l2_axis
-            #r2_axis = 0 if abs(r2_axis) < DEADZONE else r2_axis
+            l2_axis = 0 if abs(l2_axis) < DEADZONE else l2_axis
+            r2_axis = 0 if abs(r2_axis) < DEADZONE else r2_axis
 
             # Create ControllerData object with all fields in correct order
             data = ControllerData(
@@ -266,8 +288,8 @@ def main():
                 btn_RB=btn_RB,
                 btn_LS=btn_LS,
                 btn_RS=btn_RS,
-                btn_R2= False,
-                btn_L2= False,
+                btn_R2= l2_axis,
+                btn_L2= r2_axis,
                 btn_share=btn_share,
                 btn_options=btn_options,
             )
@@ -277,8 +299,8 @@ def main():
             if ser:
                 ser.write((packet.model_dump_json() + "\n").encode())
 
-            #if DEBUG:
-                #print(f"[JOYSTICK] Sent: {packet.model_dump_json()}")
+            if DEBUGPRINT:
+                print(f"[JOYSTICK] Sent: {packet.model_dump_json()}")
 
             time.sleep(UPDATE_RATE)
 
