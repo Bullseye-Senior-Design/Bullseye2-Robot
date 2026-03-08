@@ -52,7 +52,7 @@ class Constants:
     # Controller/BMS Serial
     serial_baud_rate = 19200
     controller_serial_port = "/dev/ttyUSB0"
-    pi_serial_port = "/dev/ttyAMA0"
+    pi_serial_port = "/dev/ttyAMA1"
     bms_serial_port = "/dev/ttyUSB1"
 
     # Controller input handling
