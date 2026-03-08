@@ -141,9 +141,9 @@ def main():
                     print(f"axis(2) - {right_x:.2f}")
                 if abs(right_y) > DEADZONE:
                     print(f"axis(3) - {right_y:.2f}")
-                if abs(l2_axis) > DEADZONE:
+                if abs(l2_axis - l2_prev) > 0.01:  # Only print if changed significantly to reduce spam
                     print(f"axis(4-L2) - {l2_axis:.2f}")
-                if abs(r2_axis) > DEADZONE:
+                if abs(r2_axis - r2_prev) > 0.01:  # Only print if changed significantly to reduce spam
                     print(f"axis(5-R2) - {r2_axis:.2f}")
 
             # Read button states
