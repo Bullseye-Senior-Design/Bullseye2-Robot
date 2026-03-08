@@ -124,8 +124,8 @@ class PiCommThread:
         """
         try:
             # Initialize serial connection to receive from ControllerMessager
-            self.controller_ser = serial.Serial(Constants.controller_serial_port, Constants.serial_baud_rate, timeout=1)
-            logger.info(f"Connected to controller receiver on {Constants.controller_serial_port}")
+            self.controller_ser = serial.Serial(Constants.pi_serial_port, Constants.serial_baud_rate, timeout=1)
+            logger.info(f"Connected to controller receiver on {Constants.pi_serial_port}")
 
             while self._running:
                 try:
