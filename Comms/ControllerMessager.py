@@ -57,7 +57,7 @@ def _receive_robot_data(ser: serial.Serial):
 
 
 
-def printmenu(current_state):
+def printmenu():
     print("\n" + "="*50)
     print("BULLSEYE CONTROLLER MESSAGER - MODE SELECTION")
     print("="*50)
@@ -67,16 +67,14 @@ def printmenu(current_state):
     print("  D-Pad LEFT  -> TEST (WARNING)")
     print("  D-Pad DOWN  -> (Show Battery Data)")
     print("  Y Button    -> DISABLED (Emergency Stop)")
-    print("="*50)
-    print(f"Current Mode: {current_state.name}")
-    print("="*50)   
+    print("="*50) 
 def main():
     # Initialize current state
     current_state = State.DISABLED
     
     if MENU:
          # Print mode selection instructions
-        printmenu(current_state)
+        printmenu()
     # Print mode selection instructions
 
     # ==== Serial ====
@@ -221,7 +219,7 @@ def main():
                     new_state = State.DISABLED
                     state_changed = True
                     if MENU:
-                        print(current_state)
+                        printmenu()
             elif current_state == State.DISABLED:    
                 if dpad_up and not prev_dpad_up:
                     new_state = State.TELEOP
