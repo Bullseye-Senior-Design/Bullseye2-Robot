@@ -67,6 +67,7 @@ def main():
         print("  D-Pad UP    -> TELEOP")
         print("  D-Pad RIGHT -> AUTONOMOUS (Path Following)")
         print("  D-Pad LEFT  -> TEST (WARNING)")
+        print("  D-Pad DOWN  -> (Show Battery Data)")
         print("  B Button    -> DISABLED (Emergency Stop)")
         print("="*50)
         print(f"Current Mode: {current_state.name}")
@@ -203,27 +204,41 @@ def main():
             new_state = current_state
 
             # Check for mode change inputs (only on press, not hold)
-            if dpad_up and not prev_dpad_up:
-                new_state = State.TELEOP
-                state_changed = True
-                print("🔄 MODE CHANGE: TELEOP (Manual Control)")
-            elif dpad_right and not prev_dpad_right:
-                new_state = State.AUTONOMOUS
-                state_changed = True
-                print("🔄 MODE CHANGE: AUTONOMOUS (Path Following)")
-            elif dpad_left and not prev_dpad_left:
-                new_state = State.TEST
-                state_changed = True
-                print("🔄 MODE CHANGE: TEST (Same as Teleop)")
-            elif btn_B and not prev_btn_B:
-                new_state = State.DISABLED
-                state_changed = True
-                print("🛑 EMERGENCY STOP: DISABLED")
+            if state_changed:
+                print("\n" + "="*50)
+                print(f"MODE CHANGED TO: {new_state.name}")
+                if btn_B:
+                    state_changed = False  # Prevent multiple state changes from holding the B button
+            elif not state_changed:    
+                if dpad_up and not prev_dpad_up:
+                    new_state = State.TELEOP
+                    state_changed = True
+                    print("🔄 MODE CHANGE: TELEOP (Manual Control)")
+                elif dpad_right and not prev_dpad_right:
+                    new_state = State.AUTONOMOUS
+                    state_changed = True
+                    print("🔄 MODE CHANGE: AUTONOMOUS (Path Following)")
+                elif dpad_left and not prev_dpad_left:
+                    new_state = State.TEST
+                    state_changed = True
+                    print("🔄 MODE CHANGE: TEST (Same as Teleop)")
+                elif btn_B and not prev_btn_B:
+                    new_state = State.DISABLED
+                    state_changed = True
+                    print("🛑 EMERGENCY STOP: DISABLED")
+                elif dpad_down and not prev_dpad_down:
+                    with _battery_lock:
+                        b = _battery_data
+                    print(f"🔋 BATTERY DATA: V:{b.voltage:.2f}V")  
+                    print(f" I:{b.current:.2f}A")  
+                    print(f" SOC:{b.state_of_charge:.1f}%")
+                    hours = int(b.time_remaining // 60)
+                    minutes = int(b.time_remaining % 60)     
+                    print(f" TTG:{hours}h {minutes}m")
 
             # Update current state if changed
             if state_changed:
                 current_state = new_state
-                print(f"Current Mode: {current_state.name}")
 
                 # Send state change as DataPacket
                 state_data = StateData(state=current_state, path_speed=None, path_id=None)
