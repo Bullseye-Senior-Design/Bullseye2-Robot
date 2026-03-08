@@ -114,6 +114,7 @@ def main():
     prev_btn_B = False
     l2_prev = -1.0
     r2_prev = -1.0
+    prevpacket = None
 
     try:
         while True:
@@ -296,12 +297,13 @@ def main():
 
             # Send controller data as DataPacket
             packet = DataPacket(type="controller", json_data=data.model_dump_json())
-            if ser:
-                ser.write((packet.model_dump_json() + "\n").encode())
+            if prevpacket != packet:
+                if ser:
+                    ser.write((packet.model_dump_json() + "\n").encode())
+                if DEBUGPRINT:
+                    print(f"[JOYSTICK] Sent: {packet.model_dump_json()}")
 
-            if DEBUGPRINT:
-                print(f"[JOYSTICK] Sent: {packet.model_dump_json()}")
-
+            prevpacket = packet
             time.sleep(UPDATE_RATE)
 
 
