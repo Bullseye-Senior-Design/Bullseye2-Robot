@@ -28,7 +28,7 @@ from structure.RobotState import RobotState
 
 # ==== LOGGING CONFIGURATION ====
 logger = logging.getLogger(f"{__name__}.PiCommThread")
-logger.setLevel(logging.INFO)  # Set to DEBUG for detailed output
+logger.setLevel(logging.DEBUG)  # Set to DEBUG for detailed output
 
 # ==== DEBUG/CONFIGURATION ====
 SUBSYSTEM_UPDATE_RATE = Constants.controller_update_rate  # ~10 Hz for subsystem polling
@@ -132,9 +132,12 @@ class PiCommThread:
                     # Read line from serial
                     if(self.controller_ser.in_waiting == 0):
                         logger.debug("No data available from controller")
+                        time.sleep(SUBSYSTEM_UPDATE_RATE)
                         continue
                     
                     line = self.controller_ser.readline().decode().strip()
+
+                    logger.debug(f"data recived {line}")
 
                     packet = DataPacket.model_validate_json(line)
 
