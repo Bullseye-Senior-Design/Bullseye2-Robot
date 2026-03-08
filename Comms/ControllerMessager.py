@@ -114,6 +114,8 @@ def main():
     prev_dpad_left = False
     prev_dpad_right = False
     prev_btn_B = False
+    l2_prev = -1.0
+    r2_prev = -1.0
 
     try:
         while True:
