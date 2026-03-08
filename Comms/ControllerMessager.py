@@ -17,6 +17,7 @@ from Robot.Constants import Constants
 
 # ==== CONFIG ====
 DEBUG = True                # Set to True for debugging output
+DEBUGPRINT = True           # Set to True for debug print statements
 ErrTEST = False             # Set to True to allow running without serial connection (for testing without hardware)
 MENU = False
 ESTOP = False              # If True, pressing the Y button will immediately send a DISABLED state to the robot (emergency stop)
@@ -127,9 +128,7 @@ def main():
             right_y = -right_y  # Invert Y-axis for intuitive control
 
             l2_axis = joystick.get_axis(4)
-            l2_prev = l2_axis
             r2_axis = joystick.get_axis(5)
-            r2_prev = r2_axis
 
             # Debug: Print axis values
             if DEBUG:
@@ -145,6 +144,8 @@ def main():
                     print(f"axis(4-L2) - {l2_axis:.2f}")
                 if abs(r2_axis - r2_prev) > 0.01:  # Only print if changed significantly to reduce spam
                     print(f"axis(5-R2) - {r2_axis:.2f}")
+            l2_prev = l2_axis
+            r2_prev = r2_axis
 
             # Read button states
             btn_A = joystick.get_button(0)
@@ -298,8 +299,8 @@ def main():
             if ser:
                 ser.write((packet.model_dump_json() + "\n").encode())
 
-            #if DEBUG:
-                #print(f"[JOYSTICK] Sent: {packet.model_dump_json()}")
+            if DEBUGPRINT:
+                print(f"[JOYSTICK] Sent: {packet.model_dump_json()}")
 
             time.sleep(UPDATE_RATE)
 
