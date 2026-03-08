@@ -56,7 +56,7 @@ class CommData:
             btn_X=False, btn_Y=False,
             btn_LB=False, btn_RB=False,
             btn_LS=False, btn_RS=False,
-            btn_R2=False, btn_L2=False,
+            btn_R2=-1.0, btn_L2=-1.0,
             btn_share=False, btn_options=False,
         )
 
