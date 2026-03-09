@@ -24,7 +24,7 @@ import logging
 GRAVITY = np.array([0.0, 0.0, -9.80665])
 
 logger = logging.getLogger(__name__ + ".KalmanStateEstimator")
-logger.setLevel(logging.DEBUG)  # Set to DEBUG for detailed output
+logger.setLevel(logging.INFO)  # Set to DEBUG for detailed output
 
 @dataclass
 class State:
