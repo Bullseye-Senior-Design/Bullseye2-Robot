@@ -59,5 +59,5 @@ class Constants:
     controller_update_rate = 0.05  # seconds (20 Hz)
 
     #BMS Constants
-    bms_update_interval = 1.0  # seconds between reads
+    bms_update_interval = 0.05 # seconds between reads
 
