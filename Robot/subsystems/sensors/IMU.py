@@ -1,34 +1,4 @@
 # SPDX-FileCopyrightText: 2021 ladyada for Adafruit Industries
-
-
-"""2026-03-09 10:44:09,473 - Robot.subsystems.sensors.IMU.IMU - DEBUG - Calibration Status: System=2, Gyro=0, Accel=2, Mag=3
-2026-03-09 10:44:09,599 - Robot.subsystems.sensors.IMU.IMU - DEBUG - Calibration Status: System=3, Gyro=3, Accel=1, Mag=0
-2026-03-09 10:44:09,724 - Robot.subsystems.sensors.IMU.IMU - DEBUG - Calibration Status: System=3, Gyro=3, Accel=1, Mag=0
-2026-03-09 10:44:09,851 - Robot.subsystems.sensors.IMU.IMU - DEBUG - Calibration Status: System=3, Gyro=3, Accel=1, Mag=0
-2026-03-09 10:44:09,975 - Robot.subsystems.sensors.IMU.IMU - DEBUG - Calibration Status: System=3, Gyro=3, Accel=1, Mag=0
-2026-03-09 10:44:10,131 - Robot.subsystems.sensors.IMU.IMU - DEBUG - Calibration Status: System=0, Gyro=0, Accel=2, Mag=3
-2026-03-09 10:44:10,255 - Robot.subsystems.sensors.IMU.IMU - DEBUG - Calibration Status: System=3, Gyro=3, Accel=1, Mag=0
-2026-03-09 10:44:10,373 - Robot.subsystems.sensors.IMU.IMU - DEBUG - Calibration Status: System=3, Gyro=3, Accel=1, Mag=0
-2026-03-09 10:44:10,489 - Robot.subsystems.sensors.IMU.IMU - DEBUG - Calibration Status: System=3, Gyro=3, Accel=1, Mag=0
-2026-03-09 10:44:10,604 - Robot.subsystems.sensors.IMU.IMU - DEBUG - Calibration Status: System=3, Gyro=3, Accel=1, Mag=0
-2026-03-09 10:44:10,725 - Robot.subsystems.sensors.IMU.IMU - DEBUG - Calibration Status: System=3, Gyro=3, Accel=1, Mag=0
-2026-03-09 10:44:10,862 - Robot.subsystems.sensors.IMU.IMU - DEBUG - Calibration Status: System=3, Gyro=3, Accel=1, Mag=0
-2026-03-09 10:44:11,039 - Robot.subsystems.sensors.IMU.IMU - DEBUG - Calibration Status: System=2, Gyro=0, Accel=2, Mag=3
-2026-03-09 10:44:11,146 - Robot.subsystems.sensors.IMU.IMU - DEBUG - Calibration Status: System=3, Gyro=3, Accel=1, Mag=0
-2026-03-09 10:44:11,255 - Robot.subsystems.sensors.IMU.IMU - DEBUG - Calibration Status: System=3, Gyro=3, Accel=1, Mag=0
-2026-03-09 10:44:11,452 - Robot.subsystems.sensors.IMU.IMU - DEBUG - Calibration Status: System=3, Gyro=3, Accel=1, Mag=0
-2026-03-09 10:44:11,650 - Robot.subsystems.sensors.IMU.IMU - DEBUG - Calibration Status: System=0, Gyro=0, Accel=2, Mag=3
-2026-03-09 10:44:11,757 - Robot.subsystems.sensors.IMU.IMU - DEBUG - Calibration Status: System=3, Gyro=3, Accel=1, Mag=0
-2026-03-09 10:44:11,875 - Robot.subsystems.sensors.IMU.IMU - DEBUG - Calibration Status: System=3, Gyro=3, Accel=1, Mag=0
-2026-03-09 10:44:12,040 - Robot.subsystems.sensors.IMU.IMU - DEBUG - Calibration Status: System=2, Gyro=0, Accel=2, Mag=3
-^CShutting down robot...
-2026-03-09 10:44:12,097 - UWBTag - INFO - Disconnected
-2026-03-09 10:44:12,136 - UWBTag - INFO - Disconnected
-2026-03-09 10:44:12,147 - Robot.subsystems.sensors.IMU.IMU - DEBUG - Calibration Status: System=3, Gyro=3, Accel=1, Mag=0
-2026-03-09 10:44:12,266 - Robot.subsystems.sensors.IMU.IMU - DEBUG - Calibration Status: System=2, Gyro=0, Accel=2, Mag=3
-2026-03-09 10:44:12,377 - Robot.subsystems.sensors.IMU.IMU - DEBUG - Calibration Status: System=3, Gyro=3, Accel=1, Mag=0
-2026-03-09 10:44:12,480 - Robot.subsystems.sensors.IMU.IMU - DEBUG - Calibration Status: System=3, Gyro=3, Accel=1, Mag=0
-2026-03-09 10:44:12,582 - Robot.subsystems.sensors.IMU.IMU - DEBUG - Calibration Status: System=3, Gyro=3, Accel=1, Mag=0"""
 # SPDX-License-Identifier: MIT
 import threading
 import board
@@ -118,9 +88,10 @@ class IMU():
         self._quat_est_cached = (0.0, 0.0, 0.0, 1.0)
         self._is_offset_set = False
 
-        self.sensor.offsets_accelerometer = (-26, 0, -50)
-        self.sensor.offsets_gyroscope = (-1, -4, -1)
-        self.sensor.offsets_magnetometer = (-839, -601, -413)
+        self.load_fixed_calibration()
+        #self.sensor.offsets_accelerometer = (-26, 0, -50)
+        #self.sensor.offsets_gyroscope = (-1, -4, -1)
+        #self.sensor.offsets_magnetometer = (-839, -601, -413)
         
         self._is_mag_calibrated = False
         
@@ -240,6 +211,28 @@ class IMU():
     def is_mag_calibrated(self) -> bool:
         with self._lock:
             return self._is_mag_calibrated
+        
+    def load_fixed_calibration(self) -> None:
+        """Load constant calibration values (offsets + radius). 
+        This is the official way to 'disable' dynamic calibration."""
+        logger.info("Loading fixed calibration profile...")
+
+        # These are the constant values you already found
+        # (replace with fresh values from save_current_calibration() if needed)
+        self.sensor.mode = adafruit_bno055.CONFIG_MODE  # Important: force CONFIG first
+
+        self.sensor.offsets_accelerometer = (-26, 0, -50)
+        self.sensor.offsets_gyroscope = (-1, -4, -1)
+        self.sensor.offsets_magnetometer = (-839, -601, -413)
+
+        # These radius values are critical for stable magnetometer behavior
+        # (typical good values; tune once with save_current_calibration)
+        self.sensor.radius_accelerometer = 1000   # default ~1000
+        self.sensor.radius_magnetometer = 600    # default ~600
+
+        self.sensor.mode = NDOF_FMC_OFF_MODE     # Back to your fusion mode
+
+    logger.info("Fixed calibration loaded successfully")
 
     def log_mag_calibration_status(self) -> None:
         """Read and log calibration information from the underlying sensor library (if present).
