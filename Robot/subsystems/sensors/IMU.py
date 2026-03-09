@@ -223,6 +223,8 @@ class IMU():
             #while mag_calibration_level < 3 or sys_cal_level < 3:
             while True:
                 with self._lock:
+                    self._is_mag_calibrated = True
+                with self._lock:
                     sys, gyro, accel, mag = self.sensor.calibration_status
                 mag_calibration_level = mag
                 sys_cal_level = sys
