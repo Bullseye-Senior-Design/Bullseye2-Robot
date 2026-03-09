@@ -55,4 +55,16 @@ class Constants:
 
     status_led_green = 13
     status_led_red = 19
+    # Controller/BMS Serial
+    serial_baud_rate = 19200
+    controller_serial_port = "/dev/ttyUSB0"
+    pi_serial_port = "/dev/ttyAMA1"
+    bms_serial_port = "/dev/ttyUSB1"
+
+    # Controller input handling
+    controller_deadzone = 0.15
+    controller_update_rate = 0.5  # seconds (20 Hz)
+
+    #BMS Constants
+    bms_update_interval = 0.05 # seconds between reads
 

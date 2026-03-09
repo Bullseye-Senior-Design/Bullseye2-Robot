@@ -19,6 +19,12 @@ class Robot:
     def teleop_periodic(self):
         pass
 
+    def autonomous_init(self):
+        pass
+
+    def autonomous_periodic(self):
+        pass
+
     def test_init(self):
         pass
     

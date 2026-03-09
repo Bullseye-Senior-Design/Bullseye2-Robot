@@ -37,6 +37,15 @@ def main():
             
             if robot_state.is_teleop_enabled():
                 robot.teleop_periodic()
+
+            # Autonomous mode
+            if robot_state.should_init_autonomous():
+                print("Autonomous mode enabled")
+                robot.autonomous_init()
+
+            if robot_state.is_autonomous_enabled():
+                print("Running autonomous periodic function")
+                robot.autonomous_periodic()
             
             # Test mode
             if robot_state.should_init_test():
