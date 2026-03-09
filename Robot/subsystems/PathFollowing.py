@@ -52,7 +52,7 @@ class PathFollowing(Subsystem):
         
         # Constraints
         # CHANGED: Default to forward-only to prevent backwards/forwards oscillation traps
-        self.v_bounds = [Constants.rear_motor_top_speed*0.2, Constants.rear_motor_top_speed] 
+        self.v_bounds = [Constants.rear_motor_top_speed*0.5, Constants.rear_motor_top_speed] 
         self.delta_bounds = [-np.deg2rad(30), np.deg2rad(30)]
 
         # State bounds
