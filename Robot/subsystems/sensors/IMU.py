@@ -17,7 +17,7 @@ from Robot.subsystems.KalmanStateEstimator import KalmanStateEstimator
 from Robot.MathUtil import MathUtil
 
 logger = logging.getLogger(f"{__name__}.IMU")
-logger.setLevel(logging.DEBUG)  # Set to DEBUG for detailed output
+logger.setLevel(logging.INFO)  # Set to DEBUG for detailed output
 
 # implement a simple low-pass IIR filter for smoothing IMU data
 # cutoff frequency fc_hz, sampling frequency fs_hz
