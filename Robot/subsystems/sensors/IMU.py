@@ -258,9 +258,13 @@ class IMU():
                     self._is_mag_calibrated = True
                 with self._lock:
                     sys, gyro, accel, mag = self.sensor.calibration_status
+                    offsets_accelerometer = self.sensor.offsets_accelerometer
+                    offsets_gyroscope = self.sensor.offsets_gyroscope
+                    offsets_magnetometer = self.sensor.offsets_magnetometer
                 mag_calibration_level = mag
                 sys_cal_level = sys
                 logger.debug(f"Calibration Status: System={sys}, Gyro={gyro}, Accel={accel}, Mag={mag}")
+                logger.debug(f"Offsets: Accel={offsets_accelerometer}, Gyro={offsets_gyroscope}, Mag={offsets_magnetometer}")
                 time.sleep(0.1)
             
             with self._lock:
