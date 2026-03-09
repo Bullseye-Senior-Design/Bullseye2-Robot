@@ -1,6 +1,10 @@
 from Robot.subsystems.DriveTrain import DriveTrain
 from structure.commands.Command import Command
 from typing import Callable
+import logging
+
+logger = logging.getLogger(f"{__name__}.DriveTrain")
+logger.setLevel(logging.INFO)  # Set to DEBUG for detailed output
 
 class DefaultMovementCmd(Command):
     def __init__(self, drive_train: DriveTrain, throttle_supplier: Callable[[], float], steering_supplier: Callable[[], float]):
@@ -25,6 +29,7 @@ class DefaultMovementCmd(Command):
         # Get current values from suppliers (like getting values through references)
         throttle = self._throttle_supplier()
         steering = self._steering_supplier()
+
         
         # Convert steering to angle (0 to 180 degrees)
         # steering=-1.0 -> angle=180 (full left)
@@ -33,6 +38,8 @@ class DefaultMovementCmd(Command):
         angle = 90 - (steering * 90)
         angle = max(0, min(180, angle))  # Clamp to 0-180
         
+        logger.debug(f"commanding throttle {throttle} and angle {angle}")
+
         # Send to drivetrain
         self._drive_train.set_speed_angle(throttle, angle)
     

@@ -28,7 +28,7 @@ from structure.RobotState import RobotState
 
 # ==== LOGGING CONFIGURATION ====
 logger = logging.getLogger(f"{__name__}.PiCommThread")
-logger.setLevel(logging.INFO)  # Set to DEBUG for detailed output
+logger.setLevel(logging.DEBUG)  # Set to DEBUG for detailed output
 
 # ==== DEBUG/CONFIGURATION ====
 SUBSYSTEM_UPDATE_RATE = Constants.controller_update_rate  # ~10 Hz for subsystem polling
@@ -56,7 +56,7 @@ class CommData:
             btn_X=False, btn_Y=False,
             btn_LB=False, btn_RB=False,
             btn_LS=False, btn_RS=False,
-            btn_R2=False, btn_L2=False,
+            btn_R2=-1.0, btn_L2=-1.0,
             btn_share=False, btn_options=False,
         )
 
@@ -123,18 +123,21 @@ class PiCommThread:
         Runs in background thread.
         """
         try:
-            self.controller_ser = serial.Serial(Constants.controller_serial_port, Constants.serial_baud_rate, timeout=1)
-            logger.info(f"Connected to controller receiver on {Constants.controller_serial_port}")
+            # Initialize serial connection to receive from ControllerMessager
+            self.pi_ser = serial.Serial(Constants.pi_serial_port, Constants.serial_baud_rate, timeout=1)
+            logger.info(f"Connected to controller receiver on {Constants.pi_serial_port}")
 
             buffer = ""  # Accumulate incoming data
 
             while self._running:
                 try:
-                    if self.controller_ser.in_waiting == 0:
+                    # Read line from serial
+                    if(self.pi_ser.in_waiting == 0):
+                        logger.debug("No data available from controller")
                         time.sleep(SUBSYSTEM_UPDATE_RATE)
                         continue
 
-                    chunk = self.controller_ser.read(self.controller_ser.in_waiting).decode(errors="ignore")
+                    chunk = self.pi_ser.read(self.pi_ser.in_waiting).decode(errors="ignore")
                     buffer += chunk
 
                     # Split on newlines and process each complete line
@@ -144,7 +147,7 @@ class PiCommThread:
                         if not line:
                             continue
                         try:
-                            self._process_packet(self.controller_ser, line)
+                            self._process_packet(self.pi_ser, line)
                         except Exception as e:
                             logger.error(f"Error processing packet: {e}")
 
@@ -158,7 +161,7 @@ class PiCommThread:
     def _process_packet(self, serial_port, line: str):
         """Process a single received packet line."""
         logger.debug(f"data received {line}")
-        
+
         packet = DataPacket.model_validate_json(line)
         if packet.type == "state":
             state_data = StateData.model_validate_json(packet.json_data)
