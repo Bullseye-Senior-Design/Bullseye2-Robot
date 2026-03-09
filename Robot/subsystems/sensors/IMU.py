@@ -16,7 +16,7 @@ from Robot.subsystems.KalmanStateEstimator import KalmanStateEstimator
 from Robot.MathUtil import MathUtil
 
 logger = logging.getLogger(f"{__name__}.IMU")
-logger.setLevel(logging.INFO)  # Set to DEBUG for detailed output
+logger.setLevel(logging.DEBUG)  # Set to DEBUG for detailed output
 
 # implement a simple low-pass IIR filter for smoothing IMU data
 # cutoff frequency fc_hz, sampling frequency fs_hz
@@ -220,7 +220,8 @@ class IMU():
             mag_calibration_level = 0
             sys_cal_level = 0
             # wait until magnetometer calibration level reaches 3 (fully calibrated)
-            while mag_calibration_level < 3 or sys_cal_level < 1:
+            #while mag_calibration_level < 3 or sys_cal_level < 3:
+            while True:
                 with self._lock:
                     sys, gyro, accel, mag = self.sensor.calibration_status
                 mag_calibration_level = mag
