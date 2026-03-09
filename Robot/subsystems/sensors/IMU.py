@@ -46,6 +46,7 @@ class IMU():
     def _start(self):
         i2c = board.I2C() # uses board.SCL and board.SDA
         self.sensor = adafruit_bno055.BNO055_I2C(i2c)
+        self.sensor.mode = adafruit_bno055.OPERATION_MODE_NDOF_FMC_OFF
 
         self.acceleration = (0.0, 0.0, 0.0)
         self.gyro = (0.0, 0.0, 0.0)
