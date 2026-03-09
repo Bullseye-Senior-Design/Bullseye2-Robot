@@ -1,34 +1,4 @@
 # SPDX-FileCopyrightText: 2021 ladyada for Adafruit Industries
-
-
-"""2026-03-09 10:44:09,473 - Robot.subsystems.sensors.IMU.IMU - DEBUG - Calibration Status: System=2, Gyro=0, Accel=2, Mag=3
-2026-03-09 10:44:09,599 - Robot.subsystems.sensors.IMU.IMU - DEBUG - Calibration Status: System=3, Gyro=3, Accel=1, Mag=0
-2026-03-09 10:44:09,724 - Robot.subsystems.sensors.IMU.IMU - DEBUG - Calibration Status: System=3, Gyro=3, Accel=1, Mag=0
-2026-03-09 10:44:09,851 - Robot.subsystems.sensors.IMU.IMU - DEBUG - Calibration Status: System=3, Gyro=3, Accel=1, Mag=0
-2026-03-09 10:44:09,975 - Robot.subsystems.sensors.IMU.IMU - DEBUG - Calibration Status: System=3, Gyro=3, Accel=1, Mag=0
-2026-03-09 10:44:10,131 - Robot.subsystems.sensors.IMU.IMU - DEBUG - Calibration Status: System=0, Gyro=0, Accel=2, Mag=3
-2026-03-09 10:44:10,255 - Robot.subsystems.sensors.IMU.IMU - DEBUG - Calibration Status: System=3, Gyro=3, Accel=1, Mag=0
-2026-03-09 10:44:10,373 - Robot.subsystems.sensors.IMU.IMU - DEBUG - Calibration Status: System=3, Gyro=3, Accel=1, Mag=0
-2026-03-09 10:44:10,489 - Robot.subsystems.sensors.IMU.IMU - DEBUG - Calibration Status: System=3, Gyro=3, Accel=1, Mag=0
-2026-03-09 10:44:10,604 - Robot.subsystems.sensors.IMU.IMU - DEBUG - Calibration Status: System=3, Gyro=3, Accel=1, Mag=0
-2026-03-09 10:44:10,725 - Robot.subsystems.sensors.IMU.IMU - DEBUG - Calibration Status: System=3, Gyro=3, Accel=1, Mag=0
-2026-03-09 10:44:10,862 - Robot.subsystems.sensors.IMU.IMU - DEBUG - Calibration Status: System=3, Gyro=3, Accel=1, Mag=0
-2026-03-09 10:44:11,039 - Robot.subsystems.sensors.IMU.IMU - DEBUG - Calibration Status: System=2, Gyro=0, Accel=2, Mag=3
-2026-03-09 10:44:11,146 - Robot.subsystems.sensors.IMU.IMU - DEBUG - Calibration Status: System=3, Gyro=3, Accel=1, Mag=0
-2026-03-09 10:44:11,255 - Robot.subsystems.sensors.IMU.IMU - DEBUG - Calibration Status: System=3, Gyro=3, Accel=1, Mag=0
-2026-03-09 10:44:11,452 - Robot.subsystems.sensors.IMU.IMU - DEBUG - Calibration Status: System=3, Gyro=3, Accel=1, Mag=0
-2026-03-09 10:44:11,650 - Robot.subsystems.sensors.IMU.IMU - DEBUG - Calibration Status: System=0, Gyro=0, Accel=2, Mag=3
-2026-03-09 10:44:11,757 - Robot.subsystems.sensors.IMU.IMU - DEBUG - Calibration Status: System=3, Gyro=3, Accel=1, Mag=0
-2026-03-09 10:44:11,875 - Robot.subsystems.sensors.IMU.IMU - DEBUG - Calibration Status: System=3, Gyro=3, Accel=1, Mag=0
-2026-03-09 10:44:12,040 - Robot.subsystems.sensors.IMU.IMU - DEBUG - Calibration Status: System=2, Gyro=0, Accel=2, Mag=3
-^CShutting down robot...
-2026-03-09 10:44:12,097 - UWBTag - INFO - Disconnected
-2026-03-09 10:44:12,136 - UWBTag - INFO - Disconnected
-2026-03-09 10:44:12,147 - Robot.subsystems.sensors.IMU.IMU - DEBUG - Calibration Status: System=3, Gyro=3, Accel=1, Mag=0
-2026-03-09 10:44:12,266 - Robot.subsystems.sensors.IMU.IMU - DEBUG - Calibration Status: System=2, Gyro=0, Accel=2, Mag=3
-2026-03-09 10:44:12,377 - Robot.subsystems.sensors.IMU.IMU - DEBUG - Calibration Status: System=3, Gyro=3, Accel=1, Mag=0
-2026-03-09 10:44:12,480 - Robot.subsystems.sensors.IMU.IMU - DEBUG - Calibration Status: System=3, Gyro=3, Accel=1, Mag=0
-2026-03-09 10:44:12,582 - Robot.subsystems.sensors.IMU.IMU - DEBUG - Calibration Status: System=3, Gyro=3, Accel=1, Mag=0"""
 # SPDX-License-Identifier: MIT
 import threading
 import board
