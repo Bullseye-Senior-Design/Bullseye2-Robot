@@ -6,6 +6,7 @@ import digitalio
 import busio
 
 import adafruit_bno055
+from adafruit_bno055 import OPERATION_MODE_NDOF_FMC_OFF
 import math
 import numpy as np
 import logging
