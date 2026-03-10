@@ -124,46 +124,59 @@ class PiCommThread:
         """
         try:
             # Initialize serial connection to receive from ControllerMessager
-            self.controller_ser = serial.Serial(Constants.pi_serial_port, Constants.serial_baud_rate, timeout=1)
+            self.pi_ser = serial.Serial(Constants.pi_serial_port, Constants.serial_baud_rate, timeout=1)
             logger.info(f"Connected to controller receiver on {Constants.pi_serial_port}")
+
+            buffer = ""  # Accumulate incoming data
 
             while self._running:
                 try:
                     # Read line from serial
-                    if(self.controller_ser.in_waiting == 0):
+                    if(self.pi_ser.in_waiting == 0):
                         logger.debug("No data available from controller")
                         time.sleep(SUBSYSTEM_UPDATE_RATE)
                         continue
-                    
-                    line = self.controller_ser.readline().decode().strip()
 
-                    logger.debug(f"data recived {line}")
+                    chunk = self.pi_ser.read(self.pi_ser.in_waiting).decode(errors="ignore")
+                    buffer += chunk
 
-                    packet = DataPacket.model_validate_json(line)
-
-                    if(packet.type == "state"):
-                        state_data = StateData.model_validate_json(packet.json_data)
-                        self._handle_state_change(state_data.state)
-                        self.comm_data.state_data = state_data
-                    elif(packet.type == "controller"):
-                        controller_data = ControllerData.model_validate_json(packet.json_data)
-                        self.comm_data.controller_data = controller_data
-
-                    if self.bms:
-                        self.comm_data.battery_data = self.bms.get_battery_data()
-
-                    payload = self.comm_data.battery_data.model_dump_json()  # Serialize controller data to JSON string
-                    data_packet = DataPacket(type="battery", json_data=payload).model_dump_json()  # Wrap in DataPacket and serialize to JSON string
-                    
-                    self.controller_ser.write((data_packet + "\n").encode())  # Send to ControllerMessager
+                    # Split on newlines and process each complete line
+                    while "\n" in buffer:
+                        line, buffer = buffer.split("\n", 1)
+                        line = line.strip()
+                        if not line:
+                            continue
+                        try:
+                            self._process_packet(self.pi_ser, line)
+                        except Exception as e:
+                            logger.error(f"Error processing packet: {e}")
 
                 except Exception as e:
                     logger.error(f"Error reading controller command: {e}")
-
-                time.sleep(SUBSYSTEM_UPDATE_RATE)  # Small sleep to prevent CPU hogging
+                    time.sleep(SUBSYSTEM_UPDATE_RATE)
 
         except serial.SerialException as e:
             logger.error(f"Could not connect to controller receiver: {e}")
+
+    def _process_packet(self, serial_port, line: str):
+        """Process a single received packet line."""
+        logger.debug(f"data received {line}")
+
+        packet = DataPacket.model_validate_json(line)
+        if packet.type == "state":
+            state_data = StateData.model_validate_json(packet.json_data)
+            self._handle_state_change(state_data.state)
+            self.comm_data.state_data = state_data
+        elif packet.type == "controller":
+            controller_data = ControllerData.model_validate_json(packet.json_data)
+            self.comm_data.controller_data = controller_data
+
+        if self.bms:
+            self.comm_data.battery_data = self.bms.get_battery_data()
+
+        payload = self.comm_data.battery_data.model_dump_json()
+        data_packet = DataPacket(type="battery", json_data=payload).model_dump_json()
+        serial_port.write((data_packet + "\n").encode())
 
     def _handle_state_change(self, new_state):
         """
