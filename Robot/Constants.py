@@ -66,7 +66,7 @@ class Constants:
 
     # Controller input handling
     controller_deadzone = 0.15
-    controller_update_rate = 0.5  # seconds (20 Hz)
+    controller_update_rate = 0.1  # seconds (20 Hz)
 
     #BMS Constants
     bms_update_interval = 0.05 # seconds between reads
