@@ -22,7 +22,9 @@ class DefaultMovementCmd(Command):
 
     def initialize(self):
         """Called once when the command is first scheduled"""
-        pass
+        self._drive_train.engage_backwheel()  # Ensure backwheel is engaged for movement
+        self._drive_train.engage_frontwheel()  # Ensure frontwheel is engaged for movement
+        self._drive_train.stop()
     
     def execute(self):
         """Called repeatedly while the command is scheduled"""
