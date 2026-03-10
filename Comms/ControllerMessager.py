@@ -17,9 +17,9 @@ from Robot.Constants import Constants
 
 # ==== CONFIG ====
 DEBUG = True                # Set to True for debugging output
-DEBUGPRINT = True           # Set to True for debug print statements
+DEBUGPRINT = False           # Set to True for debug print statements
 ErrTEST = False             # Set to True to allow running without serial connection (for testing without hardware)
-MENU = False
+MENU = True
 ESTOP = False              # If True, pressing the Y button will immediately send a DISABLED state to the robot (emergency stop)
 PORT = Constants.controller_serial_port
 BAUD = Constants.serial_baud_rate
@@ -217,7 +217,7 @@ def main():
             # Check for mode change inputs (only on press, not hold)
             if current_state != State.DISABLED:
                 if btn_B:
-                    new_state = State.DISABLED
+                    current_state = State.DISABLED
                     state_changed = True
                     if MENU:
                         printmenu()
@@ -247,7 +247,6 @@ def main():
             # Update current state if changed
             if state_changed:
                 current_state = new_state
-
                 # Send state change as DataPacket
                 state_data = StateData(state=current_state, path_speed=None, path_id=None)
                 packet = DataPacket(type="state", json_data=state_data.model_dump_json())
