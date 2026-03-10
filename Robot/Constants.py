@@ -35,11 +35,11 @@ class Constants:
     backwheel_reverse_ssr_pin = 22
     backwheel_power_ssr_pin = 4
     rear_motor_top_speed = 0.13
-    backwheel_power_scale_factor = 0.2  # Scale factor for back wheel speed control
+    backwheel_power_scale_factor = 0.3  # Scale factor for back wheel speed control
     
     # Front Wheel Constants
     frontwheel_power_ssr_pin = 17
-    frontwheel_power_scale_factor = 0.1  # Scale factor for front wheel angle control
+    frontwheel_power_scale_factor = 0.2  # Scale factor for front wheel angle control
     
     # Clutches Constants
     left_clutch_pin = 26
@@ -66,7 +66,7 @@ class Constants:
 
     # Controller input handling
     controller_deadzone = 0.15
-    controller_update_rate = 0.5  # seconds (20 Hz)
+    controller_update_rate = 0.05  # seconds (20 Hz)
 
     #BMS Constants
     bms_update_interval = 0.05 # seconds between reads
