@@ -14,13 +14,9 @@ class Clutches(Subsystem):
         # GPIO pin setup code here
         self.left_clutch_pin = Constants.left_clutch_pin
         self.right_clutch_pin = Constants.right_clutch_pin
-        self.status_pin_green = Constants.status_led_green
-        self.status_pin_red = Constants.status_led_red
         GPIO.setmode(GPIO.BCM)
         GPIO.setup(self.left_clutch_pin, GPIO.OUT)
         GPIO.setup(self.right_clutch_pin, GPIO.OUT)
-        GPIO.setup(self.status_pin_green, GPIO.OUT)
-        GPIO.setup(self.status_pin_red, GPIO.OUT)
 
     def engage_clutches(self):
         """Engage both clutches."""
@@ -59,18 +55,6 @@ class Clutches(Subsystem):
             GPIO.output(self.right_clutch_pin, GPIO.LOW)
         except Exception as e:
             logger.error(f"Failed to disengage right clutch: {e}")
-
-    def set_green_status_led(self, isOn):
-        if isOn:
-            GPIO.output(self.status_pin_green, GPIO.HIGH)
-        else:
-            GPIO.output(self.status_pin_green, GPIO.LOW)
-
-    def set_red_status_led(self, isOn):
-        if isOn:
-            GPIO.output(self.status_pin_red, GPIO.HIGH)
-        else:
-            GPIO.output(self.status_pin_red, GPIO.LOW)
         
     def close(self):
         """Cleanup GPIO pins."""
