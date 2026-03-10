@@ -4,7 +4,7 @@ from typing import Callable
 import logging
 
 logger = logging.getLogger(f"{__name__}.DriveTrain")
-logger.setLevel(logging.DEBUG)  # Set to DEBUG for detailed output
+logger.setLevel(logging.INFO)  # Set to DEBUG for detailed output
 
 class DefaultMovementCmd(Command):
     def __init__(self, drive_train: DriveTrain, throttle_supplier: Callable[[], float], steering_supplier: Callable[[], float]):
@@ -37,7 +37,7 @@ class DefaultMovementCmd(Command):
         # steering=-1.0 -> angle=180 (full left)
         # steering=0 -> angle=90 (straight)
         # steering=1.0 -> angle=0 (full right)
-        angle = steering
+        angle = -steering
         #angle = 90 - (steering * 90)
 
         #angle = max(0, min(180, 90))  # Clamp to 0-180
