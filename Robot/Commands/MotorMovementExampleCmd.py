@@ -23,23 +23,22 @@ class MotorMovementExampleCmd(Command):
     def initialize(self):
         self.start_time = time.time()
         self.speed = 1
-        self.clutches.set_green_status_led(True)
-        self.clutches.set_red_status_led(False)
-        
-            
-        pass
-    
+
     def execute(self):
         elapsed_time = time.time() - self.start_time
         # Cycle between -1 and 1 with a period of 10 seconds
         self.speed = math.sin(elapsed_time * 2 * math.pi / 10.0)
-        self.drive_train.set_speed_angle(self.speed, 180)
+        self.drive_train.set_speed_angle(self.speed, 90)
         #logger.debug(f"")
         #logger.debug(f"Front wheel position: {self.drive_train.get_frontwheel_position()}")
-        self.drive_train.engage_backwheel()
-        self.drive_train.engage_frontwheel()
-        self.clutches.engage_clutches()
-        pass
+        if self.speed > 0:
+            self.drive_train.engage_backwheel()
+            self.drive_train.engage_frontwheel()
+            self.clutches.engage_clutches()
+        else:
+            self.drive_train.disengage_backwheel()
+            self.drive_train.disengage_frontwheel()
+            self.clutches.disengage_clutches()
     
     def end(self, interrupted):
         self.drive_train.stop()
@@ -47,7 +46,6 @@ class MotorMovementExampleCmd(Command):
         self.clutches.disengage_right_clutch()
         self.drive_train.disengage_backwheel()
         self.drive_train.disengage_frontwheel()
-        pass
     
     def is_finished(self):
         return False

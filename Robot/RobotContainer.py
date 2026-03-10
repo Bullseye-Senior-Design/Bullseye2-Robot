@@ -9,6 +9,7 @@ from Robot.subsystems.sensors.IMU import IMU
 from Robot.subsystems.PathFollowing import PathFollowing
 from Robot.subsystems.DriveTrain import DriveTrain
 from Robot.subsystems.BMS import BMS
+from Robot.subsystems.PCBLEDs import PCBLEDs
 import time
 
 from Robot.subsystems.sensors.BackWheelEncoder import BackWheelEncoder
@@ -33,6 +34,7 @@ class RobotContainer:
         self.path_following = PathFollowing()
         self.drive_train = DriveTrain()
         self.header_healer_switches = HeaderHealerSwitches()
+        self.pcb_leds = PCBLEDs()
         
         # Start subsystems
         self.bms = BMS()
@@ -64,4 +66,5 @@ class RobotContainer:
         self.back_Wheel_encoder.close()
         self.header_healer_switches.close()
         self.bms.close()
+        self.pcb_leds.close()
         self.comm_thread.close()
