@@ -38,7 +38,10 @@ class DefaultMovementCmd(Command):
         # steering=0 -> angle=90 (straight)
         # steering=1.0 -> angle=0 (full right)
         angle = 90 - (steering * 90)
-        angle = max(0, min(180, angle))  # Clamp to 0-180
+
+        logger.debug(f"Throttle: {throttle}, Steering: {steering}, Angle: {angle}")
+
+        angle = max(0, min(180, 90))  # Clamp to 0-180
         
         logger.debug(f"commanding throttle {throttle} and angle {angle}")
 
