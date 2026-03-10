@@ -246,9 +246,7 @@ class IMU():
             sys_cal_level = 0
             # wait until magnetometer calibration level reaches 3 (fully calibrated)
             #while mag_calibration_level < 3 or sys_cal_level < 3:
-            while True:
-                with self._lock:
-                    self._is_mag_calibrated = True
+            while mag_calibration_level < 3 or sys_cal_level < 3:
                 with self._lock:
                     sys, gyro, accel, mag = self.sensor.calibration_status
                     offsets_accelerometer = self.sensor.offsets_accelerometer
