@@ -17,7 +17,7 @@ from Robot.subsystems.KalmanStateEstimator import KalmanStateEstimator
 from Robot.MathUtil import MathUtil
 
 logger = logging.getLogger(f"{__name__}.IMU")
-logger.setLevel(logging.INFO)  # Set to DEBUG for detailed output
+logger.setLevel(logging.DEBUG)  # Set to DEBUG for detailed output
 
 # implement a simple low-pass IIR filter for smoothing IMU data
 # cutoff frequency fc_hz, sampling frequency fs_hz
@@ -88,10 +88,9 @@ class IMU():
         self._quat_est_cached = (0.0, 0.0, 0.0, 1.0)
         self._is_offset_set = False
 
-        self.load_fixed_calibration()
-        #self.sensor.offsets_accelerometer = (-26, 0, -50)
-        #self.sensor.offsets_gyroscope = (-1, -4, -1)
-        #self.sensor.offsets_magnetometer = (-839, -601, -413)
+        self.sensor.offsets_accelerometer = (-26, 0, -50)
+        self.sensor.offsets_gyroscope = (-1, -4, -1)
+        self.sensor.offsets_magnetometer = (-839, -601, -413)
         
         self._is_mag_calibrated = False
         
@@ -211,28 +210,7 @@ class IMU():
     def is_mag_calibrated(self) -> bool:
         with self._lock:
             return self._is_mag_calibrated
-        
-    def load_fixed_calibration(self) -> None:
-        """Load constant calibration values (offsets + radius). 
-        This is the official way to 'disable' dynamic calibration."""
-        logger.info("Loading fixed calibration profile...")
 
-        # These are the constant values you already found
-        # (replace with fresh values from save_current_calibration() if needed)
-        self.sensor.mode = adafruit_bno055.CONFIG_MODE  # Important: force CONFIG first
-
-        self.sensor.offsets_accelerometer = (-26, 0, -50)
-        self.sensor.offsets_gyroscope = (-1, -4, -1)
-        self.sensor.offsets_magnetometer = (-839, -601, -413)
-
-        # These radius values are critical for stable magnetometer behavior
-        # (typical good values; tune once with save_current_calibration)
-        self.sensor.radius_accelerometer = 1000   # default ~1000
-        self.sensor.radius_magnetometer = 600    # default ~600
-
-        self.sensor.mode = NDOF_FMC_OFF_MODE     # Back to your fusion mode
-
-    logger.info("Fixed calibration loaded successfully")
 
     def log_mag_calibration_status(self) -> None:
         """Read and log calibration information from the underlying sensor library (if present).
