@@ -35,9 +35,11 @@ class Constants:
     backwheel_reverse_ssr_pin = 22
     backwheel_power_ssr_pin = 4
     rear_motor_top_speed = 0.13
+    backwheel_power_scale_factor = 0.2  # Scale factor for back wheel speed control
     
     # Front Wheel Constants
     frontwheel_power_ssr_pin = 17
+    frontwheel_power_scale_factor = 0.1  # Scale factor for front wheel angle control
     
     # Clutches Constants
     left_clutch_pin = 26
@@ -55,6 +57,7 @@ class Constants:
 
     status_led_green = 13
     status_led_red = 19
+
     # Controller/BMS Serial
     serial_baud_rate = 19200
     controller_serial_port = "/dev/ttyUSB0"

@@ -1,5 +1,6 @@
 """Motor control subsystem for commanding robot motors via I2C."""
 
+from turtle import speed
 from typing import Optional
 
 from structure.Subsystem import Subsystem
@@ -30,6 +31,8 @@ class DriveTrain(Subsystem):
             self._frontwheel_power_ssr_pin = Constants.frontwheel_power_ssr_pin
             self._dac_backwheel_channel = Constants.dac_backwheel_channel
             self._dac_frontwheel_channel = Constants.dac_frontwheel_channel
+            self._frontwheel_power_scale_factor = Constants.frontwheel_power_scale_factor
+            self._backwheel_power_scale_factor = Constants.backwheel_power_scale_factor
             
             GPIO.setmode(GPIO.BCM)
             GPIO.setup(self._backwheel_forward_ssr_pin, GPIO.OUT)
@@ -40,6 +43,9 @@ class DriveTrain(Subsystem):
             GPIO.output(self._backwheel_power_ssr_pin, GPIO.HIGH)
             GPIO.output(self._frontwheel_power_ssr_pin, GPIO.HIGH)
             self.shutdown = False
+
+            self._dac.write_dac(self._dac_backwheel_channel, 0)
+            self._dac.write_dac(self._dac_frontwheel_channel, 0.5)  # Simple mapping for demonstration
 
             logger.info(f"DriveTrain initialized with SSR pins: {self._backwheel_forward_ssr_pin}, {self._backwheel_reverse_ssr_pin}, {self._backwheel_power_ssr_pin}, {self._frontwheel_power_ssr_pin}")
         
@@ -63,8 +69,8 @@ class DriveTrain(Subsystem):
 
         is_reverse = speed < 0
         self._set_wheel_directions(is_reverse)
-        self._dac.write_dac(self._dac_backwheel_channel, abs(speed))
-        self._dac.write_dac(self._dac_frontwheel_channel, abs(angle - 90) / 90)  # Simple mapping for demonstration
+        #self._dac.write_dac(self._dac_backwheel_channel, abs(speed) * self._backwheel_power_scale_factor)
+        #self._dac.write_dac(self._dac_frontwheel_channel, abs(angle - 90) / 90 * self._frontwheel_power_scale_factor)  # Simple mapping for demonstration
         logger.debug(f"Set speed: {speed}, angle: {angle}, is_reverse: {is_reverse}")
 
     def _set_wheel_directions(self, is_reverse: bool):

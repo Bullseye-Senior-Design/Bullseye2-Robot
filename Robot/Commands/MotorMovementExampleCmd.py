@@ -39,18 +39,6 @@ class MotorMovementExampleCmd(Command):
         self.drive_train.engage_backwheel()
         self.drive_train.engage_frontwheel()
         self.clutches.engage_clutches()
-
-        if self.header_healer_switches.get_header_switch_triggered():
-            logger.debug("Header switch triggered: Engaging clutches and disengaging wheels")
-            self.clutches.engage_clutches()
-            self.drive_train.disengage_backwheel()
-            self.drive_train.disengage_frontwheel()
-            
-        if self.header_healer_switches.get_healer_switch_triggered():
-            logger.debug("Healer switch triggered: Disengaging clutches and engaging wheels")
-            self.clutches.disengage_clutches()
-            self.drive_train.engage_backwheel()
-            self.drive_train.engage_frontwheel()
         pass
     
     def end(self, interrupted):
