@@ -26,7 +26,7 @@ def main() -> None:
     # Configure settings (Gain, Acceleration Rejection, Magnetic Rejection)
     # 0.5 is a standard gain for general motion.
     ahrs.settings = imufusion.Settings(
-        imufusion.CONVENTION_NWU, # North-West-Up is common for robotics
+        imufusion.CONVENTION_NED, # North-West-Up is common for robotics
         0.5,      # Gain
         10.0,     # Acceleration rejection (degrees)
         20.0,     # Magnetic rejection (degrees)
