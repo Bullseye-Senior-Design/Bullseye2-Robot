@@ -191,6 +191,7 @@ class PathFollowing(Subsystem):
         opts = {
             'ipopt.print_level': 0,
             'print_time': 0,
+            'ipopt.warm_start_init_point': 'yes', # Tells the solver to actively use that previous state to initialize its next guess. 
             'ipopt.acceptable_tol': 1e-3,
             'ipopt.max_iter': 100
         }
