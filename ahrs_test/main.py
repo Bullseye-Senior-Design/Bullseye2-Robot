@@ -14,6 +14,24 @@ def read_vector(vec: tuple[float | None, float | None, float | None] | None) -> 
         return None
     return np.array(vec, dtype=float)
 
+def get_hardcoded_calibration():
+    # Replace these numbers with the ones printed during your one-time calibration
+    return {
+        "gyro_offset": np.array([-0.00127724, -0.00278231, -0.00129795]),
+        "accel_offset": np.array([157.45,  158.155,   0.74 ]),
+        "accel_scale": np.array([167.91,  168.865,  11.88]), # Notice this handles the m/s^2 to G conversion!
+        "mag_offset": np.array([ 974.875,  1010.15625,  953.75   ]),
+        "mag_scale": np.array( [1036.3125,  1031.15625, 1031.375  ])
+    }
+
+def apply_calibration(raw, offset, scale):
+    """
+    Applies zero-offset and scaling.
+    Crucially, because raw accel is in m/s^2, this math forces the output 
+    into exact +/- 1.0 (Earth Gs), which is what imufusion requires.
+    """
+    return (raw - offset) / scale
+
 def main() -> None:
     # 1. Initialize Hardware
     i2c = busio.I2C(board.SCL, board.SDA)
@@ -22,21 +40,22 @@ def main() -> None:
     # 2. Initialize imufusion AHRS
     # The default sample rate is 100Hz, but we will update it dynamically in the loop
     ahrs = imufusion.Ahrs()
+    sample_rate = 100  # Hz
     
-    # Configure settings.
-    # Signature is: Settings(convention, gain, gyroscope_range_dps,
-    #                        acceleration_rejection_deg, magnetic_rejection_deg,
-    #                        recovery_trigger_period_samples)
     ahrs.settings = imufusion.Settings(
         imufusion.CONVENTION_NED,  # North-East-Down frame
         0.5,       # Gain
         2000.0,    # Gyroscope range in deg/s (BNO055 supports up to 2000 dps)
         10.0,      # Acceleration rejection (degrees)
         20.0,      # Magnetic rejection (degrees)
-        10 * 100   # Recovery trigger period (10 seconds at 100Hz)
+        10 * sample_rate   # Recovery trigger period (10 seconds at 100Hz)
     )
 
     t_prev = time.perf_counter()
+    
+    # The dynamic gyro calibrator catches temperature drift during runtime
+    dynamic_offset = imufusion.Offset(sample_rate)
+    cal = get_hardcoded_calibration()
 
     print("Starting AHRS fusion. Press Ctrl+C to stop.")
 
@@ -53,15 +72,26 @@ def main() -> None:
         now = time.perf_counter()
         dt = now - t_prev
         t_prev = now
+        
+        # A. Apply static calibration
+        # Accel goes from m/s^2 -> Gs
+        # Mag gets centered and spherized
+        cal_accel = apply_calibration(acc_raw, cal["accel_offset"], cal["accel_scale"])
+        cal_mag   = apply_calibration(mag_raw, cal["mag_offset"], cal["mag_scale"])
+        
+        # B. Handle Gyroscope
+        # Adafruit library outputs Gyro in Radians/sec. 
+        # imufusion REQUIRES Degrees/sec.
+        if gyr_raw is None:
+            continue
+        cal_gyro_rad = gyr_raw - cal["gyro_offset"]
+        cal_gyro_deg = np.degrees(cal_gyro_rad)
 
-        # IMPORTANT: imufusion expects GYROSCOPE in DEGREES PER SECOND
-        # BNO055 adafruit library provides RADIANS PER SECOND
-        gyr_deg = np.degrees(gyr_raw)
+        # C. Apply dynamic run-time gyro offset 
+        cal_gyro_deg = dynamic_offset.update(cal_gyro_deg)
 
-        # Update AHRS
-        # Note: We use .update() which handles 9-DOF (Gyro, Accel, Mag)
-        # If you only wanted 6-DOF, you'd use .update_no_magnetometer()
-        ahrs.update(gyr_deg, acc_raw, mag_raw, dt)
+        # D. Update Fusion algorithm
+        ahrs.update(cal_gyro_deg, cal_accel, cal_mag, dt)
 
         # Get orientation as Euler angles [roll, pitch, yaw] in degrees.
         euler = ahrs.quaternion.to_euler()
