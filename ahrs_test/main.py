@@ -72,26 +72,10 @@ def main() -> None:
         now = time.perf_counter()
         dt = now - t_prev
         t_prev = now
-        
-        # A. Apply static calibration
-        # Accel goes from m/s^2 -> Gs
-        # Mag gets centered and spherized
-        cal_accel = apply_calibration(acc_raw, cal["accel_offset"], cal["accel_scale"])
-        cal_mag   = apply_calibration(mag_raw, cal["mag_offset"], cal["mag_scale"])
-        
-        # B. Handle Gyroscope
-        # Adafruit library outputs Gyro in Radians/sec. 
-        # imufusion REQUIRES Degrees/sec.
-        if gyr_raw is None:
-            continue
-        cal_gyro_rad = gyr_raw - cal["gyro_offset"]
-        cal_gyro_deg = np.degrees(cal_gyro_rad)
 
-        # C. Apply dynamic run-time gyro offset 
-        cal_gyro_deg = dynamic_offset.update(cal_gyro_deg)
-
-        # D. Update Fusion algorithm
-        ahrs.update(cal_gyro_deg, cal_accel, cal_mag, dt)
+        # # D. Update Fusion algorithm
+        # ahrs.update(cal_gyro_deg, cal_accel, cal_mag, dt)
+        ahrs.update(np.degrees(gyr_raw), acc_raw / 9.81, mag_raw, dt)  # Directly feed raw data with proper units
 
         # Get orientation as Euler angles [roll, pitch, yaw] in degrees.
         euler = ahrs.quaternion.to_euler()
