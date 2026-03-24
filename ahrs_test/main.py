@@ -72,10 +72,13 @@ def main() -> None:
         now = time.perf_counter()
         dt = now - t_prev
         t_prev = now
+        
+        cal_gyro_deg = np.degrees(gyr_raw)# Convert to deg/s and apply offset
+        cal_gyro_deg = dynamic_offset.update(cal_gyro_deg)
 
         # # D. Update Fusion algorithm
         # ahrs.update(cal_gyro_deg, cal_accel, cal_mag, dt)
-        ahrs.update(np.degrees(gyr_raw), acc_raw / 9.81, mag_raw, dt)  # Directly feed raw data with proper units
+        ahrs.update(cal_gyro_deg, acc_raw / 9.81, mag_raw, dt)  # Directly feed raw data with proper units
 
         # Get orientation as Euler angles [roll, pitch, yaw] in degrees.
         euler = ahrs.quaternion.to_euler()
