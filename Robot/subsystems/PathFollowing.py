@@ -45,7 +45,8 @@ class PathFollowing(Subsystem):
         # Weights (Q for state, R for input, Rd for rate of change, V for speed tracking)
         # CHANGED: Lowered lateral weight slightly so it doesn't fight the forward progress as violently
         self.Q_diag = np.array([10.0, 15.0]) 
-        self.Q_terminal_diag = np.array([5.0, 5.0, 5.0]) # [lateral, heading, longitudinal] terminal (last point) weights
+        # TODO - Test removing terminal weight to see if it prevents stalling
+        self.Q_terminal_diag = np.array([0.0, 0.0, 0.0]) # [lateral, heading, longitudinal] terminal (last point) weights
         self.R_diag = np.array([0.1, 0.1]) 
         self.Rd_diag = np.array([3.0, 5.0]) 
         self.V_weight = 20.0  
