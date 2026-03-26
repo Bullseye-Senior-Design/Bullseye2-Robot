@@ -220,11 +220,11 @@ class MiniBullseyeControlCmd(Command):
             changed = True
 
         if self.keys_pressed["a"] and not self.keys_pressed["d"]:
-            new_angle = max(self.steer_min, self.steering_slider.get() - self.steer_step)
+            new_angle = max(self.steer_min, self.steering_slider.get() + self.steer_step)
             self.steering_slider.set(new_angle)
             changed = True
         elif self.keys_pressed["d"] and not self.keys_pressed["a"]:
-            new_angle = min(self.steer_max, self.steering_slider.get() + self.steer_step)
+            new_angle = min(self.steer_max, self.steering_slider.get() - self.steer_step)
             self.steering_slider.set(new_angle)
             changed = True
 
