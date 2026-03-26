@@ -46,6 +46,8 @@ class RobotContainer:
         #     InstantCommand(lambda: self.motor_control.default_command(MiniBullseyeControlCmd(self.motor_control, self.path_following)))
         # )
         # calibrate_cmds.schedule()
+        ZeroIMUCmd(self.motor_control, self.path_following, schedule_followup=False).schedule()
+
             
         
         # PlotStateCmd().schedule()
