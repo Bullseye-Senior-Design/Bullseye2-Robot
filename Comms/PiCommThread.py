@@ -32,6 +32,7 @@ logger.setLevel(logging.DEBUG)  # Set to DEBUG for detailed output
 
 # ==== DEBUG/CONFIGURATION ====
 SUBSYSTEM_UPDATE_RATE = Constants.controller_update_rate  # ~10 Hz for subsystem polling
+BATTERY_SEND_RATE = 1 / 0.05  # 0.05 Hz -> 20 seconds between battery updates
 
 # ==== ROBOT STATE DATA ====
 class CommData:
@@ -117,6 +118,15 @@ class PiCommThread:
         self.comms_thread.start()
         logger.info("Started controller receiver thread")
 
+        # Start battery sender thread
+        self.battery_thread = threading.Thread(
+            target=self._send_battery_data,
+            daemon=True,
+            name="BatterySender"
+        )
+        self.battery_thread.start()
+        logger.info("Started battery sender thread")
+
     def _receive_controller_commands(self):
         """
         Continuously receive commands from ControllerMessager over serial.
@@ -171,12 +181,24 @@ class PiCommThread:
             controller_data = ControllerData.model_validate_json(packet.json_data)
             self.comm_data.controller_data = controller_data
 
-        if self.bms:
-            self.comm_data.battery_data = self.bms.get_battery_data()
+    def _send_battery_data(self):
+        """
+        Periodically sends battery data to the controller at 0.05 Hz (every 20 seconds).
+        Runs in background thread, decoupled from controller message receive rate.
+        """
+        while self._running:
+            time.sleep(BATTERY_SEND_RATE)
+            try:
+                if self.bms:
+                    self.comm_data.battery_data = self.bms.get_battery_data()
 
-        payload = self.comm_data.battery_data.model_dump_json()
-        data_packet = DataPacket(type="battery", json_data=payload).model_dump_json()
-        serial_port.write((data_packet + "\n").encode())
+                if self.pi_ser and self.pi_ser.is_open:
+                    payload = self.comm_data.battery_data.model_dump_json()
+                    data_packet = DataPacket(type="battery", json_data=payload).model_dump_json()
+                    self.pi_ser.write((data_packet + "\n").encode())
+                    logger.debug("Sent battery data to controller")
+            except Exception as e:
+                logger.error(f"Error sending battery data: {e}")
 
     def _handle_state_change(self, new_state):
         """
@@ -245,6 +267,7 @@ class PiCommThread:
 
         # Wait for all threads to finish (with timeout)
         self.comms_thread.join(timeout=2.0)
+        self.battery_thread.join(timeout=2.0)
 
         # Close serial connection
         if self.controller_ser:
