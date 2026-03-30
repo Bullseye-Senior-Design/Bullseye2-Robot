@@ -254,6 +254,14 @@ def main():
                     ser.write((packet.model_dump_json() + "\n").encode())
                 if DEBUG:
                     print(f"[STATE] Sent: {packet.model_dump_json()}")
+                # Skip controller data send this iteration so both packets
+                # don't go out simultaneously and get combined by the XBee
+                prev_dpad_up = dpad_up
+                prev_dpad_down = dpad_down
+                prev_dpad_left = dpad_left
+                prev_dpad_right = dpad_right
+                time.sleep(UPDATE_RATE)
+                continue
 
             # Update previous button states
             prev_dpad_up = dpad_up
