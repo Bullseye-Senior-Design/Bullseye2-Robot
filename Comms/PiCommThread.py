@@ -49,7 +49,7 @@ class CommData:
         # Controller input data (from PiControllerReceiver)
         self.controller_data = ControllerData(
             left_x=0.0, left_y=0.0,
-            right_x=0.5, right_y=0.0,
+            right_x=0.0, right_y=0.0,
             dpad_up=False, dpad_down=False,
             dpad_left=False, dpad_right=False,
             btn_A=False, btn_B=False,
