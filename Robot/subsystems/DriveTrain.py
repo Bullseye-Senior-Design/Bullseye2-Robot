@@ -42,6 +42,7 @@ class DriveTrain(Subsystem):
             
             GPIO.output(self._backwheel_power_ssr_pin, GPIO.HIGH)
             GPIO.output(self._frontwheel_power_ssr_pin, GPIO.HIGH)
+            
             self.shutdown = False
 
             self._dac.write_dac(self._dac_backwheel_channel, 0)

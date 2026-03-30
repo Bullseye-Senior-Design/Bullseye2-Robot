@@ -1,3 +1,6 @@
+from pathlib import Path
+
+
 class UWBTagInfo:
     def __init__(self, port, id, offset):
         self.port = port
@@ -70,4 +73,8 @@ class Constants:
 
     #BMS Constants
     bms_update_interval = 0.05 # seconds between reads
+
+    # Path creation constants
+    path_creation_update_interval = 0.1  # seconds between path point captures
+    path_file_directory  = Path.cwd() / 'logs' / 'paths'
 
