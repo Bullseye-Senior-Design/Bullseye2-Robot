@@ -32,7 +32,7 @@ logger.setLevel(logging.DEBUG)  # Set to DEBUG for detailed output
 
 # ==== DEBUG/CONFIGURATION ====
 SUBSYSTEM_UPDATE_RATE = Constants.controller_update_rate  # ~10 Hz for subsystem polling
-BATTERY_SEND_RATE = 1 / 0.05  # 0.05 Hz -> 20 seconds between battery updates
+BATTERY_SEND_RATE = Constants.bms_update_interval  # 0.05 Hz -> 20 seconds between battery updates
 
 # ==== ROBOT STATE DATA ====
 class CommData:
