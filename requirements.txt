@@ -4,8 +4,8 @@ pyserial==3.5
 adafruit-circuitpython-bno055
 matplotlib
 casadi
-smbus
-spidev
+simple-pid
 pydantic
+spidev
+smbus
 rpi-lgpio
-tk

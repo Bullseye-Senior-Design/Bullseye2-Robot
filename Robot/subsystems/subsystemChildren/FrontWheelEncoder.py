@@ -49,6 +49,11 @@ class FrontWheelEncoder:
         threading.Thread(target=_update_loop, daemon=True).start()
         
     def get_position(self) -> Optional[float]:
+        """Returns front wheel angle
+
+        Returns:
+            Optional[float]: _description_
+        """
         
         with self._lock:
             if self._position is None:
@@ -71,32 +76,45 @@ class FrontWheelEncoder:
             return None
 
         try:
-            # Step 1: send read command
-            resp = self._spi.xfer2([self.READ_POS])[0]
+            # Full transaction in one go
+            response = self._spi.xfer2([0xAA, 0xFF, 0xFF, 0xFF])
 
-            # Step 2: wait for 0x10 response
-            while True:
-                time.sleep(self._interval) 
-                resp = self._spi.xfer2([self.NOP])[0]
-                if resp == self.READ_POS:
-                    break
-            
-            time.sleep(self._interval) 
-            # Step 3: read MSB
-            msb = self._spi.xfer2([self.NOP])[0]
+            # Extract returned bytes
+            data_high = response[1]
+            data_low  = response[2]
+            inv_high  = response[3]
+            inv_low   = response[0]  # sometimes wraps depending on timing
 
-            time.sleep(self._interval) 
-            # Step 4: read LSB
-            lsb = self._spi.xfer2([self.NOP])[0]
+            raw = (data_high << 8) | data_low
+            inv = (inv_high << 8) | inv_low
 
-            position = ((msb & 0x0F) << 8) | lsb
-            
+            # Validate inverted data
+            if (raw ^ 0xFFFF) != inv:
+                logger.error("⚠️ SPI data error")
+                return None
+
+            # Convert Gray → Binary
+            binary = self._gray_to_binary(raw)
+            position = self._get_angle(binary)
+
             with self._lock:
                 self._position = position
             
         except Exception as e:
             logger.error(f"FrontWheelEncoder SPI read error: {e}")
             return None
+        
+    # Gray → Binary conversion
+    def _gray_to_binary(self, n):
+        result = n
+        while n > 0:
+            n >>= 1
+            result ^= n
+        return result
+    
+    def _get_angle(self, position, bits=14):
+        max_val = (1 << bits) - 1
+        return (position / max_val) * 360.0
         
     def close(self):
         if self._spi:

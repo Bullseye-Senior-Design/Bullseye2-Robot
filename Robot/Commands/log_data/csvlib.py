@@ -109,6 +109,61 @@ def write_csv_or_fallback(writer: Optional[csv.DictWriter],
         return False
 
 
+def overwrite_csv_with_row(filename: str,
+                           fieldnames: list,
+                           row: Dict[str, Any]) -> bool:
+    """Overwrite a CSV file so it contains only header + one row.
+
+    Args:
+        filename: Path to CSV file
+        fieldnames: List of column names
+        row: Dictionary of values to write
+
+    Returns:
+        bool: True if successful, False otherwise
+    """
+    try:
+        filename = str(filename)
+        parent_dir = os.path.dirname(filename)
+        if parent_dir:
+            os.makedirs(parent_dir, exist_ok=True)
+
+        with open(filename, 'w', newline='') as csvfile:
+            writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+            writer.writeheader()
+            writer.writerow(row)
+        return True
+    except Exception as e:
+        print(f"Error overwriting CSV {filename}: {e}")
+        return False
+
+
+def read_last_csv_row(filename: str) -> Optional[Dict[str, str]]:
+    """Read and return the last non-empty row from a CSV file.
+
+    Args:
+        filename: Path to CSV file
+
+    Returns:
+        The last row as a dictionary, or None when unavailable.
+    """
+    try:
+        filename = str(filename)
+        if not os.path.exists(filename) or os.path.getsize(filename) == 0:
+            return None
+
+        last_row: Optional[Dict[str, str]] = None
+        with open(filename, 'r', newline='') as csvfile:
+            reader = csv.DictReader(csvfile)
+            for row in reader:
+                if any((value or "").strip() for value in row.values()):
+                    last_row = row
+        return last_row
+    except Exception as e:
+        print(f"Error reading last CSV row from {filename}: {e}")
+        return None
+
+
 class CSVFileManager:
     """Manager for multiple CSV files with automatic setup and cleanup."""
     
