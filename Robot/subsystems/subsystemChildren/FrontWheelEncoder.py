@@ -49,6 +49,11 @@ class FrontWheelEncoder:
         threading.Thread(target=_update_loop, daemon=True).start()
         
     def get_position(self) -> Optional[float]:
+        """Returns front wheel angle
+
+        Returns:
+            Optional[float]: _description_
+        """
         
         with self._lock:
             if self._position is None:

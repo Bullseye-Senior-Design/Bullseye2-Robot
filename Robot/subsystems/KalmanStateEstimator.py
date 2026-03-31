@@ -20,6 +20,7 @@ from typing import Tuple
 from Robot.MathUtil import MathUtil
 import time
 import logging
+from Robot.Constants import Constants
 
 GRAVITY = np.array([0.0, 0.0, -9.80665])
 
@@ -82,7 +83,7 @@ class KalmanStateEstimator:
         self.R_encoder_velocity = (0.05 ** 2)  # 0.05 m/s sigma
         
         # Bicycle model parameters
-        self.L = 0.5  # Wheelbase: distance from rear to front axle [m]
+        self.L = Constants.wheel_base_width  # Wheelbase: distance from rear to front axle [m]
         
         # Control inputs (updated externally before predict)
         self.u_velocity = 0.0  # Rear wheel velocity [m/s]

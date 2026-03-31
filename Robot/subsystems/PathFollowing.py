@@ -34,7 +34,7 @@ class PathFollowing(Subsystem):
         # ────────────────────────────────────────────────
         self.Ts = 0.3  # MPC sampling time (seconds)
         self.p = 25 # 12 may be better for computation capacity
-        self.L = 0.25
+        self.L = Constants.wheel_base_width  # Wheelbase of the robot (meters) - must be set in Constants.py
         # crusing speed for reference trajectory generation, can be adjusted via set_nominal_speed() method
         self.v_nom = Constants.rear_motor_top_speed
         
