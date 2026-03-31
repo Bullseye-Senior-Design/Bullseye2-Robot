@@ -46,7 +46,8 @@ class FrontWheelEncoder:
                 time.sleep(self._interval)
                 self.read_position()
         
-        threading.Thread(target=_update_loop, daemon=True).start()
+        self._thread = threading.Thread(target=_update_loop, daemon=True)
+        self._thread.start()
         
     def get_position(self) -> Optional[float]:
         """Returns front wheel angle
@@ -125,6 +126,8 @@ class FrontWheelEncoder:
         if self._spi:
             try:
                 self._running = False
+                if self._thread:
+                    self._thread.join(timeout=1)
                 self._spi.close()
             except Exception:
                 pass
