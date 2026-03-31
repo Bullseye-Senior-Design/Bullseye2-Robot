@@ -87,7 +87,6 @@ class PathFollowing(Subsystem):
         
         # Path completion tracking
         self.goal_tolerance = 0.33  # meters - distance threshold to consider goal reached
-        self.closest_idx = None  # Index of closest waypoint to current position, updated each loop
         
         # Get reference to state estimator
         self.state_estimator = KalmanStateEstimator()
@@ -161,7 +160,7 @@ class PathFollowing(Subsystem):
             # Dynamics constraint
             st_next = X[:, k+1]
             f_value = f(st, con)
-            st_next_euler = st + (self.Ts * f_value) # type: ignore
+            st_next_euler = st + (self.Ts * f_value)
             g.append(st_next - st_next_euler)
         
         # Terminal cost (Frenet Frame) - uses higher weights for goal emphasis
@@ -222,7 +221,6 @@ class PathFollowing(Subsystem):
         # Find closest point on path to current state
         distances = np.sqrt((x_wp - cur_state[0])**2 + (y_wp - cur_state[1])**2)
         closest_idx = np.argmin(distances)
-        self.closest_idx = closest_idx  # Store for goal checking
         
         # Interpolate arc-length at robot's position for better accuracy
         if closest_idx == len(x_wp) - 1:
@@ -334,22 +332,19 @@ class PathFollowing(Subsystem):
         with self._lock:
             return self._running
     
-    def is_at_goal(self):
+    def is_at_goal(self, tolerance=None):
         """Check if the robot has reached the end of the path."""
+        if tolerance is None:
+            tolerance = self.goal_tolerance
             
         with self._lock:
             if self.path_matrix is None:
                 logger.warning("is_at_goal called but no path set")
                 return False
             
-            return self.is_at_end_of_path()
-        
-    def is_at_end_of_path(self):
-        """Check if the robot is at the last waypoint, regardless of distance."""
-        with self._lock:
-            if self.path_matrix is None or self.closest_idx is None:
-                return False
-            return self.closest_idx == len(self.path_matrix) - 1 
+            current_state = self.state_estimator.get_state()
+            distance_to_goal = self._get_distance_to_goal(current_state.pos)
+            return distance_to_goal is not None and distance_to_goal <= tolerance
     
     def get_distance_to_goal(self):
         """Get the current distance to the end of the path."""
