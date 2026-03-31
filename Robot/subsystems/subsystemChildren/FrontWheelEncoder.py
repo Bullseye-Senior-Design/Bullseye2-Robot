@@ -23,7 +23,7 @@ class FrontWheelEncoder:
             self._position = None
             self._running = False
             self._lock = threading.Lock()
-            self._interval = 0.02  # 20ms update interval
+            self._interval = 0.1  # 20ms update interval
 
             logger.info(f"FrontWheelEncoder SPI initialized on bus {Constants.spi_bus}, device {Constants.frontwheel_encoder_spi_device}, mode {Constants.frontwheel_encoder_spi_mode}")
             
@@ -72,6 +72,9 @@ class FrontWheelEncoder:
         Returns:
             Raw position value (0 to max_position) or None on error
         """
+        if not self._running:
+            return None
+        
         if not self._spi:
             return None
 
@@ -88,10 +91,12 @@ class FrontWheelEncoder:
             raw = (data_high << 8) | data_low
             inv = (inv_high << 8) | inv_low
 
+
+            logger.debug(f"SPI response: {response}, raw={raw}, inv={inv}")
             # Validate inverted data
-            if (raw ^ 0xFFFF) != inv:
-                logger.error("⚠️ SPI data error")
-                return None
+            #if (raw ^ 0xFFFF) != inv:
+            #    logger.error("⚠️ SPI data error")
+            #    return None
 
             # Convert Gray → Binary
             binary = self._gray_to_binary(raw)

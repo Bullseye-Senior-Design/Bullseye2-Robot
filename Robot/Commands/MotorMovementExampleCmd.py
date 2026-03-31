@@ -26,6 +26,7 @@ class MotorMovementExampleCmd(Command):
     def initialize(self):
         self.start_time = time.time()
         self.speed = 1
+        self.clutches.disengage_clutches()
 
     def execute(self):
         elapsed_time = time.time() - self.start_time
@@ -39,12 +40,12 @@ class MotorMovementExampleCmd(Command):
             self.pcb_leds.set_green_status_led(True)
             self.drive_train.engage_backwheel()
             self.drive_train.engage_frontwheel()
-            self.clutches.engage_clutches()
+            
         else:
             self.pcb_leds.set_green_status_led(False)
             self.drive_train.disengage_backwheel()
             self.drive_train.disengage_frontwheel()
-            self.clutches.disengage_clutches()
+            # self.clutches.disengage_clutches()
     
     def end(self, interrupted):
         self.drive_train.stop()
