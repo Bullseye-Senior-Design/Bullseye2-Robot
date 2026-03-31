@@ -1,5 +1,6 @@
 import logging
 import csv
+import math
 from pathlib import Path
 from uuid import uuid4
 
@@ -70,12 +71,11 @@ class PathCreation(Subsystem):
             currentPos.x = float(state.pos[0])  # x position in meters
             currentPos.y = float(state.pos[1])  # y position in meters
             euler = self.kf.euler  # numpy array [roll, pitch, yaw] in radians
-            currentPos.yaw = float(euler[2]) * 180.0 / 3.141592653589793  # Convert yaw to degrees
+            currentPos.yaw = math.degrees(euler[2])
             self._path.append(currentPos)
 
     def simplify_path(
         self,
-        output_csv='reduced_path.csv',
         smoothing=0.5,
         num_samples=100,
         savgol_window=11,
