@@ -8,6 +8,9 @@ class UWBTagInfo:
         self.offset = offset
 
 class Constants:
+    # Wheel base width in meters
+    wheel_base_width = 0.25
+    
     # SPI Constants
     spi_bus = 0
     
@@ -42,7 +45,6 @@ class Constants:
     
     # Front Wheel Constants
     frontwheel_power_ssr_pin = 17
-    frontwheel_power_scale_factor = 0.2  # Scale factor for front wheel angle control
     
     # Clutches Constants
     left_clutch_pin = 26

@@ -103,3 +103,10 @@ class MathUtil:
         qz = cr * cp * sy - sr * sp * cy
         
         return MathUtil.quat_normalize(np.array([qx, qy, qz, qw], dtype=float))
+    
+    @staticmethod
+    def map(value, in_min, in_max, out_min, out_max):
+        """Map a value from one range to another."""
+        if in_max == in_min:
+            raise ValueError("Input range cannot be zero")
+        return (value - in_min) * (out_max - out_min) / (in_max - in_min) + out_min
