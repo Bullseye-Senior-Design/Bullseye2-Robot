@@ -26,13 +26,23 @@ from Comms.StateData import State, StateData
 from Robot.Constants import Constants
 from structure.RobotState import RobotState
 
+# Reverse of the sender's _FIELD_MAP — short key -> full ControllerData field name
+_FIELD_UNMAP = {
+    'lx': 'left_x',  'ly': 'left_y',  'rx': 'right_x', 'ry': 'right_y',
+    'du': 'dpad_up',  'dd': 'dpad_down', 'dl': 'dpad_left', 'dr': 'dpad_right',
+    'ba': 'btn_A',   'bb': 'btn_B',   'bx': 'btn_X',   'by': 'btn_Y',
+    'lb': 'btn_LB',  'rb': 'btn_RB',  'ls': 'btn_LS',  'rs': 'btn_RS',
+    'r2': 'btn_R2',  'l2': 'btn_L2',  'sh': 'btn_share', 'op': 'btn_options',
+}
+
 # ==== LOGGING CONFIGURATION ====
 logger = logging.getLogger(f"{__name__}.PiCommThread")
 logger.setLevel(logging.DEBUG)  # Set to DEBUG for detailed output
 
 # ==== DEBUG/CONFIGURATION ====
 SUBSYSTEM_UPDATE_RATE = Constants.controller_update_rate  # ~10 Hz for subsystem polling
-BATTERY_SEND_RATE = Constants.bms_update_interval  # 0.05 Hz -> 20 seconds between battery updates
+BATTERY_SOC_THRESHOLD = 0.5  # Send battery data when SOC drops by this %
+BATTERY_CHECK_RATE = 5.0     # How often to poll SOC for threshold change (seconds)
 
 # ==== ROBOT STATE DATA ====
 class CommData:
@@ -104,7 +114,7 @@ class PiCommThread:
         self._data_lock = threading.Lock()
 
         # Serial connection for receiving from ControllerMessager
-        self.controller_ser = None
+        self.pi_ser = None
 
         logger.info("PiCommThread initialized")
 
@@ -177,26 +187,42 @@ class PiCommThread:
             state_data = StateData.model_validate_json(packet.json_data)
             self._handle_state_change(state_data.state)
             self.comm_data.state_data = state_data
-        elif packet.type == "controller":
-            controller_data = ControllerData.model_validate_json(packet.json_data)
-            self.comm_data.controller_data = controller_data
+        elif packet.type == "c":
+            delta = json.loads(packet.json_data)
+            current = self.comm_data.controller_data.model_dump()
+            for short_key, value in delta.items():
+                full_key = _FIELD_UNMAP.get(short_key)
+                if full_key:
+                    current[full_key] = value
+            self.comm_data.controller_data = ControllerData(**current)
 
     def _send_battery_data(self):
         """
-        Periodically sends battery data to the controller at 0.05 Hz (every 20 seconds).
+        Sends battery data to the controller when SOC has dropped by >= 0.5%
+        since the last send. Checks every 5 seconds.
         Runs in background thread, decoupled from controller message receive rate.
         """
+        last_sent_soc = None
+
         while self._running:
-            time.sleep(BATTERY_SEND_RATE)
+            time.sleep(BATTERY_CHECK_RATE)
             try:
                 if self.bms:
                     self.comm_data.battery_data = self.bms.get_battery_data()
 
-                if self.pi_ser and self.pi_ser.is_open:
+                current_soc = self.comm_data.battery_data.state_of_charge
+
+                soc_dropped = (
+                    last_sent_soc is None or
+                    abs(current_soc - last_sent_soc) >= BATTERY_SOC_THRESHOLD
+                )
+
+                if soc_dropped and self.pi_ser and self.pi_ser.is_open:
                     payload = self.comm_data.battery_data.model_dump_json()
                     data_packet = DataPacket(type="battery", json_data=payload).model_dump_json()
                     self.pi_ser.write((data_packet + "\n").encode())
-                    logger.debug("Sent battery data to controller")
+                    last_sent_soc = current_soc
+                    logger.debug(f"Sent battery data — SOC: {current_soc:.1f}%")
             except Exception as e:
                 logger.error(f"Error sending battery data: {e}")
 
@@ -270,9 +296,9 @@ class PiCommThread:
         self.battery_thread.join(timeout=2.0)
 
         # Close serial connection
-        if self.controller_ser:
+        if self.pi_ser:
             try:
-                self.controller_ser.close()
+                self.pi_ser.close()
             except Exception as e:
                 logger.error(f"Error closing controller serial: {e}")
 

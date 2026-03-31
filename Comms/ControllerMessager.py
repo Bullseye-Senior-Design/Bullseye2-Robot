@@ -26,6 +26,34 @@ BAUD = Constants.serial_baud_rate
 DEADZONE = Constants.controller_deadzone
 UPDATE_RATE = Constants.controller_update_rate  # ~20 Hz
 
+# ==== DELTA ENCODING ====
+# Maps full ControllerData field names to short keys sent over the wire.
+# Receiver must use the same map to reconstruct the full field name.
+_FIELD_MAP = {
+    'left_x': 'lx', 'left_y': 'ly', 'right_x': 'rx', 'right_y': 'ry',
+    'dpad_up': 'du', 'dpad_down': 'dd', 'dpad_left': 'dl', 'dpad_right': 'dr',
+    'btn_A': 'ba', 'btn_B': 'bb', 'btn_X': 'bx', 'btn_Y': 'by',
+    'btn_LB': 'lb', 'btn_RB': 'rb', 'btn_LS': 'ls', 'btn_RS': 'rs',
+    'btn_R2': 'r2', 'btn_L2': 'l2', 'btn_share': 'sh', 'btn_options': 'op',
+}
+_FLOAT_FIELDS = {'left_x', 'left_y', 'right_x', 'right_y', 'btn_R2', 'btn_L2'}
+
+def _build_delta(current: ControllerData, previous: ControllerData | None) -> dict:
+    """Return only the fields that changed since the previous packet, with short keys.
+    If previous is None (first packet), all fields are included.
+    Floats are rounded to 2dp to avoid sending tiny floating point noise."""
+    delta = {}
+    for field, short_key in _FIELD_MAP.items():
+        curr_val = getattr(current, field)
+        if field in _FLOAT_FIELDS:
+            curr_val = round(curr_val, 2)
+            prev_val = round(getattr(previous, field), 2) if previous else None
+        else:
+            curr_val = int(curr_val)
+            prev_val = int(getattr(previous, field)) if previous else None
+        if curr_val != prev_val:
+            delta[short_key] = curr_val
+    return delta
 
 # Shared battery data (updated by receiver thread)
 _battery_data: BatteryData = BatteryData(voltage=0.0, current=0.0, power=0.0, state_of_charge=0.0, time_remaining=0.0)
@@ -114,7 +142,7 @@ def main():
     prev_btn_B = False
     l2_prev = -1.0
     r2_prev = -1.0
-    prevpacket = None
+    prev_data = None
 
     try:
         while True:
@@ -302,15 +330,16 @@ def main():
                 btn_options=btn_options,
             )
 
-            # Send controller data as DataPacket
-            packet = DataPacket(type="controller", json_data=data.model_dump_json())
-            if prevpacket != packet:
+            # Send only changed fields as a delta packet
+            delta = _build_delta(data, prev_data)
+            if delta:
+                packet = DataPacket(type="c", json_data=json.dumps(delta))
                 if ser:
                     ser.write((packet.model_dump_json() + "\n").encode())
                 if DEBUGPRINT:
-                    print(f"[JOYSTICK] Sent: {packet.model_dump_json()}")
+                    print(f"[JOYSTICK] Sent delta: {delta}")
 
-            prevpacket = packet
+            prev_data = data
             time.sleep(UPDATE_RATE)
 
 
