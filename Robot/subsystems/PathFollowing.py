@@ -33,10 +33,10 @@ class PathFollowing(Subsystem):
         # ────────────────────────────────────────────────
         # Parameters & Constants
         # ────────────────────────────────────────────────
-        self.Ts = 0.1
-        self.p = 12
-        self.L = 0.25
-        self.v_nom = Constants.rear_motor_top_speed / 2.0
+        self.Ts = 0.1 # MPC time step (10 Hz control loop)
+        self.p = 12 # MPC prediction horizon (12 steps = 1.2 seconds)
+        self.L = 0.25 # Wheelbase (meters) - distance between front and back wheel centers
+        self.v_nom = Constants.rear_motor_top_speed / 2.0 # Default nominal speed (50% of max)
         self.ds = self.v_nom * self.Ts
         self.ds_ref = 0.1  # Fixed arc-length spacing for reference trajectory (10 cm per MPC step)
         
@@ -81,9 +81,11 @@ class PathFollowing(Subsystem):
         
         # Path completion tracking
         self.goal_tolerance = 0.1  # meters - distance threshold to consider goal reached
+        self.closest_idx = None  # Index of closest waypoint on path (for debugging/visualization)
         
         # Get reference to state estimator
         self.state_estimator = KalmanStateEstimator()
+        
     
     def _setup_mpc(self):
         """Setup the MPC solver using CasADi."""
@@ -181,16 +183,20 @@ class PathFollowing(Subsystem):
         y_wp = self.path_matrix[:, 1]
         theta_wp = self.path_matrix[:, 2]
         
+        # Compute cumulative arc-length of waypoints
         dx, dy = np.diff(x_wp), np.diff(y_wp)
         s_wp = np.cumsum(np.sqrt(dx**2 + dy**2))
         s_wp = np.insert(s_wp, 0, 0.0)
         
+        # Create interpolating functions for x, y, theta
         interp_x = interp1d(s_wp, x_wp, kind='cubic', fill_value='extrapolate')
         interp_y = interp1d(s_wp, y_wp, kind='cubic', fill_value='extrapolate')
         interp_theta = interp1d(s_wp, theta_wp, kind='cubic', fill_value='extrapolate')
         
+        # Find closest point on path to current position
         distances = np.sqrt((x_wp - cur_state[0])**2 + (y_wp - cur_state[1])**2)
         closest_idx = np.argmin(distances)
+        self.closest_idx = closest_idx  # Store for debugging/visualization
         
         # Interpolate arc-length at robot's position for better accuracy
         if closest_idx == len(x_wp) - 1:
@@ -308,27 +314,19 @@ class PathFollowing(Subsystem):
         with self._lock:
             return self._running
     
-    def is_at_goal(self, tolerance=None):
+    def is_at_goal(self):
         """Check if the robot has reached the end of the path.
         
-        Args:
-            tolerance: Distance threshold in meters to consider goal reached.
-                      If None, uses self.goal_tolerance (default 0.1m)
-        
         Returns:
-            bool: True if robot is within tolerance of the final waypoint
+            bool: True if robot is at of the final waypoint
         """
-        if tolerance is None:
-            tolerance = self.goal_tolerance
             
         with self._lock:
             if self.path_matrix is None:
                 logger.warning("is_at_goal called but no path set")
                 return False
             
-            current_state = self.state_estimator.get_state()
-            distance_to_goal = self._get_distance_to_goal(current_state.pos)
-            return distance_to_goal is not None and distance_to_goal <= tolerance
+            return self.is_at_end_of_path()
     
     def get_distance_to_goal(self):
         """Get the current distance to the end of the path.
@@ -353,6 +351,13 @@ class PathFollowing(Subsystem):
             
             distance_to_goal = np.sqrt((current_x - goal_x)**2 + (current_y - goal_y)**2)
             return distance_to_goal
+    
+    def is_at_end_of_path(self):
+        """Check if the robot is at the last waypoint, regardless of distance."""
+        with self._lock:
+            if self.path_matrix is None or self.closest_idx is None:
+                return False
+            return self.closest_idx == len(self.path_matrix) - 1 
     
     def _control_loop(self):
         """Main control loop running in separate thread."""
