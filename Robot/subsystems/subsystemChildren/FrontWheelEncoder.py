@@ -90,13 +90,13 @@ class FrontWheelEncoder:
 
             # Validate inverted data
             if (raw ^ 0xFFFF) != inv:
-                print("⚠️ SPI data error")
+                logger.error("⚠️ SPI data error")
                 return None
 
             # Convert Gray → Binary
             binary = self._gray_to_binary(raw)
             position = self._get_angle(binary)
-            
+
             with self._lock:
                 self._position = position
             
