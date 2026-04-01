@@ -9,9 +9,6 @@ logger = logging.getLogger(f"{__name__}.DriveTrain")
 logger.setLevel(logging.DEBUG)  # Set to DEBUG for detailed output
 
 class FrontWheelEncoder:
-    NOP = 0x00
-    READ_POS = 0x10
-    
     def __init__(self):
         try:
             self._spi = spidev.SpiDev()
@@ -81,7 +78,7 @@ class FrontWheelEncoder:
 
         try:
             # Full transaction in one go
-            response = self._spi.xfer2([0xAA, 0xFF, 0xFF, 0xFF])
+            response = self._spi.xfer2([0xFF, 0xFF, 0xFF, 0xFF])
 
             # Extract returned bytes
             data_high = response[1]
