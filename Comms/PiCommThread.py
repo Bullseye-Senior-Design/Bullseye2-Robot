@@ -210,6 +210,9 @@ class PiCommThread:
                 if self.bms:
                     self.comm_data.battery_data = self.bms.get_battery_data()
 
+                b = self.comm_data.battery_data
+                logger.debug(f"[BATTERY] V:{b.voltage:.2f}V  I:{b.current:.2f}A  P:{b.power:.1f}W  SOC:{b.state_of_charge:.1f}%  TTG:{b.time_remaining:.0f}min")
+
                 current_soc = self.comm_data.battery_data.state_of_charge
 
                 soc_dropped = (
