@@ -51,7 +51,7 @@ class DriveTrain(Subsystem):
             
             # Pitch PID controller
             # TODO Fine-tune PID parameters for better performance
-            self.front_wheel_pid = PID(0.5, 0.0, 0.0, setpoint=0)
+            self.front_wheel_pid = PID(0.8, 0.0, 0.0, setpoint=0)
             self.output_limits = (-1, 1)  # Limit PID output to motor command range
             self.front_wheel_pid.output_limits = self.output_limits # Limit output to motor
             self.soft_limit = math.radians(-30)  # ±30 degrees in radians
