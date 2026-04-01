@@ -26,7 +26,7 @@ class Constants:
     # Front Wheel Encoder Constants
     frontwheel_encoder_spi_device = 0
     frontwheel_encoder_spi_mode = 0
-    frontwheel_encoder_max_freq_hz = 50
+    frontwheel_encoder_max_freq_hz = 1000
     frontwheel_encoder_resolution = 12  # bits
     frontwheel_encoder_max_position = (1 << frontwheel_encoder_resolution) - 1
     
