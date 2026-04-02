@@ -1,10 +1,15 @@
 import threading
 import time
+import logging
 
 import serial
 from Comms.BatteryData import BatteryData
 from Robot.Constants import Constants
 from structure.Subsystem import Subsystem
+
+# ==== LOGGING CONFIGURATION ====
+logger = logging.getLogger(f"{__name__}.BMS")
+logger.setLevel(logging.INFO)  # Set to DEBUG for detailed output
 
 # Fields we care about
 TARGET_FIELDS = {"V", "I", "P", "SOC", "TTG"}
@@ -31,7 +36,7 @@ class BMS(Subsystem):
         try:
             self._ser = serial.Serial(Constants.bms_serial_port, Constants.serial_baud_rate, timeout=1)
         except serial.SerialException as e:
-            print(f"[BMS] Could not open serial port {Constants.bms_serial_port}: {e}")
+            logger.debug(f"[BMS] Could not open serial port {Constants.bms_serial_port}: {e}")
             self._ser = None
 
     def update(self):
