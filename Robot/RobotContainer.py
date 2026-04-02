@@ -54,7 +54,7 @@ class RobotContainer:
         LogDataCmd(self.path_following).schedule()
         # ZeroIMUCmd(self.drive_train, self.path_following, schedule_followup=False).schedule()
         # PlotStateCmd().schedule()
-        MotorMovementExampleCmd(self.drive_train, self.clutches, self.header_healer_switches, self.pcb_leds).schedule()
+        # MotorMovementExampleCmd(self.drive_train, self.clutches, self.header_healer_switches, self.pcb_leds).schedule()
         
         # AlignIMUToWorldCmd(tau=0.5, duration=30.0).schedule()
                 
