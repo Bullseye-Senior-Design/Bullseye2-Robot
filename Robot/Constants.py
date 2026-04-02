@@ -16,6 +16,7 @@ class Constants:
     bitbang_setup_delay = 0.0001
     bitbang_clock_delay = 0.0001
     bitbang_clock_pin = 11
+    shifter_dir_pin = 20
     bitbang_MISO_pin = 9
     bitbang_MOSI_pin = 10
     bitbang_cs_DAC_pin = 7

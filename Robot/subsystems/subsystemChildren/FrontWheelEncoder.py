@@ -16,6 +16,7 @@ class FrontWheelEncoder:
             self.cs_pin = Constants.bitbang_cs_frontwheel_encoder_pin
             self.clock_pin = Constants.bitbang_clock_pin
             self.data_pin = Constants.bitbang_MISO_pin
+            self.shifter_dir_pin = Constants.shifter_dir_pin
             self._max_position = Constants.frontwheel_encoder_max_position
             self._bitbang_spi_lock = Constants.bitbang_spi_lock
             self._bitbang_setup_delay = Constants.bitbang_setup_delay
@@ -27,10 +28,14 @@ class FrontWheelEncoder:
             GPIO.setmode(GPIO.BCM)
             GPIO.setup(self.cs_pin, GPIO.OUT)
             GPIO.setup(self.clock_pin, GPIO.OUT)
+            # Shifter: LOW is input to Pi
+            # Shifter: HIGH is output from Pi
+            GPIO.setup(self.shifter_dir_pin, GPIO.OUT)
 
             # initialize spi lines to known state
             GPIO.output(self.cs_pin,  GPIO.HIGH)
             GPIO.output(self.clock_pin, GPIO.LOW)
+            GPIO.output(self.shifter_dir_pin, GPIO.LOW)
             
             self.run()
         except Exception as e:
@@ -102,10 +107,12 @@ class FrontWheelEncoder:
         for bit in range(7, -1, -1):
             # Drive bit (1 = high-Z so pull-up on 5V side wins, 0 = drive low)
             if tx & (1 << bit):
+                GPIO.output(self.shifter_dir_pin, GPIO.LOW) # input to Pi
                 GPIO.setup(self.data_pin, GPIO.IN)          # high-Z
             else:
+                GPIO.output(self.shifter_dir_pin, GPIO.HIGH) # output from Pi
                 GPIO.setup(self.data_pin, GPIO.OUT)
-                GPIO.output(self.data_pin, GPIO.LOW)
+                GPIO.output(self.data_pin, GPIO.LOW)         # pull MISO low
 
             GPIO.output(self.clock_pin, GPIO.HIGH)            # clock rising edge
             if GPIO.input(self.data_pin):
@@ -118,4 +125,4 @@ class FrontWheelEncoder:
         self._running = False
         if hasattr(self, "_thread"):
             self._thread.join(timeout=1)
-        GPIO.cleanup([self.cs_pin, self.clock_pin, self.data_pin])
+        GPIO.cleanup([self.cs_pin, self.clock_pin, self.data_pin, self.shifter_dir_pin])
