@@ -5,6 +5,7 @@ adafruit-circuitpython-bno055
 matplotlib
 casadi
 simple-pid
+rsplan
 pydantic
 spidev
 smbus

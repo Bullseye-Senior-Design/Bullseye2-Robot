@@ -1,8 +1,8 @@
 from structure.commands.Command import Command
 import time
 import numpy as np
-from Robot.subsystems.PathFollowing import PathFollowing
-from Robot.subsystems.KalmanStateEstimator import KalmanStateEstimator
+from Robot.subsystems.algorithms.PathFollowing import PathFollowing
+from Robot.subsystems.algorithms.KalmanStateEstimator import KalmanStateEstimator
 from Robot.subsystems.DriveTrain import DriveTrain
 import logging
 from Robot.Constants import Constants

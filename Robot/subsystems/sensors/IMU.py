@@ -12,7 +12,7 @@ import logging
 from collections import deque
 import time
 from typing import Optional, Tuple
-from Robot.subsystems.KalmanStateEstimator import KalmanStateEstimator
+from Robot.subsystems.algorithms.KalmanStateEstimator import KalmanStateEstimator
 from Robot.MathUtil import MathUtil
 
 logger = logging.getLogger(f"{__name__}.IMU")

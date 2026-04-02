@@ -4,7 +4,7 @@ from turtle import speed
 from typing import Optional
 
 from structure.Subsystem import Subsystem
-from Robot.subsystems.KalmanStateEstimator import KalmanStateEstimator
+from Robot.subsystems.algorithms.KalmanStateEstimator import KalmanStateEstimator
 from Robot.Constants import Constants
 from Robot.subsystems.subsystemChildren.DAC import DAC
 from Robot.subsystems.subsystemChildren.FrontWheelEncoder import FrontWheelEncoder
@@ -52,10 +52,14 @@ class DriveTrain(Subsystem):
             
             # Pitch PID controller
             # TODO Fine-tune PID parameters for better performance
-            self.front_wheel_pid = PID(0.8, 0.0, 0.0, setpoint=0)
+            self.front_wheel_pid = PID(
+                0.5, 0.0, 0.0, 
+                setpoint=0,
+                error_map=MathUtil.wrap_to_pi  # Wrap error to [-pi, pi]
+            )
             self.output_limits = (-1, 1)  # Limit PID output to motor command range
             self.front_wheel_pid.output_limits = self.output_limits # Limit output to motor
-            self.soft_limit = math.radians(-Constants.frontwheel_soft_limit_degrees)  # ±30 degrees in radians
+            self.soft_limit = Constants.steering_angle_limit_rads
 
             logger.info(f"DriveTrain initialized with SSR pins: {self._backwheel_forward_ssr_pin}, {self._backwheel_reverse_ssr_pin}, {self._backwheel_power_ssr_pin}, {self._frontwheel_power_ssr_pin}")
         
@@ -77,7 +81,6 @@ class DriveTrain(Subsystem):
         
         self.front_wheel_pid.setpoint = target_angle
         pid_speed = self.front_wheel_pid(current_angle)
-        
         
         logger.debug(f"PID target: {target_angle}, current: {current_angle}, output: {pid_speed}")
         
