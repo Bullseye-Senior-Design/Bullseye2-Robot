@@ -2,6 +2,7 @@ from Robot.subsystems.DriveTrain import DriveTrain
 from structure.commands.Command import Command
 from typing import Callable
 import logging
+import math
 
 logger = logging.getLogger(f"{__name__}.DriveTrain")
 logger.setLevel(logging.INFO)  # Set to DEBUG for detailed output
@@ -33,14 +34,11 @@ class DefaultMovementCmd(Command):
         steering = self._steering_supplier()
 
         
-        # Convert steering to angle (0 to 180 degrees)
-        # steering=-1.0 -> angle=180 (full left)
-        # steering=0 -> angle=90 (straight)
-        # steering=1.0 -> angle=0 (full right)
-        angle = -steering
-        #angle = 90 - (steering * 90)
-
-        #angle = max(0, min(180, 90))  # Clamp to 0-180
+        # Convert steering from [-1, 1] to radians [-pi/2, pi/2]
+        # steering=-1.0 -> -pi/2
+        # steering=0.0  -> 0
+        # steering=1.0  -> +pi/2
+        angle = steering * (math.pi / 2.0)
         
         logger.debug(f"commanding throttle {throttle} and angle {angle}")
 
