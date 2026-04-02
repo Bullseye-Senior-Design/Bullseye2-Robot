@@ -13,21 +13,24 @@ logger.setLevel(logging.DEBUG)  # Set to DEBUG for detailed output
 class FrontWheelEncoder:
     def __init__(self):
         try:
-            self.CS_PIN = Constants.bitbang_cs_frontwheel_encoder_pin
-            self.CLK_PIN = Constants.bitbang_clock_pin
-            self.DATA_PIN = Constants.bitbang_MISO_pin
+            self.cs_pin = Constants.bitbang_cs_frontwheel_encoder_pin
+            self.clock_pin = Constants.bitbang_clock_pin
+            self.data_pin = Constants.bitbang_MISO_pin
             self._max_position = Constants.frontwheel_encoder_max_position
             self._bitbang_spi_lock = Constants.bitbang_spi_lock
+            self._bitbang_setup_delay = Constants.bitbang_setup_delay
             self._position = None
             self._running = False
             self._lock = threading.Lock()
             self._interval = 0.1  # 20ms update interval
 
             GPIO.setmode(GPIO.BCM)
-            GPIO.setup(self.CS_PIN, GPIO.OUT)
-            GPIO.setup(self.CLK_PIN, GPIO.OUT)
-            GPIO.output(self.CS_PIN,  GPIO.HIGH)
-            GPIO.output(self.CLK_PIN, GPIO.LOW)
+            GPIO.setup(self.cs_pin, GPIO.OUT)
+            GPIO.setup(self.clock_pin, GPIO.OUT)
+
+            # initialize spi lines to known state
+            GPIO.output(self.cs_pin,  GPIO.HIGH)
+            GPIO.output(self.clock_pin, GPIO.LOW)
             
             self.run()
         except Exception as e:
@@ -44,7 +47,7 @@ class FrontWheelEncoder:
         self._running = True
         
         def _update_loop():
-            while True:
+            while self._running:
                 time.sleep(self._interval)
                 self.read_position()
         
@@ -55,14 +58,11 @@ class FrontWheelEncoder:
         """Returns front wheel angle
 
         Returns:
-            Optional[float]: _description_
+            Optional[float]: wheel angle in radians, or None if not available
         """
         
         with self._lock:
-            if self._position is None:
-                return None
-            # Convert raw position to angle in degrees
-            angle = (self._position / self._max_position) * 360.0
+            angle = self._position
             return angle
     
     def read_position(self):
@@ -70,14 +70,14 @@ class FrontWheelEncoder:
         with self._bitbang_spi_lock:
             rx = [0] * 10
 
-            GPIO.output(self.CS_PIN, GPIO.LOW)
-            time.sleep(0.01)          # 10 µs minimum after /SS low
+            GPIO.output(self.cs_pin, GPIO.LOW)
+            time.sleep(self._bitbang_setup_delay)
 
             rx[0] = self.spi_byte(0xAA)
             for i in range(1, 10):
                 rx[i] = self.spi_byte(0xFF)
 
-            GPIO.output(self.CS_PIN, GPIO.HIGH)
+            GPIO.output(self.cs_pin, GPIO.HIGH)
 
             # Data bytes: rx[2]=MSB, rx[3]=LSB, rx[4]=~MSB, rx[5]=~LSB
             data = (rx[2] << 8) | rx[3]
@@ -102,15 +102,15 @@ class FrontWheelEncoder:
         for bit in range(7, -1, -1):
             # Drive bit (1 = high-Z so pull-up on 5V side wins, 0 = drive low)
             if tx & (1 << bit):
-                GPIO.setup(self.DATA_PIN, GPIO.IN)          # high-Z
+                GPIO.setup(self.data_pin, GPIO.IN)          # high-Z
             else:
-                GPIO.setup(self.DATA_PIN, GPIO.OUT)
-                GPIO.output(self.DATA_PIN, GPIO.LOW)
+                GPIO.setup(self.data_pin, GPIO.OUT)
+                GPIO.output(self.data_pin, GPIO.LOW)
 
-            GPIO.output(self.CLK_PIN, GPIO.HIGH)            # clock rising edge
-            if GPIO.input(self.DATA_PIN):
+            GPIO.output(self.clock_pin, GPIO.HIGH)            # clock rising edge
+            if GPIO.input(self.data_pin):
                 rx |= (1 << bit)
-            GPIO.output(self.CLK_PIN, GPIO.LOW)             # falling edge
+            GPIO.output(self.clock_pin, GPIO.LOW)             # falling edge
         return rx
         
     def close(self):
@@ -118,4 +118,4 @@ class FrontWheelEncoder:
         self._running = False
         if hasattr(self, "_thread"):
             self._thread.join(timeout=1)
-        GPIO.cleanup([self.CS_PIN, self.CLK_PIN, self.DATA_PIN])
+        GPIO.cleanup([self.cs_pin, self.clock_pin, self.data_pin])

@@ -9,7 +9,7 @@ logger = logging.getLogger(f"{__name__}.DriveTrain")
 logger.setLevel(logging.INFO)  # Set to DEBUG for detailed output
 
 class DAC:
-	def __init__(self,):
+	def __init__(self):
 		try:
 			self.cs_pin = Constants.bitbang_cs_DAC_pin
 			self.clk_pin = Constants.bitbang_clock_pin
