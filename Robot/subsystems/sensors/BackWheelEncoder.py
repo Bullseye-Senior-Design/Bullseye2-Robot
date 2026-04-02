@@ -34,7 +34,7 @@ class BackWheelEncoder:
             debounce_ms: Debounce time in milliseconds
             edge: 'rising', 'falling', or 'both' (which edge to detect)
         """
-        self.pin = Constants.back_left_encoder_pin
+        self.pin = Constants.back_right_encoder_pin
         self.active_high = True
         self.pull_up = True
         self.debounce_ms = 100
