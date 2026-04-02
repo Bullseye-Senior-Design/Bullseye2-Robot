@@ -155,7 +155,7 @@ class LogDataCmd(Command):
 
         # 4) Encoder data
         encoder = BackWheelEncoder()
-        count = encoder.get_count()
+        count = encoder.get_count_left() + encoder.get_count_right()  # Total count since last reset
         velocity = encoder.get_velocity()
         self.save_encoder_to_csv(count, velocity, self.encoder_file_path, timestamp=ts)
 

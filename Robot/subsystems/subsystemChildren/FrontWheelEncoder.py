@@ -71,35 +71,38 @@ class FrontWheelEncoder:
             return angle
     
     def read_position(self):
-        """Read full frame and return 14-bit angle or -1 on error"""
-        with self._bitbang_spi_lock:
-            rx = [0] * 10
+        try: 
+            """Read full frame and return 14-bit angle or -1 on error"""
+            with self._bitbang_spi_lock:
+                rx = [0] * 10
 
-            GPIO.output(self.cs_pin, GPIO.LOW)
-            time.sleep(self._bitbang_setup_delay)
+                GPIO.output(self.cs_pin, GPIO.LOW)
+                time.sleep(self._bitbang_setup_delay)
 
-            rx[0] = self.spi_byte(0xAA)
-            for i in range(1, 10):
-                rx[i] = self.spi_byte(0xFF)
+                rx[0] = self.spi_byte(0xAA)
+                for i in range(1, 10):
+                    rx[i] = self.spi_byte(0xFF)
 
-            GPIO.output(self.cs_pin, GPIO.HIGH)
+                GPIO.output(self.cs_pin, GPIO.HIGH)
 
-            # Data bytes: rx[2]=MSB, rx[3]=LSB, rx[4]=~MSB, rx[5]=~LSB
-            data = (rx[2] << 8) | rx[3]
-            inv  = (rx[4] << 8) | rx[5]
+                # Data bytes: rx[2]=MSB, rx[3]=LSB, rx[4]=~MSB, rx[5]=~LSB
+                data = (rx[2] << 8) | rx[3]
+                inv  = (rx[4] << 8) | rx[5]
 
-        # Print raw bytes for debugging
-        logger.debug("Raw RX: %s", " ".join(f"{b:02X}" for b in rx))
+            # Print raw bytes for debugging
+            logger.debug("Raw RX: %s", " ".join(f"{b:02X}" for b in rx))
 
-        logger.debug(f"Data   : 0x{data:04X}   ~Data : 0x{inv:04X}   XOR = 0x{data ^ inv:04X}")
+            logger.debug(f"Data   : 0x{data:04X}   ~Data : 0x{inv:04X}   XOR = 0x{data ^ inv:04X}")
 
-        if (data ^ inv) == 0xFFFF:
-            angle = ((data & 0x3FFF) * 2.0 * math.pi) / self._max_position
-            logger.debug(f"→ VALID Radians: {angle:.2f}")
-            with self._lock:
-                self._position = angle
-        else:
-            logger.debug("→ CRC / Communication Error")
+            if (data ^ inv) == 0xFFFF:
+                angle = ((data & 0x3FFF) * 2.0 * math.pi) / self._max_position
+                logger.debug(f"→ VALID Radians: {angle:.2f}")
+                with self._lock:
+                    self._position = angle
+            else:
+                logger.debug("→ CRC / Communication Error")
+        except Exception as e:
+            logger.error(f"Error reading front wheel encoder: {e}")
     
     def spi_byte(self, tx):
         """Send one byte and read response (open-drain style on DAT)"""

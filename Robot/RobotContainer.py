@@ -44,9 +44,9 @@ class RobotContainer:
         # Start subsystems
         self.uwb.start(uwb_tag_data=Constants.uwb_tag_data, anchors_pos=None)
         self.back_Wheel_encoder.start()
-        # self.drive_train.default_command(DefaultMovementCmd(self.drive_train, 
-        #                                                     lambda: self.comm_thread.get_controller_data().left_y, 
-        #                                                     lambda: self.comm_thread.get_controller_data().right_x))
+        self.drive_train.default_command(DefaultMovementCmd(self.drive_train, 
+                                                            lambda: self.comm_thread.get_controller_data().left_y, 
+                                                            lambda: self.comm_thread.get_controller_data().right_x))
         
         #self.path_following.default_command(FollowPathCmd(self.drive_train, self.path_following))
                     
@@ -54,7 +54,7 @@ class RobotContainer:
         LogDataCmd(self.path_following).schedule()
         # ZeroIMUCmd(self.drive_train, self.path_following, schedule_followup=False).schedule()
         # PlotStateCmd().schedule()
-        MotorMovementExampleCmd(self.drive_train, self.clutches, self.header_healer_switches, self.pcb_leds).schedule()
+        #MotorMovementExampleCmd(self.drive_train, self.clutches, self.header_healer_switches, self.pcb_leds).schedule()
         
         # AlignIMUToWorldCmd(tau=0.5, duration=30.0).schedule()
                 

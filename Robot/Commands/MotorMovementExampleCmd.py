@@ -32,7 +32,7 @@ class MotorMovementExampleCmd(Command):
         elapsed_time = time.time() - self.start_time
         # Cycle between -1 and 1 with a period of 10 seconds
         self.speed = math.sin(elapsed_time * 2 * math.pi / 10.0)
-        self.drive_train.set_speed_angle(self.speed, 1)
+        self.drive_train.set_speed_angle(self.speed, 0)
         
         #logger.debug(f"")
         #logger.debug(f"Front wheel position: {self.drive_train.get_frontwheel_position()}")
