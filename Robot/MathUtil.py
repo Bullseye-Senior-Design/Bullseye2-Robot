@@ -1,4 +1,5 @@
 import numpy as np
+import math
 
 class MathUtil:
     @staticmethod
@@ -110,3 +111,15 @@ class MathUtil:
         if in_max == in_min:
             raise ValueError("Input range cannot be zero")
         return (value - in_min) * (out_max - out_min) / (in_max - in_min) + out_min
+
+    @staticmethod
+    def wrap_to_pi(e: float) -> float:
+        """Constrains an angle to the range [-pi, pi].
+
+        Args:
+            e (float): Angle in radians to be wrapped.
+
+        Returns:
+            float: Wrapped angle in radians.
+        """
+        return (e + math.pi) % (2.0 * math.pi) - math.pi
