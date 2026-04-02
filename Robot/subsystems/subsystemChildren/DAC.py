@@ -99,4 +99,4 @@ class DAC:
 			GPIO.output(self.data_pin, GPIO.LOW)
 			self._available = False
 		finally:
-			GPIO.cleanup()
+			GPIO.cleanup([self.cs_pin, self.clk_pin, self.data_pin])
