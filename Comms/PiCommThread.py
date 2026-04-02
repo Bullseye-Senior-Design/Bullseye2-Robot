@@ -134,6 +134,16 @@ class PiCommThread:
         self.comms_thread.start()
         logger.info("Started controller receiver thread")
 
+        # Start BMS update thread (polls SmartShunt and keeps battery_data fresh)
+        if self.bms:
+            self.bms_thread = threading.Thread(
+                target=self.bms.update,
+                daemon=True,
+                name="BMSUpdate"
+            )
+            self.bms_thread.start()
+            logger.info("Started BMS update thread")
+
         # Start battery sender thread
         self.battery_thread = threading.Thread(
             target=self._send_battery_data,
