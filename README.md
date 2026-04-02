@@ -15,8 +15,8 @@ In order to auto install required python Libraries run command below in the dire
 (remove if adding python3-tk to requirements works)
 
 # Pi Connection Info
-login as: bull 
-password: eye 
+login as: bullseye
+password: pass0
 
 
 
