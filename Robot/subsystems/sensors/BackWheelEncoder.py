@@ -59,15 +59,13 @@ class BackWheelEncoder:
 
         self.run()
 
-    def _gpio_callback(self, is_right):
-        # Keep callback extremely small: increment count only.
-        #logger.info(f"callback called count={self._count}")
-        if is_right:
-            with self._lock_right:
-                self._count_right += 1
-        else:
-            with self._lock_left:
-                self._count_left += 1
+    def _gpio_callback_right(self, channel):
+        with self._lock_right:
+            self._count_right += 1
+
+    def _gpio_callback_left(self, channel):
+        with self._lock_left:
+            self._count_left += 1
 
     def run(self):
         """Start monitoring the GPIO pin"""
@@ -94,8 +92,8 @@ class BackWheelEncoder:
         else:
             gedge = GPIO.BOTH
 
-        GPIO.add_event_detect(self.pin_right, gedge, callback=self._gpio_callback, bouncetime=self.debounce_ms)
-        GPIO.add_event_detect(self.pin_left, gedge, callback=self._gpio_callback, bouncetime=self.debounce_ms)
+        GPIO.add_event_detect(self.pin_right, gedge, callback=self._gpio_callback_right, bouncetime=self.debounce_ms)
+        GPIO.add_event_detect(self.pin_left, gedge, callback=self._gpio_callback_left, bouncetime=self.debounce_ms)
         logger.info(f"Started monitoring GPIO {self.pin_right} and {self.pin_left} (active_high={self.active_high})")
         
         def _update_loop():
