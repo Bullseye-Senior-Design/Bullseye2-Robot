@@ -16,8 +16,8 @@ class Constants:
     bitbang_setup_delay = 0.0001
     bitbang_clock_delay = 0.0001
     bitbang_clock_pin = 11
-    bitbang_MISO_pin = 10
-    bitbang_MOSI_pin = 9
+    bitbang_MISO_pin = 9
+    bitbang_MOSI_pin = 10
     bitbang_cs_DAC_pin = 7
     bitbang_cs_frontwheel_encoder_pin = 8
     bitbang_spi_lock = threading.Lock()
