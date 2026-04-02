@@ -22,6 +22,12 @@ class FrontWheelEncoder:
             self._running = False
             self._lock = threading.Lock()
             self._interval = 0.1  # 20ms update interval
+
+            GPIO.setmode(GPIO.BCM)
+            GPIO.setup(self.CS_PIN, GPIO.OUT)
+            GPIO.setup(self.CLK_PIN, GPIO.OUT)
+            GPIO.output(self.CS_PIN,  GPIO.HIGH)
+            GPIO.output(self.CLK_PIN, GPIO.LOW)
             
             self.run()
         except Exception as e:
