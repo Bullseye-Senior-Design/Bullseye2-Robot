@@ -6,7 +6,7 @@ from Robot.Constants import Constants
 import RPi.GPIO as GPIO
 
 logger = logging.getLogger(f"{__name__}.DriveTrain")
-logger.setLevel(logging.INFO)  # Set to DEBUG for detailed output
+logger.setLevel(logging.DEBUG)  # Set to DEBUG for detailed output
 
 class DAC:
 	def __init__(self):
@@ -43,32 +43,35 @@ class DAC:
 			self._available = False  # Set to False to allow no-op in write
 
 	def write(self, channel: int, input_value: float) -> None:
-		"""Write a normalized value to the selected DAC channel.
+		try:
+			"""Write a normalized value to the selected DAC channel.
 
-		Args:
-			channel: DAC channel index. Channel 0 and 1 are supported.
-			input_value: Normalized output in the range 0.0 .. 1.0.
-		"""
-		if not self._available:
-			return
+			Args:
+				channel: DAC channel index. Channel 0 and 1 are supported.
+				input_value: Normalized output in the range 0.0 .. 1.0.
+			"""
+			if not self._available:
+				return
 
-		value = int(input_value * self._max_value)
-		value = max(0, min(self._max_value, value))
+			value = int(input_value * self._max_value)
+			value = max(0, min(self._max_value, value))
 
-		if channel == 0:
-			command = 0x3000 | value
-		else:
-			command = 0xB000 | value
+			if channel == 0:
+				command = 0x3000 | value
+			else:
+				command = 0xB000 | value
 
-		logger.debug(
-			"Writing to DAC channel %s: input=%.3f, value=%s, command=0x%04X",
-			channel,
-			input_value,
-			value,
-			command,
-		)
+			logger.debug(
+				"Writing to DAC channel %s: input=%.3f, value=%s, command=0x%04X",
+				channel,
+				input_value,
+				value,
+				command,
+			)
 
-		self._send_word(command)
+			self._send_word(command)
+		except Exception as e:
+			logger.error(f"Error writing to DAC: {e}")
 
 	def _send_word(self, word: int) -> None:
 		"""Shift out a 16-bit word MSB-first."""
@@ -99,4 +102,4 @@ class DAC:
 			GPIO.output(self.data_pin, GPIO.LOW)
 			self._available = False
 		finally:
-			GPIO.cleanup()
+			GPIO.cleanup([self.cs_pin, self.clk_pin, self.data_pin])
