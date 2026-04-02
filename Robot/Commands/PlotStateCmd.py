@@ -13,10 +13,10 @@ from matplotlib import patches
 from matplotlib import transforms as mtransforms
 import logging
 
-from Robot.subsystems.KalmanStateEstimator import KalmanStateEstimator
+from Robot.subsystems.algorithms.KalmanStateEstimator import KalmanStateEstimator
 from Robot.subsystems.sensors.IMU import IMU
 from Robot.subsystems.sensors.UWB import UWB
-from Robot.subsystems.PathFollowing import PathFollowing
+from Robot.subsystems.algorithms.PathFollowing import PathFollowing
 from Robot.MathUtil import MathUtil
 import time
 

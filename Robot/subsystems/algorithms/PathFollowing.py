@@ -4,9 +4,12 @@ from scipy.interpolate import interp1d
 import time
 import threading
 import logging
-from Robot.subsystems.KalmanStateEstimator import KalmanStateEstimator
+from Robot.subsystems.algorithms.KalmanStateEstimator import KalmanStateEstimator
 from structure.Subsystem import Subsystem
 from Robot.Constants import Constants
+import rsplan
+import math
+
 
 logger = logging.getLogger(f"{__name__}.PathFollowing")
 logger.setLevel(logging.INFO)
@@ -86,7 +89,7 @@ class PathFollowing(Subsystem):
         self._x_prev = None  # For warm starting
         
         # Path completion tracking
-        self.goal_tolerance = 0.33  # meters - distance threshold to consider goal reached
+        self.closest_point_idx = None  # To track closest point on path for determining if the path is finished
         
         # Get reference to state estimator
         self.state_estimator = KalmanStateEstimator()
@@ -94,15 +97,15 @@ class PathFollowing(Subsystem):
     def _setup_mpc(self):
         """Setup the MPC solver using CasADi with Frenet Frame cost function."""
         # Symbolic states
-        x = ca.SX.sym('x')
-        y = ca.SX.sym('y')
-        theta = ca.SX.sym('theta')
+        x = ca.SX.sym('x') # type: ignore
+        y = ca.SX.sym('y') # type: ignore
+        theta = ca.SX.sym('theta') # type: ignore
         states = ca.vertcat(x, y, theta)
         n_states = states.size1()
         
         # Symbolic inputs
-        v = ca.SX.sym('v')
-        delta = ca.SX.sym('delta')
+        v = ca.SX.sym('v') # type: ignore
+        delta = ca.SX.sym('delta') # type: ignore
         controls = ca.vertcat(v, delta)
         n_controls = controls.size1()
         
@@ -111,10 +114,10 @@ class PathFollowing(Subsystem):
         f = ca.Function('f', [states, controls], [rhs])
         
         # Optimization variables
-        U = ca.SX.sym('U', n_controls, self.p)
-        X = ca.SX.sym('X', n_states, self.p + 1)
+        U = ca.SX.sym('U', n_controls, self.p) # type: ignore
+        X = ca.SX.sym('X', n_states, self.p + 1) # type: ignore
         # Parameters: initial state (3) + prev control (2) + pose refs (3*(p+1)) + speed refs (p+1)
-        P = ca.SX.sym('P', n_states + n_controls + (self.p+1)*3 + (self.p+1))
+        P = ca.SX.sym('P', n_states + n_controls + (self.p+1)*3 + (self.p+1)) # type: ignore
         
         cost_fn = 0
         g = []
@@ -160,7 +163,7 @@ class PathFollowing(Subsystem):
             # Dynamics constraint
             st_next = X[:, k+1]
             f_value = f(st, con)
-            st_next_euler = st + (self.Ts * f_value)
+            st_next_euler = st + (self.Ts * f_value) # type: ignore
             g.append(st_next - st_next_euler)
         
         # Terminal cost (Frenet Frame) - uses higher weights for goal emphasis
@@ -214,13 +217,14 @@ class PathFollowing(Subsystem):
         s_wp = np.insert(s_wp, 0, 0.0)
         
         # Create interpolators for x, y, and theta as functions of arc-length
-        interp_x = interp1d(s_wp, x_wp, kind='cubic', fill_value='extrapolate')
-        interp_y = interp1d(s_wp, y_wp, kind='cubic', fill_value='extrapolate')
-        interp_theta = interp1d(s_wp, theta_wp, kind='cubic', fill_value='extrapolate')
+        interp_x = interp1d(s_wp, x_wp, kind='cubic', fill_value='extrapolate') # type: ignore
+        interp_y = interp1d(s_wp, y_wp, kind='cubic', fill_value='extrapolate') # type: ignore
+        interp_theta = interp1d(s_wp, theta_wp, kind='cubic', fill_value='extrapolate') # type: ignore
         
         # Find closest point on path to current state
         distances = np.sqrt((x_wp - cur_state[0])**2 + (y_wp - cur_state[1])**2)
         closest_idx = np.argmin(distances)
+        self.closest_point_idx = closest_idx  # Store closest point index for potential use in determining path completion
         
         # Interpolate arc-length at robot's position for better accuracy
         if closest_idx == len(x_wp) - 1:
@@ -332,26 +336,66 @@ class PathFollowing(Subsystem):
         with self._lock:
             return self._running
     
-    def is_at_goal(self, tolerance=None):
+    def is_at_goal(self, tolerance : float) -> bool:
         """Check if the robot has reached the end of the path."""
-        if tolerance is None:
-            tolerance = self.goal_tolerance
-            
         with self._lock:
             if self.path_matrix is None:
                 logger.warning("is_at_goal called but no path set")
                 return False
             
+            # Get current position and compute distance to goal
             current_state = self.state_estimator.get_state()
             distance_to_goal = self._get_distance_to_goal(current_state.pos)
-            return distance_to_goal is not None and distance_to_goal <= tolerance
+            is_close_enough = distance_to_goal is not None and distance_to_goal <= tolerance
+            
+            # Also consider the path complete if our current point is near the end of the path, to prevent stalling at the end if the robot overshoots slightly.
+            is_nearest_point_end_of_path = self.closest_point_idx is not None and self.closest_point_idx >= len(self.path_matrix) - 2
+            return is_close_enough or is_nearest_point_end_of_path # type: ignore
     
     def get_distance_to_goal(self):
         """Get the current distance to the end of the path."""
         with self._lock:
             return self._get_distance_to_goal(self.state_estimator.get_state().pos)
+        
+    def generate_path(self, start_pose, goal_pose, step_size=0.1) -> np.ndarray:
+        """
+        Generates a Dubins path that strictly obeys the robot's physical turning limit.
+        
+        Args:
+            start_pose: [x, y, theta]
+            goal_pose: [x, y, theta]
+            turning_radius: Minimum turning radius in meters (L / tan(max_steer))
+            step_size: Distance between waypoints in meters
+            
+        Returns:
+            np.array of shape (N, 3) containing [x, y, theta] waypoints.
+        """
+        # Poses must be tuples of (x, y, yaw)
+        q0 = tuple(start_pose)
+        q1 = tuple(goal_pose)
+        
+        wheelbase = Constants.wheel_base_width
+        max_steer_angle = Constants.steering_angle_limit_rads
+
+        # Kinematic formula for Ackermann turning radius
+        turning_radius = wheelbase / math.tan(max_steer_angle)
+        
+        # Generate the Reeds-Shepp path
+        # It automatically checks all geometric combinations to find the shortest
+        path = rsplan.path( # type: ignore
+            start_pose=q0, 
+            end_pose=q1, 
+            turn_radius=turning_radius, 
+            runway_length=0.0,       # If you want to pull straight in at the end set 0.5 
+            step_size=step_size,
+        )
+        
+        # Extract the waypoints into a numpy array
+        waypoints = path.waypoints()
+            
+        return np.array(waypoints)
     
-    def _get_distance_to_goal(self, current_state):
+    def _get_distance_to_goal(self, current_state) -> float | None:
         """Helper function to compute distance to goal from a given state."""
         with self._lock:
             if self.path_matrix is None:
@@ -438,11 +482,11 @@ class PathFollowing(Subsystem):
                     self._last_u = np.array([v_cmd, delta_cmd])
                     self._x_prev = res['x']
                 
-                if abs(v_cmd) < 0.01 and distance_to_goal is not None and distance_to_goal > self.goal_tolerance:
+                if abs(v_cmd) < 0.01 and distance_to_goal is not None and distance_to_goal > 0.25:
                     logger.debug(
                         "MPC commanding zero velocity but not at goal! Distance to goal: %.3f m (tolerance: %.3f m)",
                         distance_to_goal,
-                        self.goal_tolerance
+                        0.25
                     )
                 
                 elapsed = time.time() - start_time

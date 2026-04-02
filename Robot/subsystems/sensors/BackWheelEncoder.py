@@ -5,7 +5,7 @@ import threading
 from datetime import datetime
 import logging
 from Robot.Constants import Constants
-from Robot.subsystems.KalmanStateEstimator import KalmanStateEstimator
+from Robot.subsystems.algorithms.KalmanStateEstimator import KalmanStateEstimator
 
 logger = logging.getLogger(f"{__name__}.BackWheelEncoder")
 logger.setLevel(logging.INFO)  # Set to INFO for detailed output

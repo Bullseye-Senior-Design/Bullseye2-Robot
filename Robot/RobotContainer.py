@@ -6,7 +6,7 @@ import time
 
 from Robot.subsystems.sensors.UWB import UWB
 from Robot.subsystems.sensors.IMU import IMU
-from Robot.subsystems.PathFollowing import PathFollowing
+from Robot.subsystems.algorithms.PathFollowing import PathFollowing
 from Robot.subsystems.DriveTrain import DriveTrain
 from Robot.subsystems.BMS import BMS
 from Robot.subsystems.PCBLEDs import PCBLEDs
