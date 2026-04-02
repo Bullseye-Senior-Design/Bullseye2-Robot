@@ -70,7 +70,7 @@ class DriveTrain(Subsystem):
         target_angle: float in radians."""
         current_angle = self._front_encoder.get_position()
         if current_angle is None:
-            logger.warning("Front encoder reading failed, defaulting to 0 degrees")
+            logger.debug("Front encoder reading failed, defaulting to 0 degrees")
             return 0  # Default to straight if encoder fails
         
         current_angle = max(min(current_angle, self.soft_limit), -self.soft_limit)  # Apply soft limits
