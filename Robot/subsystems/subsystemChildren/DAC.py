@@ -1,59 +1,102 @@
 import logging
+import threading
+import time
 import spidev
 from Robot.Constants import Constants
+import RPi.GPIO as GPIO
 
 logger = logging.getLogger(f"{__name__}.DriveTrain")
 logger.setLevel(logging.INFO)  # Set to DEBUG for detailed output
 
 class DAC:
-    def __init__(self):
-        try:
-            self._spi = spidev.SpiDev()
-            self._spi.open(Constants.spi_bus, Constants.dac_spi_device)
-            self._spi.max_speed_hz = Constants.dac_max_freq_hz
-            self._spi.mode = Constants.dac_spi_mode
-            self._resolution = Constants.dac_resolution
-            self._max_value = Constants.dac_max_value
+	def __init__(self,):
+		try:
+			self.cs_pin = Constants.bitbang_cs_DAC_pin
+			self.clk_pin = Constants.bitbang_clock_pin
+			self.data_pin = Constants.bitbang_MOSI_pin
+			self._max_value = Constants.dac_max_value
+			self._setup_delay = Constants.bitbang_setup_delay
+			self._clock_delay = Constants.bitbang_clock_delay
+			self._available = True
+			self._bitbang_spi_lock = Constants.bitbang_spi_lock
 
-            logger.info(f"DAC SPI initialized on bus {Constants.spi_bus}, device {Constants.dac_spi_device}, mode {Constants.dac_spi_mode}")
-        except Exception as e:
-            logger.error(f"Failed to initialize SPI for DAC: {e}")
-            self._spi = None  # Set to None to allow no-op in _write_dac
-        
-    def write_dac(self, channel, input):
-        """Write a voltage to the specified DAC channel.
+			GPIO.setmode(GPIO.BCM)
+			GPIO.setwarnings(False)
 
-        - `channel`: integer, 0 or 1 selecting the DAC output.
-        - `input`: float 0.0..1.0
+			GPIO.setup(self.cs_pin, GPIO.OUT)
+			GPIO.setup(self.clk_pin, GPIO.OUT)
+			GPIO.setup(self.data_pin, GPIO.OUT)
 
-        The function converts the input into 12-bit DAC counts and then
-        sends the appropriate command via SPI. This is hardware-specific.
-        If `spi` is None (missing spidev) this function will simply return
-        silently so the code can run in environments without the DAC.
-        """
-        
-        if self._spi is None:
-            # No-op when SPI/DAC is not available (useful for debugging on PC)
-            return
+			GPIO.output(self.cs_pin, GPIO.HIGH)
+			GPIO.output(self.clk_pin, GPIO.LOW)
+			GPIO.output(self.data_pin, GPIO.LOW)
 
-        # Convert input to 12-bit value (0..4095)
-        value = int(input * self._max_value)
-        value = max(0, min(self._max_value, value))
+			logger.info(
+				"BitBangDAC initialized on CS=%s CLK=%s DATA=%s",
+				self.cs_pin,
+				self.clk_pin,
+				self.data_pin,
+			)
 
-        # Construct command word (chip-specific) — keep existing mapping
-        if channel == 0:
-            command = 0x3000 | value
-        else:
-            command = 0xB000 | value
+		except Exception as e:
+			logger.error(f"Failed to initialize BitBangDAC: {e}")
+			self._available = False  # Set to False to allow no-op in write
 
+	def write(self, channel: int, input_value: float) -> None:
+		"""Write a normalized value to the selected DAC channel.
 
-        logger.debug(f"Writing to DAC channel {channel}: input={input:.3f}, value={value}, command=0x{command:04X}")
-        # Send two bytes (MSB first) to the DAC
-        self._spi.xfer2([command >> 8, command & 0xFF])
-    
-    def close(self):
-        if self._spi:
-            try:
-                self._spi.close()
-            except Exception:
-                pass
+		Args:
+			channel: DAC channel index. Channel 0 and 1 are supported.
+			input_value: Normalized output in the range 0.0 .. 1.0.
+		"""
+		if not self._available:
+			return
+
+		value = int(input_value * self._max_value)
+		value = max(0, min(self._max_value, value))
+
+		if channel == 0:
+			command = 0x3000 | value
+		else:
+			command = 0xB000 | value
+
+		logger.debug(
+			"Writing to DAC channel %s: input=%.3f, value=%s, command=0x%04X",
+			channel,
+			input_value,
+			value,
+			command,
+		)
+
+		self._send_word(command)
+
+	def _send_word(self, word: int) -> None:
+		"""Shift out a 16-bit word MSB-first."""
+		with self._bitbang_spi_lock:
+			GPIO.output(self.cs_pin, GPIO.LOW)
+			time.sleep(self._setup_delay)
+
+			for bit in range(15, -1, -1):
+				if word & (1 << bit):
+					GPIO.output(self.data_pin, GPIO.HIGH)
+				else:
+					GPIO.output(self.data_pin, GPIO.LOW)
+
+				time.sleep(self._setup_delay)
+				GPIO.output(self.clk_pin, GPIO.HIGH)
+				time.sleep(self._clock_delay)
+				GPIO.output(self.clk_pin, GPIO.LOW)
+
+			time.sleep(self._setup_delay)
+			GPIO.output(self.cs_pin, GPIO.HIGH)
+
+	def close(self) -> None:
+		if not self._available:
+			return
+		try:
+			GPIO.output(self.cs_pin, GPIO.HIGH)
+			GPIO.output(self.clk_pin, GPIO.LOW)
+			GPIO.output(self.data_pin, GPIO.LOW)
+			self._available = False
+		finally:
+			GPIO.cleanup()

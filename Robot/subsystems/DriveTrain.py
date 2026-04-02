@@ -46,15 +46,16 @@ class DriveTrain(Subsystem):
             
             self.shutdown = False
 
-            self._dac.write_dac(self._dac_backwheel_channel, 0)
-            self._dac.write_dac(self._dac_frontwheel_channel, 0.5)  # Simple mapping for demonstration
+            # Initialize motors to stopped state
+            self._dac.write(self._dac_backwheel_channel, 0)
+            self._dac.write(self._dac_frontwheel_channel, 0.5)  
             
             # Pitch PID controller
             # TODO Fine-tune PID parameters for better performance
             self.front_wheel_pid = PID(0.8, 0.0, 0.0, setpoint=0)
             self.output_limits = (-1, 1)  # Limit PID output to motor command range
             self.front_wheel_pid.output_limits = self.output_limits # Limit output to motor
-            self.soft_limit = math.radians(-30)  # ±30 degrees in radians
+            self.soft_limit = math.radians(-Constants.frontwheel_soft_limit_degrees)  # ±30 degrees in radians
 
             logger.info(f"DriveTrain initialized with SSR pins: {self._backwheel_forward_ssr_pin}, {self._backwheel_reverse_ssr_pin}, {self._backwheel_power_ssr_pin}, {self._frontwheel_power_ssr_pin}")
         
@@ -100,12 +101,12 @@ class DriveTrain(Subsystem):
         # set back wheel speed
         is_reverse = speed < 0
         self._set_wheel_directions(is_reverse)
-        self._dac.write_dac(self._dac_backwheel_channel, abs(speed) * self._backwheel_power_scale_factor)
+        self._dac.write(self._dac_backwheel_channel, abs(speed) * self._backwheel_power_scale_factor)
         
         # set front wheel speed using PID controller
         pid_speed = self._get_angle_from_pid(target_angle)
         write_value = MathUtil.map(pid_speed, self.output_limits[0], self.output_limits[1], 0, 1)
-        self._dac.write_dac(self._dac_frontwheel_channel, write_value)
+        self._dac.write(self._dac_frontwheel_channel, write_value)
         logger.debug(f"Set speed: {speed}, angle: {target_angle} with speed of {pid_speed}, is_reverse: {is_reverse}")
     
     def _set_wheel_directions(self, is_reverse: bool):
@@ -164,9 +165,8 @@ class DriveTrain(Subsystem):
     
     def stop(self):
         """Stop motors (set speed and angle to zero)."""
-        self._dac.write_dac(self._dac_backwheel_channel, 0.0)
-        self._dac.write_dac(self._dac_frontwheel_channel, 0.5)
-
+        self._dac.write(self._dac_backwheel_channel, 0.0)
+        self._dac.write(self._dac_frontwheel_channel, 0.5)
     
     def close(self):
         if not self.shutdown:

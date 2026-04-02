@@ -1,4 +1,5 @@
 from pathlib import Path
+import threading
 
 
 class UWBTagInfo:
@@ -10,25 +11,27 @@ class UWBTagInfo:
 class Constants:
     # Wheel base width in meters
     wheel_base_width = 0.25
-    
-    # SPI Constants
-    spi_bus = 0
+
+    # Bit Banging Constants
+    bitbang_setup_delay = 0.0001
+    bitbang_clock_delay = 0.0001
+    bitbang_clock_pin = 11
+    bitbang_MISO_pin = 10
+    bitbang_MOSI_pin = 9
+    bitbang_cs_DAC_pin = 7
+    bitbang_cs_frontwheel_encoder_pin = 8
+    bitbang_spi_lock = threading.Lock()
     
     # DAC Constants
-    dac_spi_device = 1
-    dac_spi_mode = 0
-    dac_max_freq_hz = 10000
     dac_backwheel_channel = 0
     dac_frontwheel_channel = 1
     dac_resolution = 12
     dac_max_value = (1 << dac_resolution) - 1  # 4095 for 12-bit DAC
 
     # Front Wheel Encoder Constants
-    frontwheel_encoder_spi_device = 0
-    frontwheel_encoder_spi_mode = 0
-    frontwheel_encoder_max_freq_hz = 1000
-    frontwheel_encoder_resolution = 12  # bits
+    frontwheel_encoder_resolution = 14  # bits
     frontwheel_encoder_max_position = (1 << frontwheel_encoder_resolution) - 1
+    frontwheel_soft_limit_degrees = 30  # degrees of max steering angle
     
     # Back Wheel Encoder Constants
     back_right_encoder_pin = 5
