@@ -35,6 +35,12 @@ _FIELD_UNMAP = {
     'r2': 'btn_R2',  'l2': 'btn_L2',  'sh': 'btn_share', 'op': 'btn_options',
 }
 
+left_x = 0.0, left_y = 0.0, right_x = 0.0, right_y = 0.0,
+dpad_up = False, dpad_down = False, dpad_left = False, dpad_right = False,
+btn_A = False, btn_B = False, btn_X = False, btn_Y = False,
+btn_LB = False, btn_RB = False, btn_LS = False, btn_RS = False,
+btn_R2 = -1.0, btn_L2 = -1.0, btn_share = False, btn_options = False
+
 # ==== LOGGING CONFIGURATION ====
 logger = logging.getLogger(f"{__name__}.PiCommThread")
 logger.setLevel(logging.INFO)  # Set to DEBUG for detailed output
