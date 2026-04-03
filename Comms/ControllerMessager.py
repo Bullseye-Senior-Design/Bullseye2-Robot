@@ -137,9 +137,9 @@ def main():
     else:
         print("[OK] Detected a controller, but could not get its name.")
     
-    print("Number of buttons:", joystick.get_numbuttons())
-    print("Number of hats:", joystick.get_numhats())   # Important for D-pad
-    print("Number of axes:", joystick.get_numaxes())
+    #print("Number of buttons:", joystick.get_numbuttons())
+    #print("Number of hats:", joystick.get_numhats())   # Important for D-pad
+    #print("Number of axes:", joystick.get_numaxes())
 
     # Track previous button states to detect presses (not holds)
     prev_dpad_up = False
@@ -210,7 +210,6 @@ def main():
                     ser.write((packet.model_dump_json() + "\n").encode())
                 print(f"[STATE] Sent: {packet.model_dump_json()}")
                 continue  # Skip rest of loop to immediately send stop command
-            
             # Debug: Print button presses
             if DEBUG:
                 if btn_A:
