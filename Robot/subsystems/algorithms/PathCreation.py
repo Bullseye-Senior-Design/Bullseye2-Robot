@@ -8,7 +8,7 @@ from dataclasses import dataclass
 import threading
 
 from Robot.Constants import Constants
-from Robot.subsystems.KalmanStateEstimator import KalmanStateEstimator
+from Robot.subsystems.algorithms.KalmanStateEstimator import KalmanStateEstimator
 from structure.Subsystem import Subsystem
 from scipy.interpolate import splrep, splev
 from scipy.signal import savgol_filter

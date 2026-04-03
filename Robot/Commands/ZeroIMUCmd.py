@@ -5,7 +5,7 @@ import numpy as np
 from Robot.Commands.FollowPathCmd import FollowPathCmd
 from Robot.subsystems.DriveTrain import DriveTrain
 
-from Robot.subsystems.PathFollowing import PathFollowing
+from Robot.subsystems.algorithms.PathFollowing import PathFollowing
 
 
 class ZeroIMUCmd(Command):

@@ -6,9 +6,10 @@ from typing import Optional
 import spidev
 from Robot.Constants import Constants
 import RPi.GPIO as GPIO
+from Robot.MathUtil import MathUtil
 
 logger = logging.getLogger(f"{__name__}.DriveTrain")
-logger.setLevel(logging.INFO)  # Set to DEBUG for detailed output
+logger.setLevel(logging.DEBUG)  # Set to DEBUG for detailed output
 
 class FrontWheelEncoder:
     def __init__(self):
@@ -24,6 +25,8 @@ class FrontWheelEncoder:
             self._running = False
             self._lock = threading.Lock()
             self._interval = 0.1  # 20ms update interval
+            
+            self.frontwheel_zero_offset = Constants.frontwheel_encoder_zero_offset
 
             GPIO.setmode(GPIO.BCM)
             GPIO.setup(self.cs_pin, GPIO.OUT)
@@ -95,7 +98,9 @@ class FrontWheelEncoder:
             logger.debug(f"Data   : 0x{data:04X}   ~Data : 0x{inv:04X}   XOR = 0x{data ^ inv:04X}")
 
             if (data ^ inv) == 0xFFFF:
-                angle = ((data & 0x3FFF) * 2.0 * math.pi) / self._max_position
+                raw_angle = ((data & 0x3FFF) * 2.0 * math.pi) / self._max_position
+                # Apply calibration offset and keep angle wrapped to [-pi, pi])
+                angle = MathUtil.wrap_to_pi(raw_angle - self.frontwheel_zero_offset)
                 logger.debug(f"→ VALID Radians: {angle:.2f}")
                 with self._lock:
                     self._position = angle

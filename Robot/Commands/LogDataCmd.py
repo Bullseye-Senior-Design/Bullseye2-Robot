@@ -15,8 +15,8 @@ from Robot.subsystems.sensors.UWB import UWB
 from Robot.subsystems.sensors.UWBTag import Position
 from Robot.subsystems.sensors.IMU import IMU
 from Robot.subsystems.sensors.BackWheelEncoder import BackWheelEncoder
-from Robot.subsystems.KalmanStateEstimator import KalmanStateEstimator
-from Robot.subsystems.PathFollowing import PathFollowing
+from Robot.subsystems.algorithms.KalmanStateEstimator import KalmanStateEstimator
+from Robot.subsystems.algorithms.PathFollowing import PathFollowing
 
 # CSV utilities
 from Robot.Commands.log_data.csvlib import CSVFileManager, write_csv_or_fallback
