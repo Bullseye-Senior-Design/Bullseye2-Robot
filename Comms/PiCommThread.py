@@ -23,7 +23,9 @@ from Comms.DataPacket import DataPacket
 from Comms.ControllerData import ControllerData
 from Comms.BatteryData import BatteryData
 from Comms.StateData import State, StateData
+from Comms.KFXData import KFXMapUpdate
 from Robot.Constants import Constants
+from Robot.subsystems.KFX import KFX
 from structure.RobotState import RobotState
 
 # Reverse of the sender's _FIELD_MAP — short key -> full ControllerData field name
@@ -116,9 +118,15 @@ class PiCommThread:
         # Serial connection for receiving from ControllerMessager
         self.pi_ser = None
 
+        # KFX remote subsystem
+        self.kfx = KFX()
+
         logger.info("PiCommThread initialized")
 
     def start(self):
+        # Start KFX remote listener thread
+        self.kfx.start()
+
         # Start controller receiver thread
         self.comms_thread = threading.Thread(
             target=self._receive_controller_commands,
@@ -205,6 +213,32 @@ class PiCommThread:
                 if full_key:
                     current[full_key] = value
             self.comm_data.controller_data = ControllerData(**current)
+        elif packet.type == "kfx_map":
+            update = KFXMapUpdate.model_validate_json(packet.json_data)
+            self.kfx.update_map(update.mapping)
+
+    def poll_kfx(self):
+        """
+        Check KFX remote events and dispatch accordingly.
+        Must be called regularly from the main robot loop.
+        E-Stop is checked first so it always takes priority.
+        """
+        if self.kfx.estop_event.is_set():
+            self.kfx.estop_event.clear()
+            logger.warning("KFX E-Stop triggered")
+            self._handle_state_change(State.DISABLED)
+
+        elif self.kfx.start_event.is_set():
+            self.kfx.start_event.clear()
+            logger.info("KFX Start pressed")
+            # TODO: define what start does (e.g. resume last state, go TELEOP, etc.)
+
+        elif not self.kfx.route_queue.empty():
+            action = self.kfx.route_queue.get_nowait()
+            logger.info(f"KFX route requested: {action}")
+            # TODO: look up route by action string and start path following
+            # e.g. route_id = int(action.split(":")[1])
+            #      self._start_route(route_id)
 
     def _send_battery_data(self):
         """
@@ -314,6 +348,8 @@ class PiCommThread:
                 self.pi_ser.close()
             except Exception as e:
                 logger.error(f"Error closing controller serial: {e}")
+
+        self.kfx.close()
 
         logger.info("CommandBrain shutdown complete")
 

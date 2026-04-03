@@ -13,13 +13,14 @@ from Comms.ControllerData import ControllerData
 from Comms.StateData import State, StateData
 from Comms.BatteryData import BatteryData
 from Comms.DataPacket import DataPacket
+from Comms.KFXData import KFXMapUpdate
 from Robot.Constants import Constants
 
 # ==== CONFIG ====
 DEBUG = True                # Set to True for debugging output
 DEBUGPRINT = False           # Set to True for debug print statements
 ErrTEST = False             # Set to True to allow running without serial connection (for testing without hardware)
-MENU = True
+MENU = FALSE
 ESTOP = False              # If True, pressing the Y button will immediately send a DISABLED state to the robot (emergency stop)
 PORT = Constants.controller_serial_port
 BAUD = Constants.serial_baud_rate
@@ -83,6 +84,22 @@ def _receive_robot_data(ser: serial.Serial):
         except Exception:
             break
 
+
+
+def send_kfx_map(ser: serial.Serial, mapping: dict[str, str]):
+    """
+    Send a KFX button map update to the Pi.
+    Only buttons 3-8 should be included; 1 and 2 are hardcoded on the Pi.
+
+    Args:
+        ser: open serial port to the Pi
+        mapping: e.g. {"3": "route:0", "5": "route:2"}
+    """
+    update = KFXMapUpdate(mapping=mapping)
+    packet = DataPacket(type="kfx_map", json_data=update.model_dump_json())
+    ser.write((packet.model_dump_json() + "\n").encode())
+    if DEBUG:
+        print(f"[KFX] Sent map update: {mapping}")
 
 
 def printmenu():

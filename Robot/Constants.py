@@ -83,3 +83,8 @@ class Constants:
     path_creation_update_interval = 0.1  # seconds between path point captures
     path_file_directory  = Path.cwd() / 'logs' / 'paths'
 
+    # KFX Remote
+    kfx_serial_port = "/dev/ttyAMA0"   # UART on GPIO pins 14 (TX) / 15 (RX)
+    kfx_baud_rate = 115200
+    kfx_map_path = Path.cwd() / 'config' / 'kfx_map.json'
+
