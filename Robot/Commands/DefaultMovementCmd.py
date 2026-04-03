@@ -1,23 +1,26 @@
+from Robot.subsystems.Clutches import Clutches
 from Robot.subsystems.DriveTrain import DriveTrain
 from structure.commands.Command import Command
 from typing import Callable
 import logging
-from MathUtil import MathUtil
-from Constants import Constants
+from Robot.MathUtil import MathUtil
+from Robot.Constants import Constants
 
 logger = logging.getLogger(f"{__name__}.DriveTrain")
 logger.setLevel(logging.INFO)  # Set to DEBUG for detailed output
 
 class DefaultMovementCmd(Command):
-    def __init__(self, drive_train: DriveTrain, throttle_supplier: Callable[[], float], steering_supplier: Callable[[], float]):
+    def __init__(self, drive_train: DriveTrain, clutches: Clutches, throttle_supplier: Callable[[], float], steering_supplier: Callable[[], float]):
         """
         Args:
             drive_train: The DriveTrain subsystem
+            clutches: The Clutches subsystem
             throttle_supplier: Function that returns current throttle value (-1.0 to 1.0)
             steering_supplier: Function that returns current steering value (-1.0 to 1.0)
         """
         super().__init__()
         self._drive_train = drive_train
+        self._clutches = clutches
         self._throttle_supplier = throttle_supplier
         self._steering_supplier = steering_supplier
         self.add_requirement(drive_train)
@@ -26,6 +29,7 @@ class DefaultMovementCmd(Command):
         """Called once when the command is first scheduled"""
         self._drive_train.engage_backwheel()  # Ensure backwheel is engaged for movement
         self._drive_train.engage_frontwheel()  # Ensure frontwheel is engaged for movement
+        self._clutches.engage_clutches()  # Disengage clutches to allow movement
         self._drive_train.stop()
     
     def execute(self):
