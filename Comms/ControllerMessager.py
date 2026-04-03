@@ -16,10 +16,10 @@ from Comms.DataPacket import DataPacket
 from Robot.Constants import Constants
 
 # ==== CONFIG ====
-DEBUG = True                # Set to True for debugging output
-DEBUGPRINT = True           # Set to True for debug print statements
+DEBUG = False                # Set to True for debugging output
+DEBUGPRINT = False           # Set to True for debug print statements
 ErrTEST = False             # Set to True to allow running without serial connection (for testing without hardware)
-MENU = True
+MENU = False
 ESTOP = False              # If True, pressing the Y button will immediately send a DISABLED state to the robot (emergency stop)
 PORT = Constants.controller_serial_port
 BAUD = Constants.serial_baud_rate
@@ -161,7 +161,7 @@ def main():
             left_y = -left_y  # Invert Y-axis for intuitive control
             right_x = joystick.get_axis(2)
             right_y = joystick.get_axis(3)
-            right_y = -right_y  # Invert Y-axis for intuitive control
+            right_x = -right_x  # Invert Y-axis for intuitive control
 
             l2_axis = joystick.get_axis(4)
             r2_axis = joystick.get_axis(5)
