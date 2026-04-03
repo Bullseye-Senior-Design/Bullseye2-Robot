@@ -44,7 +44,7 @@ class RobotContainer:
         # Start subsystems
         self.uwb.start(uwb_tag_data=Constants.uwb_tag_data, anchors_pos=None)
         self.back_Wheel_encoder.start()
-        self.drive_train.default_command(DefaultMovementCmd(self.drive_train, 
+        self.drive_train.default_command(DefaultMovementCmd(self.drive_train, self.clutches,
                                                             lambda: self.comm_thread.get_controller_data().left_y, 
                                                             lambda: self.comm_thread.get_controller_data().right_x))
         
