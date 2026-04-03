@@ -10,8 +10,8 @@ Stop with: Ctrl+C
 import serial
 import sys
 
-PORT = "/dev/ttyAMA0"   # UART on pins 14 (TX) / 15 (RX) on Pi5
-BAUD = 9600             # Change this if your KFX remote uses a different baud rate
+PORT = "/dev/ttyAMA0"    # UART on pins 14 (TX) / 15 (RX) on Pi5
+BAUD = 115200             # Change this if your KFX remote uses a different baud rate
 
 def main():
     print(f"Opening {PORT} at {BAUD} baud...")
