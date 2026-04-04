@@ -10,3 +10,7 @@ pydantic
 spidev
 smbus
 rpi-lgpio
+
+# ── Steam Deck GUI (SteamDeckApp.py only – not needed on Pi) ──────────────────
+customtkinter
+pygame
