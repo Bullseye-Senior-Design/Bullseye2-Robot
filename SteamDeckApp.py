@@ -633,9 +633,7 @@ class StartupScreen(BaseScreen):
     First screen shown on launch. No robot communication happens here.
     Displays the Bullseye logo and a START button.
 
-    TODO: Replace the text logo with a CTkImage once the asset is ready.
-          Load it with: ctk.CTkImage(Image.open("assets/logo.png"), size=(400,300))         DONE - Jay
-          and use a CTkLabel with image= parameter instead of the text label.
+    TODO - JAY - Maybe get the font to match the bullseye screen - later
     """
     def __init__(self, parent, app, app_state: AppState):
         super().__init__(parent, app, app_state)
@@ -724,7 +722,7 @@ class FreeDriveScreen(BaseScreen):
                  This lets the user navigate the menu while the robot is live.
                  Add enqueue_state(DISABLED) here if that behavior is unwanted.
     """
-    def __init__(self, parent, app, app_state: AppState):
+    def __init__(self, parent, app, app_state: AppState): #the state needs to match the state in the statedata.py file - 2 for teleop
         super().__init__(parent, app, app_state)
 
         # ── Status bar ────────────────────────────────────────────────────
@@ -1041,6 +1039,9 @@ class RunRouteScreen(BaseScreen):
                    Convention: path_id = -1 signals the Pi to run the home route.
                    TODO: Confirm path_id=-1 as 'home' convention with Pi team.
     BACK         → StateData(DISABLED) if running, then → PathSubMenu
+
+    TODO: for testing need to get "fake" routes inside so that we can test 
+    the state logic change for the run route and the return home
     """
     def __init__(self, parent, app, app_state: AppState):
         super().__init__(parent, app, app_state)
@@ -1341,6 +1342,8 @@ class BotSettingsScreen(BaseScreen):
           - Motor speed caps
           - Kalman filter tuning parameters
           Add a new DataPacket type (e.g. "bot_config") to send values to Pi.
+
+          Settings needs : sensors data, battery lifespan data, encoder, actuator lifespan, uwb status/connection
     """
     def __init__(self, parent, app, app_state: AppState):
         super().__init__(parent, app, app_state)
