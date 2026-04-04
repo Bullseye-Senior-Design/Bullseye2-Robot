@@ -302,8 +302,7 @@ class JoystickThread(threading.Thread):
                 btn_X=btn_X,         btn_Y=btn_Y,
                 btn_LB=btn_LB,       btn_RB=btn_RB,
                 btn_LS=btn_LS,       btn_RS=btn_RS,
-                # Note: l2→R2 and r2→L2 swap is intentional, matches ControllerMessager.py
-                btn_R2=l2_axis,      btn_L2=r2_axis,
+                btn_L2=l2_axis,      btn_R2=r2_axis,
                 btn_share=btn_share, btn_options=btn_options,
             )
 
