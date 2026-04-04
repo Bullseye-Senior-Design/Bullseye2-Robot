@@ -36,6 +36,7 @@ import sys
 import subprocess
 from pathlib import Path
 from collections import deque
+from PIL import Image
 
 # ── Package path so Comms/Robot imports resolve from project root ─────────────
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
@@ -49,8 +50,9 @@ from Robot.Constants import Constants
 # ============================================================
 # APP-LEVEL CONSTANTS  –  hardware and timing
 # ============================================================
-WINDOW_W   = 1280
+WINDOW_W   = 1280 #steam deck dimensions - NEVER CHANGE
 WINDOW_H   = 800
+
 UPDATE_HZ  = Constants.controller_update_rate   # seconds per cycle (~20 Hz = 0.05 s)
 DEADZONE   = Constants.controller_deadzone       # joystick axis dead-band
 PORT       = Constants.controller_serial_port    # XBee USB serial port
@@ -523,7 +525,7 @@ def make_header_bar(parent, app_state: AppState, title: str = "") -> ctk.CTkFram
         """Poll state every second; stop silently if widget is gone."""
         try:
             with app_state.lock:
-                batt = app_state.battery
+                batt = app_state.battery  ##cinfirmed battery state for header
                 connected = app_state.connected
             batt_lbl.configure(text=f"🔋 {batt.state_of_charge:.0f}%")
             wifi_lbl.configure(
@@ -538,18 +540,18 @@ def make_header_bar(parent, app_state: AppState, title: str = "") -> ctk.CTkFram
 
 
 def make_nav_button(parent, text: str, command,
-                    color: str = C_SECONDARY,
-                    width: int = 380,
-                    height: int = 80) -> ctk.CTkButton:
+                    color: str = C_TEXT, #making the button a matching gray 
+                    width: int = 600,
+                    height: int = 100) -> ctk.CTkButton:
     """
     Standard large touch-friendly navigation button used across all screens.
     Hover color is always gold (C_TERTIARY) for visual consistency.
     """
     return ctk.CTkButton(
         parent, text=text, command=command,
-        font=("Arial Bold", 22),
+        font=("Arial", 56, "bold"),
         fg_color=color, hover_color=C_TERTIARY,
-        text_color=C_TEXT, corner_radius=12,
+        text_color=C_BG, corner_radius=30, ##making the color black of the text
         width=width, height=height,
     )
 
@@ -632,7 +634,7 @@ class StartupScreen(BaseScreen):
     Displays the Bullseye logo and a START button.
 
     TODO: Replace the text logo with a CTkImage once the asset is ready.
-          Load it with: ctk.CTkImage(Image.open("assets/logo.png"), size=(400,300))
+          Load it with: ctk.CTkImage(Image.open("assets/logo.png"), size=(400,300))         DONE - Jay
           and use a CTkLabel with image= parameter instead of the text label.
     """
     def __init__(self, parent, app, app_state: AppState):
@@ -644,24 +646,37 @@ class StartupScreen(BaseScreen):
 
         # ── Logo placeholder ──────────────────────────────────────────────
         # Replace this CTkLabel with a CTkImage widget once assets/logo.png exists
-        ctk.CTkLabel(
-            center, text="BULLSEYE",
-            font=("Arial Black", 90, "bold"),
-            text_color=C_PRIMARY,
-        ).pack(pady=(0, 6))
+
+        self.logo_image = ctk.CTkImage(
+            Image.open("assets/logo.png"),
+            size=(800,500)
+        )
 
         ctk.CTkLabel(
-            center, text="AUTONOMOUS Roping Dummy",
-            font=("Arial", 22),
-            text_color=C_MUTED,
-        ).pack(pady=(0, 70))
+            center,
+            image = self.logo_image,
+            text = ""
+        ).pack()
+       
+       
+        #ctk.CTkLabel(
+        #   center, text="BULLSEYE",
+        #   font=("Arial Black", 90, "bold"),
+        #    text_color=C_PRIMARY,
+        #).pack(pady=(0, 6))
+
+        #ctk.CTkLabel(
+        #    center, text="AUTONOMOUS Roping Dummy",
+        #    font=("Arial", 22),
+        #    text_color=C_MUTED,
+        #).pack(pady=(0, 70))
 
         # ── START button ──────────────────────────────────────────────────
         make_nav_button(
             center, "START",
             command=lambda: self.show(MainMenuScreen),
-            width=320, height=90,
-        ).pack()
+            width=600, height=100,
+        ).pack(pady=(0,100))
 
 
 # ============================================================
@@ -1097,7 +1112,7 @@ class RunRouteScreen(BaseScreen):
         self._stop_btn.pack(pady=8)
         self._stop_btn.configure(state="disabled")
 
-        make_nav_button(controls, "RETURN HOME",
+        make_nav_button(controls, "HOME",
                         command=self._return_home,
                         color=C_PRIMARY, width=230, height=62).pack(pady=8)
 
@@ -1321,7 +1336,7 @@ class BotSettingsScreen(BaseScreen):
     Placeholder screen for future robot-side configuration options.
 
     TODO: Define what bot settings should be exposed here once the Pi-side
-          settings API is designed. Candidates:
+          settings API is designed. Candidates:                                         
           - Steering angle limits
           - Motor speed caps
           - Kalman filter tuning parameters
@@ -1353,9 +1368,10 @@ class KFXSettingsScreen(BaseScreen):
     """
     Lets the user assign saved routes to KFX remote buttons 3–8.
 
-    Button 1 = STOP         (hardcoded on Pi – shown greyed, not assignable)
-    Button 2 = RETURN HOME  (hardcoded on Pi – shown greyed, not assignable)
-    Buttons 3–8 = user-assignable to any saved route
+    Button 1 = START         (hardcoded on Pi – shown greyed, not assignable)
+    Button 2 = E STOP  (hardcoded on Pi – shown greyed, not assignable)
+    Button 3 = RETURN HOME  (hardcoded on Pi – shown greyed, not assignable)
+    Buttons 4–8 = user-assignable to any saved route
 
     Interaction flow:
       1. Tap a numbered button on the phone graphic (3–8) → gold highlight
@@ -1421,20 +1437,20 @@ class KFXSettingsScreen(BaseScreen):
         Layout matches image 5 in the reference screenshots:
           Row 0: 7 | 8
           Row 1: 5 | 6
-          Row 2: 3 | 4
+          Row 2: 3 | 4   (3 locked/greyed)
           Row 3: 1 | 2   (both locked/greyed)
 
-        Buttons 1–2 are disabled (state="disabled") to show they are fixed.
-        Buttons 3–8 are interactive and highlighted gold when selected.
+        Buttons 1–3 are disabled (state="disabled") to show they are fixed.
+        Buttons 4–8 are interactive and highlighted gold when selected.
         """
-        ctk.CTkLabel(parent, text="KFX REMOTE",
-                     font=("Arial Bold", 18),
-                     text_color=C_MUTED).pack(pady=(10, 6))
+        #ctk.CTkLabel(parent, text="KFX REMOTE",
+        #             font=("Arial Bold", 18),
+        #             text_color=C_MUTED).pack(pady=(10, 6))
 
         # Phone body
         phone_body = ctk.CTkFrame(parent, fg_color=C_PRIMARY,
-                                   corner_radius=28, width=250, height=390)
-        phone_body.pack(pady=10)
+                                   corner_radius=28, width=320, height=500)
+        phone_body.pack(pady=100)
         phone_body.pack_propagate(False)
 
         # Button grid placed in center of phone body
@@ -1450,13 +1466,13 @@ class KFXSettingsScreen(BaseScreen):
         ]
 
         for label, num_str, row, col in btn_layout:
-            locked = num_str in ("1", "2")
+            locked = num_str in ("1", "2", "3")
 
             if locked:
                 btn = ctk.CTkButton(
                     grid, text=label,
-                    width=84, height=62,
-                    font=("Arial Bold", 20),
+                    width=110, height=80,
+                    font=("Arial", 20, "bold"),
                     fg_color=C_MUTED, hover_color=C_MUTED,
                     text_color=C_BG, corner_radius=8,
                     state="disabled",
@@ -1465,7 +1481,7 @@ class KFXSettingsScreen(BaseScreen):
             else:
                 btn = ctk.CTkButton(
                     grid, text=self._btn_display_text(num_str),
-                    width=84, height=62,
+                    width=110, height=80,
                     font=("Arial Bold", 16),
                     fg_color=C_SURFACE, hover_color=C_SECONDARY,
                     text_color=C_TEXT, corner_radius=8,
@@ -1477,10 +1493,10 @@ class KFXSettingsScreen(BaseScreen):
 
         # Fixed-button legend at bottom of phone
         ctk.CTkLabel(phone_body,
-                     text="1=STOP  |  2=HOME",
-                     font=("Arial", 11), text_color=C_MUTED).place(
-            relx=0.5, rely=0.93, anchor="center"
-        )
+                     text="1=START  |  2=STOP   | 3=RETURN",
+                     font=("Arial", 18, "bold"), text_color=C_MUTED).place(        #changed the button three to be the return home 
+            relx=0.5, rely=0.93, anchor="center"                           #funtion but this can change if they decide 
+        )                                                                  # to do manual return
 
     def _btn_display_text(self, num_str: str) -> str:
         """
