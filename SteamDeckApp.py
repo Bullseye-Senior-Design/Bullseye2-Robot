@@ -1699,6 +1699,9 @@ class BullseyeApp(ctk.CTk):
         if platform.system() == "Linux":
             self.attributes("-fullscreen", True)
 
+        # ── Hide mouse cursor ─────────────────────────────────────────────
+        self.config(cursor="none")
+
         # ── Persistent top status bar ─────────────────────────────────────
         # Lives on the root window so it survives frame swaps.
         # Hidden on StartupScreen; shown on every other screen.
