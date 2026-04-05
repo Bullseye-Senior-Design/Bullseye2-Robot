@@ -178,10 +178,6 @@ class AppState:
     def __init__(self):
         self.lock = threading.Lock()
 
-        # ── Connection status ─────────────────────────────────────────────
-        # Set to True once the XBee serial port opens successfully.
-        self.connected: bool = False
-
         # ── Inbound data (written by RX thread, read by GUI) ─────────────
         self.battery = BatteryData(
             voltage=0.0, current=0.0, power=0.0,
@@ -345,12 +341,7 @@ class SerialTXThread(threading.Thread):
             try:
                 self.ser.write(line.encode())
             except serial.SerialException as e:
-                print(f"[TX ERROR] {e}")
-                with self.app_state.lock:
-                    self.app_state.connected = False
-                # Put the event outside the lock – queue.Queue is already thread-safe
-                # and we don't want to hold app_state.lock during the put.
-                self.app_state.event_queue.put({"type": "connection_lost"})
+                print(f"[TX ERROR] Serial write failed: {e}")
 
         # Always log – visible in debug overlay even without hardware
         with self.app_state.lock:
@@ -398,8 +389,7 @@ class SerialRXThread(threading.Thread):
       type="route_created" → pushes event into app_state.event_queue
                              so the GUI can prompt the user to name it
 
-    On serial error: sets connected=False and pushes a connection_lost
-    event so the GUI can warn the user.
+    On serial error: prints a warning and exits the receive loop.
     """
     def __init__(self, app_state: AppState, ser: serial.Serial | None):
         super().__init__(daemon=True, name="SerialRXThread")
@@ -428,9 +418,6 @@ class SerialRXThread(threading.Thread):
 
             except serial.SerialException as e:
                 print(f"[RX ERROR] Serial lost: {e}")
-                with self.app_state.lock:
-                    self.app_state.connected = False
-                self.app_state.event_queue.put({"type": "connection_lost"})
                 break
             except Exception as e:
                 print(f"[RX ERROR] Unexpected: {e}")
@@ -496,47 +483,27 @@ def enqueue_state(app_state: AppState, state: State,
 # REUSABLE UI HELPERS
 # ============================================================
 
-def make_header_bar(parent, app_state: AppState, title: str = "") -> ctk.CTkFrame:
+def get_steamdeck_battery() -> int | None:
     """
-    Creates a top status bar showing wifi icon (connection state) and
-    battery percentage. Refreshes every second via after() polling.
-    Automatically stops refreshing when the parent widget is destroyed.
+    Read the Steam Deck's own battery percentage from the Linux power supply
+    sysfs interface. Returns an integer 0-100 on success, or None if the
+    file cannot be read (e.g. running on Windows during development).
 
-    Returns the frame so callers can pack it themselves.
+    The Steam Deck exposes battery capacity at one of these paths depending
+    on kernel version; we try them in order and return the first that works.
     """
-    bar = ctk.CTkFrame(parent, fg_color=C_SURFACE, height=50, corner_radius=0)
-
-    # Wifi connection indicator (color reflects connected state)
-    wifi_lbl = ctk.CTkLabel(bar, text="📶", font=("Arial", 20),
-                              text_color=C_MUTED)
-    wifi_lbl.pack(side="left", padx=(12, 4))
-
-    # Battery percentage
-    batt_lbl = ctk.CTkLabel(bar, text="🔋 --%", font=("Arial", 16),
-                              text_color=C_TEXT)
-    batt_lbl.pack(side="left", padx=(0, 16))
-
-    # Optional screen title
-    if title:
-        ctk.CTkLabel(bar, text=title, font=("Arial Bold", 20),
-                     text_color=C_TEXT).pack(side="left", padx=20)
-
-    def _refresh():
-        """Poll state every second; stop silently if widget is gone."""
+    candidates = [
+        "/sys/class/power_supply/BAT1/capacity",
+        "/sys/class/power_supply/BAT0/capacity",
+        "/sys/class/power_supply/battery/capacity",
+    ]
+    for path in candidates:
         try:
-            with app_state.lock:
-                batt = app_state.battery  ##cinfirmed battery state for header
-                connected = app_state.connected
-            batt_lbl.configure(text=f"🔋 {batt.state_of_charge:.0f}%")
-            wifi_lbl.configure(
-                text_color=C_TERTIARY if connected else C_DANGER
-            )
-            bar.after(1000, _refresh)
+            with open(path, "r") as f:
+                return int(f.read().strip())
         except Exception:
-            pass   # Widget destroyed on frame swap – stop polling silently
-
-    bar.after(0, _refresh)
-    return bar
+            continue
+    return None  # Not on Linux / sysfs not available (Windows dev machine)
 
 
 def make_nav_button(parent, text: str, command,
@@ -725,9 +692,6 @@ class FreeDriveScreen(BaseScreen):
     def __init__(self, parent, app, app_state: AppState): #the state needs to match the state in the statedata.py file - 2 for teleop
         super().__init__(parent, app, app_state)
 
-        # ── Status bar ────────────────────────────────────────────────────
-        make_header_bar(self, app_state, title="FREE DRIVE").pack(fill="x", side="top")
-
         # ── Center instruction text ───────────────────────────────────────
         center = ctk.CTkFrame(self, fg_color="transparent")
         center.place(relx=0.5, rely=0.5, anchor="center")
@@ -835,9 +799,6 @@ class RecordRouteScreen(BaseScreen):
         super().__init__(parent, app, app_state)
 
         self._waiting_for_confirm = False   # True after FINISH pressed
-
-        # ── Status bar ────────────────────────────────────────────────────
-        make_header_bar(self, app_state, title="RECORD ROUTE").pack(fill="x", side="top")
 
         # ── Center content ────────────────────────────────────────────────
         center = ctk.CTkFrame(self, fg_color="transparent")
@@ -1049,9 +1010,6 @@ class RunRouteScreen(BaseScreen):
         self._selected_id: int | None = None
         self._route_buttons: dict = {}   # route_id (int) → CTkButton
         self._is_running: bool = False
-
-        # ── Status bar ────────────────────────────────────────────────────
-        make_header_bar(self, app_state, title="RUN ROUTE").pack(fill="x", side="top")
 
         # ── Main two-column content ───────────────────────────────────────
         content = ctk.CTkFrame(self, fg_color="transparent")
@@ -1408,7 +1366,24 @@ class KFXSettingsScreen(BaseScreen):
                      font=("Arial Bold", 28),
                      text_color=C_TEXT).pack(pady=(22, 10))
 
+        # ── Bottom action bar ─────────────────────────────────────────────
+        # IMPORTANT: pack side="bottom" frames BEFORE any frame that uses
+        # expand=True. tkinter pack allocates space in pack order — if the
+        # expanding columns frame is packed first it consumes all remaining
+        # height and the bottom bar has nowhere to go.
+        bottom = ctk.CTkFrame(self, fg_color="transparent")
+        bottom.pack(side="bottom", pady=18)
+
+        make_nav_button(bottom, "← BACK",
+                        command=lambda: self.show(SettingsSubMenuScreen),
+                        color=C_PRIMARY, width=210, height=62).pack(side="left", padx=20)
+
+        make_nav_button(bottom, "SAVE & SEND",
+                        command=self._save,
+                        width=230, height=62).pack(side="right", padx=20)
+
         # ── Two-column layout ─────────────────────────────────────────────
+        # Packed after bottom bar so expand=True fills only the remaining space.
         columns = ctk.CTkFrame(self, fg_color="transparent")
         columns.pack(fill="both", expand=True, padx=30, pady=10)
 
@@ -1422,43 +1397,35 @@ class KFXSettingsScreen(BaseScreen):
         route_col.pack(side="right", fill="both", expand=True, padx=(20, 0))
         self._build_route_table(route_col)
 
-        # ── Bottom action bar ─────────────────────────────────────────────
-        bottom = ctk.CTkFrame(self, fg_color="transparent")
-        bottom.pack(side="bottom", pady=18)
-
-        make_nav_button(bottom, "← BACK",
-                        command=lambda: self.show(SettingsSubMenuScreen),
-                        color=C_PRIMARY, width=210, height=62).pack(side="left", padx=20)
-
-        make_nav_button(bottom, "SAVE & SEND",
-                        command=self._save,
-                        width=230, height=62).pack(side="right", padx=20)
-
     def _build_phone(self, parent):
         """
         Renders a stylized phone body containing an 8-button grid.
         Layout matches image 5 in the reference screenshots:
           Row 0: 7 | 8
           Row 1: 5 | 6
-          Row 2: 3 | 4   (3 locked/greyed)
+          Row 2: 3 | 4   
           Row 3: 1 | 2   (both locked/greyed)
 
-        Buttons 1–3 are disabled (state="disabled") to show they are fixed.
-        Buttons 4–8 are interactive and highlighted gold when selected.
+        Buttons 1–2 are disabled (state="disabled") to show they are fixed.
+        Buttons 3–8 are interactive and highlighted gold when selected.
         """
         #ctk.CTkLabel(parent, text="KFX REMOTE",
         #             font=("Arial Bold", 18),
         #             text_color=C_MUTED).pack(pady=(10, 6))
 
-        # Phone body
+        # Phone body – height kept tight so it fits within the content area
+        # after the 44px top bar and ~80px bottom action bar are accounted for.
+        # pady is small so the body isn't pushed out of view.
         phone_body = ctk.CTkFrame(parent, fg_color=C_PRIMARY,
-                                   corner_radius=28, width=320, height=500)
-        phone_body.pack(pady=100)
+                                   corner_radius=28, width=300, height=440)
+        phone_body.pack(pady=12)
         phone_body.pack_propagate(False)
 
-        # Button grid placed in center of phone body
+        # Button grid centered inside the phone body.
+        # rely=0.45 keeps the grid slightly above center, leaving room for the
+        # legend label near the bottom of the phone body.
         grid = ctk.CTkFrame(phone_body, fg_color="transparent")
-        grid.place(relx=0.5, rely=0.46, anchor="center")
+        grid.place(relx=0.5, rely=0.45, anchor="center")
 
         # (label_text, button_number_str, grid_row, grid_col)
         btn_layout = [
@@ -1469,7 +1436,7 @@ class KFXSettingsScreen(BaseScreen):
         ]
 
         for label, num_str, row, col in btn_layout:
-            locked = num_str in ("1", "2", "3")
+            locked = num_str in ("1", "2")
 
             if locked:
                 btn = ctk.CTkButton(
@@ -1494,12 +1461,12 @@ class KFXSettingsScreen(BaseScreen):
 
             btn.grid(row=row, column=col, padx=6, pady=6)
 
-        # Fixed-button legend at bottom of phone
+        # Small legend at bottom of phone body explaining the fixed buttons.
         ctk.CTkLabel(phone_body,
-                     text="1=START  |  2=STOP   | 3=RETURN",
-                     font=("Arial", 18, "bold"), text_color=C_MUTED).place(        #changed the button three to be the return home 
-            relx=0.5, rely=0.93, anchor="center"                           #funtion but this can change if they decide 
-        )                                                                  # to do manual return
+                     text="1=START  |  2=STOP",
+                     font=("Arial", 12), text_color=C_MUTED).place(
+            relx=0.5, rely=0.94, anchor="center"
+        )
 
     def _btn_display_text(self, num_str: str) -> str:
         """
@@ -1515,8 +1482,18 @@ class KFXSettingsScreen(BaseScreen):
     def _build_route_table(self, parent):
         """
         Right-side scrollable table listing all saved routes.
-        Tapping a row assigns it to whichever KFX button is currently selected.
+
+        Each row highlights on hover (Enter/Leave events) and confirms the
+        assignment with a gold flash on click. A red 'REMOVE ASSIGNMENT' row
+        sits at the top of the list so the user can clear a button without
+        having to assign a different route first.
+
+        Hover color is slightly brighter than the surface so the lift is
+        subtle — not distracting while the user is reading the list.
         """
+        C_ROW_HOVER  = "#3d3d3d"   # Slightly lighter than C_SURFACE for hover state
+        C_ROW_ACTIVE = C_TERTIARY  # Gold flash on click/assign confirmation
+
         ctk.CTkLabel(parent, text="SAVED ROUTES",
                      font=("Arial Bold", 18),
                      text_color=C_TEXT).pack(pady=(16, 4))
@@ -1539,11 +1516,58 @@ class KFXSettingsScreen(BaseScreen):
         scroll = ctk.CTkScrollableFrame(parent, fg_color="transparent")
         scroll.pack(fill="both", expand=True, padx=10, pady=6)
 
+        def _bind_row_events(row_frame, on_click, normal_color, hover_color):
+            """
+            Helper that attaches hover and click bindings to a row frame and
+            all of its children. Binding children is necessary because tkinter
+            child widgets absorb pointer events before the parent frame sees them.
+
+            on_click    – callable with no arguments, called on left-click
+            normal_color – fg_color when the pointer is not over the row
+            hover_color  – fg_color to apply while the pointer is inside the row
+            """
+            def _enter(_):
+                # _ is the tkinter event object – required by the binding protocol
+                # but not needed here since we only care that the pointer entered.
+                row_frame.configure(fg_color=hover_color)
+
+            def _leave(_):
+                row_frame.configure(fg_color=normal_color)
+
+            def _click(_):
+                # Brief gold flash to confirm the tap registered, then restore hover
+                row_frame.configure(fg_color=C_ROW_ACTIVE)
+                row_frame.after(180, lambda: row_frame.configure(fg_color=hover_color))
+                on_click()
+
+            for widget in [row_frame] + list(row_frame.winfo_children()):
+                widget.bind("<Enter>",    _enter)
+                widget.bind("<Leave>",    _leave)
+                widget.bind("<Button-1>", _click)
+
+        # ── Remove-assignment row (always at top, styled red) ─────────────
+        # Clicking this sets the selected KFX button's assignment back to None.
+        # Styled differently from route rows so it is clearly a destructive action.
+        remove_row = ctk.CTkFrame(scroll, fg_color="#4a1010", corner_radius=6)
+        remove_row.pack(fill="x", pady=(0, 8))
+
+        ctk.CTkLabel(remove_row, text="✕  REMOVE ASSIGNMENT",
+                     font=("Arial Bold", 15), text_color="#ff6b6b",
+                     anchor="w").pack(side="left", padx=14, pady=12)
+
+        _bind_row_events(
+            remove_row,
+            on_click=self._remove_assignment,
+            normal_color="#4a1010",
+            hover_color="#6b1a1a",
+        )
+
         if not self._routes:
             ctk.CTkLabel(scroll, text="No routes saved yet.",
                          font=("Arial", 15), text_color=C_MUTED).pack(pady=30)
             return
 
+        # ── Route rows ────────────────────────────────────────────────────
         for route_id_str, name in self._routes.items():
             rid = int(route_id_str)
             row = ctk.CTkFrame(scroll, fg_color=C_SURFACE, corner_radius=6)
@@ -1556,10 +1580,13 @@ class KFXSettingsScreen(BaseScreen):
                          text_color=C_MUTED, width=56,
                          anchor="center").pack(side="right", padx=12)
 
-            # Bind the whole row and all children so any touch registers
-            row.bind("<Button-1>", lambda e, r=rid: self._assign_route(r))
-            for child in row.winfo_children():
-                child.bind("<Button-1>", lambda e, r=rid: self._assign_route(r))
+            # Each row needs its own captured rid in the closure (r=rid default arg)
+            _bind_row_events(
+                row,
+                on_click=lambda r=rid: self._assign_route(r),
+                normal_color=C_SURFACE,
+                hover_color=C_ROW_HOVER,
+            )
 
     def _select_kfx_button(self, btn_num: str):
         """Gold-highlight the tapped KFX button; deselect previous."""
@@ -1586,6 +1613,24 @@ class KFXSettingsScreen(BaseScreen):
         self._phone_buttons[self._selected_btn].configure(fg_color=C_SECONDARY)
         self._selected_btn = None
 
+    def _remove_assignment(self):
+        """
+        Clear the assignment on the currently selected KFX button, setting it
+        back to None (unassigned). Restores the phone button label to just its
+        number and resets its color to the default surface color.
+        Nothing is sent to the Pi until the user presses SAVE & SEND.
+        """
+        if self._selected_btn is None:
+            # Nothing selected – ignore the tap
+            return
+        self._config[self._selected_btn] = None
+        # Restore the phone button to its unassigned appearance
+        self._phone_buttons[self._selected_btn].configure(
+            text=self._selected_btn,   # Just the number, no route name
+            fg_color=C_SURFACE,
+        )
+        self._selected_btn = None
+
     def _save(self):
         """
         Commit the local config to shared state, persist to disk,
@@ -1609,10 +1654,12 @@ class KFXSettingsScreen(BaseScreen):
 class BullseyeApp(ctk.CTk):
     """
     Root CustomTkinter window. Owns:
-      - The single full-screen content container
-      - Frame swap logic (show_frame)
-      - DebugOverlay instance (if DEBUG_OVERLAY=True)
-      - References to all background threads for clean shutdown
+      - A persistent top status bar (robot battery left, Steam Deck battery right)
+        hidden only on the StartupScreen.
+      - The single full-screen content container below the bar.
+      - Frame swap logic (show_frame).
+      - DebugOverlay instance (if DEBUG_OVERLAY=True).
+      - References to all background threads for clean shutdown.
 
     All screen navigation goes through show_frame(), which destroys
     the old frame and constructs the new one fresh each time.
@@ -1636,7 +1683,40 @@ class BullseyeApp(ctk.CTk):
         ctk.set_default_color_theme("blue")
         self.configure(fg_color=C_BG)
 
-        # ── Content container (fills entire window) ───────────────────────
+        # ── Persistent top status bar ─────────────────────────────────────
+        # Lives on the root window so it survives frame swaps.
+        # Hidden on StartupScreen; shown on every other screen.
+        # Left  side: robot battery (received from Pi over XBee).
+        # Right side: Steam Deck battery (read from Linux sysfs).
+        self._top_bar = ctk.CTkFrame(self, fg_color=C_SURFACE,
+                                      height=44, corner_radius=0)
+        self._top_bar.pack(fill="x", side="top")
+        self._top_bar.pack_propagate(False)   # Keep fixed height
+
+        # Robot battery label – bottom-left
+        self._robot_batt_lbl = ctk.CTkLabel(
+            self._top_bar,
+            text="🤖 --%",
+            font=("Arial Bold", 18),
+            text_color=C_TEXT,
+        )
+        self._robot_batt_lbl.pack(side="left", padx=16)
+
+        # Steam Deck battery label – top-right
+        self._deck_batt_lbl = ctk.CTkLabel(
+            self._top_bar,
+            text="🎮 --%",
+            font=("Arial Bold", 18),
+            text_color=C_TEXT,
+        )
+        self._deck_batt_lbl.pack(side="right", padx=16)
+
+        # Start refreshing both battery labels every 5 seconds.
+        # Robot battery updates at robot pace (~every 5 s from Pi).
+        # Steam Deck battery changes slowly so 5 s is more than enough.
+        self._refresh_top_bar()
+
+        # ── Content container (fills remaining space below the top bar) ───
         self._container = ctk.CTkFrame(self, fg_color=C_BG, corner_radius=0)
         self._container.pack(fill="both", expand=True)
         self._current_frame: BaseScreen | None = None
@@ -1649,20 +1729,56 @@ class BullseyeApp(ctk.CTk):
         # ── Navigate to startup screen ────────────────────────────────────
         self.show_frame(StartupScreen)
 
-        # ── Global event polling (connection_lost from any screen) ────────
+        # ── Global event polling (route_created etc.) ─────────────────────
         self._poll_global_events()
 
         # ── Handle window close button ────────────────────────────────────
         self.protocol("WM_DELETE_WINDOW", self._on_close)
 
+    def _refresh_top_bar(self):
+        """
+        Poll both batteries every 5 seconds and update the top bar labels.
+        Runs forever via after() chaining; safe to call even when the bar
+        is hidden because label.configure() on a hidden widget is a no-op.
+
+        Robot battery: read from app_state.battery (updated by SerialRXThread).
+        Deck battery:  read from Linux sysfs via get_steamdeck_battery().
+                       Returns None on Windows; label shows '--' in that case.
+        """
+        try:
+            # ── Robot battery (from Pi over XBee) ────────────────────────
+            with self.app_state.lock:
+                robot_soc = self.app_state.battery.state_of_charge
+            self._robot_batt_lbl.configure(text=f"🤖 {robot_soc:.0f}%")
+
+            # ── Steam Deck battery (Linux sysfs) ─────────────────────────
+            deck_soc = get_steamdeck_battery()
+            deck_text = f"🎮 {deck_soc}%" if deck_soc is not None else "🎮 --%"
+            self._deck_batt_lbl.configure(text=deck_text)
+
+        except Exception as e:
+            print(f"[TOP BAR] Refresh error: {e}")
+
+        self.after(5000, self._refresh_top_bar)
+
     def show_frame(self, screen_class: type, **kwargs):
         """
         Destroy the current screen frame and construct the new one.
         Extra kwargs (e.g. route_id=5) are forwarded to the screen's __init__.
+
+        The top bar is hidden on StartupScreen and visible on all other screens.
         The debug overlay is re-raised after each swap so it stays on top.
         """
         if self._current_frame is not None:
             self._current_frame.destroy()
+
+        # Hide top bar on startup screen; show on everything else
+        if screen_class is StartupScreen:
+            self._top_bar.pack_forget()
+        else:
+            # Re-pack at top if it was previously hidden.
+            # Must pack before _container so it stays at the top.
+            self._top_bar.pack(fill="x", side="top", before=self._container)
 
         frame = screen_class(self._container, self, self.app_state, **kwargs)
         frame.pack(fill="both", expand=True)
@@ -1674,28 +1790,19 @@ class BullseyeApp(ctk.CTk):
 
     def _poll_global_events(self):
         """
-        Check the event queue every 500 ms for cross-screen events that
-        any currently active screen might not be watching (e.g. connection_lost
-        when the user is on the Main Menu).
+        Check the event queue every 500 ms for cross-screen events.
+        Currently handles 'route_created' put-back from screens that
+        don't consume it (e.g. if the user navigated away mid-record).
 
         Add future global events here (e.g. emergency_stop from KFX remote).
         """
         try:
             while not self.app_state.event_queue.empty():
                 event = self.app_state.event_queue.get_nowait()
-
-                if event.get("type") == "connection_lost":
-                    # TODO: Show a non-blocking warning banner instead of
-                    #       navigating away so the user knows to stop the robot.
-                    #       For now, print to terminal.
-                    print("[WARNING] XBee connection lost! Stop the robot manually.")
-
-                else:
-                    # Put unhandled events back for the active screen to consume
-                    # (e.g. route_created is consumed by RecordRouteScreen._poll_events)
-                    self.app_state.event_queue.put(event)
-                    break   # Avoid re-consuming events in a tight loop
-
+                # Put unhandled events back for the active screen to consume.
+                # (route_created is consumed by RecordRouteScreen._poll_events)
+                self.app_state.event_queue.put(event)
+                break   # Avoid infinite re-queue loop in a single poll cycle
         except Exception:
             pass
         self.after(500, self._poll_global_events)
@@ -1733,8 +1840,6 @@ def main():
     try:
         ser = serial.Serial(PORT, BAUD, timeout=1)
         time.sleep(2)   # Allow XBee to initialize
-        with app_state.lock:
-            app_state.connected = True
         print(f"[OK] Connected to XBee on {PORT} at {BAUD} baud")
     except serial.SerialException:
         if REQUIRE_CONNECTION:

@@ -14,3 +14,4 @@ rpi-lgpio
 # ── Steam Deck GUI (SteamDeckApp.py only – not needed on Pi) ──────────────────
 customtkinter
 pygame
+Pillow          # Required by customtkinter for image handling
