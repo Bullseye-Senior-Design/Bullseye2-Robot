@@ -161,8 +161,7 @@ def main():
             left_y = -left_y  # Invert Y-axis for intuitive control
             right_x = joystick.get_axis(2)
             right_y = joystick.get_axis(3)
-            right_x = -right_x  # Invert Y-axis for intuitive control
-
+            right_x = -right_x  # Invert X-axis for intuitive control
             l2_axis = joystick.get_axis(4)
             r2_axis = joystick.get_axis(5)
 
