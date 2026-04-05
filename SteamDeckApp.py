@@ -19,7 +19,7 @@
 # ============================================================
 # TOGGLE FLAGS  –  change only these two lines to flip behavior
 # ============================================================
-DEBUG_OVERLAY      = True    # Show semi-transparent TX log overlay on screen
+DEBUG_OVERLAY      = False    # Show semi-transparent TX log overlay on screen
 REQUIRE_CONNECTION = False   # True = halt on missing XBee; False = UI-only mode
 # ============================================================
 
@@ -671,6 +671,16 @@ class MainMenuScreen(BaseScreen):
 
         make_nav_button(center, "SETTINGS",
                         command=lambda: self.show(SettingsSubMenuScreen)).pack(pady=14)
+
+        # ── EXIT button – bottom-right corner ─────────────────────────────
+        ctk.CTkButton(
+            self, text="EXIT",
+            command=self.app._on_close,
+            font=("Arial", 28, "bold"),
+            fg_color=C_DANGER, hover_color="#991a00",
+            text_color=C_TEXT, corner_radius=16,
+            width=160, height=60,
+        ).place(relx=1.0, rely=1.0, x=-20, y=-20, anchor="se")
 
 
 # ============================================================
@@ -1682,6 +1692,12 @@ class BullseyeApp(ctk.CTk):
         ctk.set_appearance_mode("dark")
         ctk.set_default_color_theme("blue")
         self.configure(fg_color=C_BG)
+
+        # ── Fullscreen on Steam Deck (Linux) ──────────────────────────────
+        # On Windows (dev machine) the 1280×800 window stays windowed.
+        import platform
+        if platform.system() == "Linux":
+            self.attributes("-fullscreen", True)
 
         # ── Persistent top status bar ─────────────────────────────────────
         # Lives on the root window so it survives frame swaps.
