@@ -435,13 +435,19 @@ class SerialRXThread(threading.Thread):
 
             elif packet.type == "route_created":
                 # Pi has finished saving a route; GUI needs the ID to prompt for a name
-                # TODO (Pi): Send this packet from KFX.py or PiCommThread after
-                #            record_finish is processed and the route file is saved.
+                # TODO (Pi): Send this packet from PiCommThread after record_finish
+                #            is processed and the route file is saved.
                 data = json.loads(packet.json_data)
                 self.app_state.event_queue.put({
                     "type": "route_created",
                     "route_id": data.get("route_id"),
                 })
+
+            elif packet.type == "kfx_ack":
+                # Pi confirmed it received and saved the KFX config.
+                # KFXSettingsScreen._save() is polling for this event before
+                # it commits the local config file on the Steam Deck side.
+                self.app_state.event_queue.put({"type": "kfx_ack"})
 
         except Exception as e:
             print(f"[RX] Could not parse line: {line!r} → {e}")
@@ -1353,12 +1359,12 @@ class KFXSettingsScreen(BaseScreen):
       DataPacket(type="kfx_config",
                  json_data='{"3": route_id_or_null, ..., "8": route_id_or_null}')
 
-    TODO (Pi): Create KFX.py to:
-               - Handle 'kfx_config' packet and store assignments
-               - On physical KFX button press: look up assignment, send AUTONOMOUS
-               - Button 1 always → DISABLED (stop)
-               - Button 2 always → AUTONOMOUS path_id=-1 (return home)
-               - Buttons 3–8 → AUTONOMOUS with the assigned path_id
+    Pi side is handled by Comms/KFX.py (KFXController) which:
+               - Receives 'kfx_config' via PiCommThread and persists it
+               - Sends 'kfx_ack' back so this screen can confirm the save
+               - Listens on /dev/ttyAMA0 for raw KFX button bytes (ASCII 49–56)
+               - Button 1 → DISABLED, Button 2 → RETURN HOME (path_id=-1)
+               - Buttons 3–8 → AUTONOMOUS with the user-assigned path_id
     """
     def __init__(self, parent, app, app_state: AppState):
         super().__init__(parent, app, app_state)
@@ -1370,6 +1376,9 @@ class KFXSettingsScreen(BaseScreen):
 
         self._selected_btn: str | None = None    # e.g. "3", "5"
         self._phone_buttons: dict = {}           # btn_num_str → CTkButton widget
+        self._waiting_for_ack: bool = False      # True while awaiting kfx_ack from Pi
+        self._ack_timeout_remaining: int = 0     # Countdown ticks before giving up
+        self._save_btn: ctk.CTkButton | None = None  # Reference for state changes during ack wait
 
         # ── Page title ────────────────────────────────────────────────────
         ctk.CTkLabel(self, text="KFX REMOTE SETTINGS",
@@ -1388,9 +1397,11 @@ class KFXSettingsScreen(BaseScreen):
                         command=lambda: self.show(SettingsSubMenuScreen),
                         color=C_PRIMARY, width=210, height=62).pack(side="left", padx=20)
 
-        make_nav_button(bottom, "SAVE & SEND",
-                        command=self._save,
-                        width=230, height=62).pack(side="right", padx=20)
+        # Store reference so _save() can disable/re-enable it during ack wait
+        self._save_btn = make_nav_button(bottom, "SAVE & SEND",
+                                         command=self._save,
+                                         width=230, height=62)
+        self._save_btn.pack(side="right", padx=20)
 
         # ── Two-column layout ─────────────────────────────────────────────
         # Packed after bottom bar so expand=True fills only the remaining space.
@@ -1643,18 +1654,74 @@ class KFXSettingsScreen(BaseScreen):
 
     def _save(self):
         """
-        Commit the local config to shared state, persist to disk,
-        and send a kfx_config packet to the Pi.
-        """
-        with self.state.lock:
-            self.state.kfx_config = dict(self._config)
-        save_kfx_config(self._config)
+        Send 'kfx_config' to the Pi and wait for 'kfx_ack' before committing
+        the local config file.
 
-        # Payload: {"3": route_id_or_null, "4": ..., ..., "8": ...}
+        Flow:
+          1. Disable SAVE & SEND button and show "Sending..." status.
+          2. Enqueue the kfx_config packet (SerialTXThread sends it).
+          3. Poll event_queue every 300 ms for kfx_ack (up to 10 s timeout).
+          4a. On ack → write to shared state + kfx_config.json → navigate away.
+          4b. On timeout → re-enable button and show error so user can retry.
+
+        This guarantees the Steam Deck and Pi configs are always in sync:
+        the local file is only written after the Pi confirms it saved its copy.
+        """
+        if self._waiting_for_ack:
+            return   # Ignore double-taps while waiting
+        self._waiting_for_ack = True
+        self._ack_timeout_remaining = 20   # 20 × 500 ms = 10 s total timeout
+
+        # Disable button and show sending state so the user knows it's working
+        self._save_btn.configure(state="disabled", text="SENDING...")
+
+        # Send packet – SerialTXThread will transmit on its next cycle
         payload = json.dumps(self._config)
         enqueue_packet(self.state, "kfx_config", payload)
 
-        self.show(SettingsSubMenuScreen)
+        # Start polling for the ack
+        self._poll_ack()
+
+    def _poll_ack(self):
+        """
+        Poll event_queue every 500 ms for 'kfx_ack' from the Pi.
+        Stops on ack (success), timeout (failure), or frame destruction.
+        """
+        # ── Check for ack in queue ────────────────────────────────────────
+        try:
+            while not self.state.event_queue.empty():
+                event = self.state.event_queue.get_nowait()
+                if event.get("type") == "kfx_ack":
+                    # Pi confirmed save – now safe to write local config
+                    with self.state.lock:
+                        self.state.kfx_config = dict(self._config)
+                    save_kfx_config(self._config)
+                    self.show(SettingsSubMenuScreen)
+                    return   # Frame destroyed – stop polling
+                else:
+                    # Not our event – put it back for other pollers
+                    self.state.event_queue.put(event)
+                    break
+        except Exception:
+            pass
+
+        # ── Timeout check ─────────────────────────────────────────────────
+        self._ack_timeout_remaining -= 1
+        if self._ack_timeout_remaining <= 0:
+            # Timed out – re-enable button so user can try again
+            self._waiting_for_ack = False
+            self._save_btn.configure(state="normal", text="SAVE & SEND")
+            # Flash button red briefly to signal the failure
+            self._save_btn.configure(fg_color=C_DANGER)
+            self.after(1000, lambda: self._save_btn.configure(fg_color=C_SECONDARY))
+            print("[KFX] No ack received within timeout – Pi may be disconnected")
+            return
+
+        # ── Reschedule ───────────────────────────────────────────────────
+        try:
+            self.after(500, self._poll_ack)
+        except Exception:
+            pass   # Widget destroyed during navigation – stop silently
 
 
 # ============================================================
