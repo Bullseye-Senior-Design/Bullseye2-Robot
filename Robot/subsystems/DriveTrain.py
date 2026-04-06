@@ -10,6 +10,7 @@ from Robot.subsystems.subsystemChildren.DAC import DAC
 from Robot.subsystems.subsystemChildren.FrontWheelEncoder import FrontWheelEncoder
 
 import math
+import time
 import logging
 import spidev
 import RPi.GPIO as GPIO
@@ -34,6 +35,7 @@ class DriveTrain(Subsystem):
             self._dac_backwheel_channel = Constants.dac_backwheel_channel
             self._dac_frontwheel_channel = Constants.dac_frontwheel_channel
             self._backwheel_power_scale_factor = Constants.backwheel_power_scale_factor
+            self._backwheel_accel_limit_per_sec = Constants.backwheel_accel_limit_per_sec
             
             GPIO.setmode(GPIO.BCM)
             GPIO.setup(self._backwheel_forward_ssr_pin, GPIO.OUT)
@@ -60,6 +62,8 @@ class DriveTrain(Subsystem):
             self.output_limits = (-1, 1)  # Limit PID output to motor command range
             self.front_wheel_pid.output_limits = self.output_limits # Limit output to motor
             self.soft_limit = Constants.steering_angle_limit_rads
+            self._last_backwheel_speed_cmd = 0.0
+            self._last_backwheel_speed_update_time = time.monotonic()
 
             logger.info(f"DriveTrain initialized with SSR pins: {self._backwheel_forward_ssr_pin}, {self._backwheel_reverse_ssr_pin}, {self._backwheel_power_ssr_pin}, {self._frontwheel_power_ssr_pin}")
         
@@ -68,6 +72,21 @@ class DriveTrain(Subsystem):
         
         self._angle = 0 # Default to straight
         self._speed = 0 # Default to stopped
+
+    def _apply_backwheel_accel_limit(self, target_speed: float) -> float:
+        now = time.monotonic()
+        elapsed_seconds = max(0.0, now - self._last_backwheel_speed_update_time)
+        max_delta = self._backwheel_accel_limit_per_sec * elapsed_seconds
+
+        speed_delta = target_speed - self._last_backwheel_speed_cmd
+        if abs(speed_delta) > max_delta:
+            limited_speed = self._last_backwheel_speed_cmd + math.copysign(max_delta, speed_delta)
+        else:
+            limited_speed = target_speed
+
+        self._last_backwheel_speed_cmd = limited_speed
+        self._last_backwheel_speed_update_time = now
+        return limited_speed
     
     def _get_angle_from_pid(self, target_angle: float) -> float:
         """Calculate front wheel angle using PID controller based on target angle.
@@ -98,19 +117,21 @@ class DriveTrain(Subsystem):
             logger.warning("Attempted to set speed/angle after shutdown. Command ignored.")
             return
         
-        self._speed = speed
+        limited_speed = self._apply_backwheel_accel_limit(speed)
+
+        self._speed = limited_speed
         self._angle = target_angle
         
         # set back wheel speed
-        is_reverse = speed < 0
+        is_reverse = limited_speed < 0
         self._set_wheel_directions(is_reverse)
-        self._dac.write(self._dac_backwheel_channel, abs(speed) * self._backwheel_power_scale_factor)
+        self._dac.write(self._dac_backwheel_channel, abs(limited_speed) * self._backwheel_power_scale_factor)
         
         # set front wheel speed using PID controller
         pid_speed = self._get_angle_from_pid(target_angle)
         write_value = MathUtil.map(pid_speed, self.output_limits[0], self.output_limits[1], 0, 1)
         self._dac.write(self._dac_frontwheel_channel, write_value)
-        logger.debug(f"Set speed: {speed}, angle: {target_angle} with speed of {pid_speed}, is_reverse: {is_reverse}")
+        logger.debug(f"Set speed cmd: {speed}, limited: {limited_speed}, angle: {target_angle} with speed of {pid_speed}, is_reverse: {is_reverse}")
     
     def _set_wheel_directions(self, is_reverse: bool):
         """Set SSRs for wheel direction based on speed sign."""
@@ -168,6 +189,9 @@ class DriveTrain(Subsystem):
     
     def stop(self):
         """Stop motors (set speed and angle to zero)."""
+        self._last_backwheel_speed_cmd = 0.0
+        self._last_backwheel_speed_update_time = time.monotonic()
+        self._speed = 0.0
         self._dac.write(self._dac_backwheel_channel, 0.0)
         self._dac.write(self._dac_frontwheel_channel, 0.5)
     

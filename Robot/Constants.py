@@ -33,13 +33,13 @@ class Constants:
     # Front Wheel Encoder Constants
     frontwheel_encoder_resolution = 14  # bits
     frontwheel_encoder_max_position = (1 << frontwheel_encoder_resolution) - 1
-    frontwheel_encoder_zero_offset = 4.5  # To be calibrated for straight-ahead position
+    frontwheel_encoder_zero_offset = 4.5  # calibrated for straight-ahead position
     
     # Back Wheel Encoder Constants
     back_right_encoder_pin = 5
     back_left_encoder_pin = 25
     wheel_circumference = 0.25  # meters
-    counts_per_revolution = 6  # encoder pulses per wheel rotation
+    counts_per_revolution = 16  # encoder pulses per wheel rotation
     
     # Back Wheel Constants
     backwheel_forward_ssr_pin = 27
@@ -47,6 +47,7 @@ class Constants:
     backwheel_power_ssr_pin = 4
     rear_motor_top_speed = 0.13
     backwheel_power_scale_factor = 0.3  # Scale factor for back wheel speed control
+    backwheel_accel_limit_per_sec = 1.0  # Max normalized speed change per second
     
     # Front Wheel Constants
     frontwheel_power_ssr_pin = 17
