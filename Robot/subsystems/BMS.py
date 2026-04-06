@@ -56,6 +56,9 @@ class BMS(Subsystem):
 
         data = {}
         while True:
+            if self._ser is None:
+                return None
+
             line = self._ser.readline().decode(errors="ignore").strip()
 
             # VE.Direct packets end with a checksum
