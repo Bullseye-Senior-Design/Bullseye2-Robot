@@ -24,7 +24,7 @@ class AlignIMUToWorldCmd(Command):
     headings align. The estimator runs until `duration` elapses or the
     residual is stable for several samples.
     """
-    def __init__(self, tau: float = 5.0, tol_rad: float = 0.01, min_samples: int = 100):
+    def __init__(self, imu: IMU, uwb: UWB, tau: float = 5.0, tol_rad: float = 0.01, min_samples: int = 100):
         super().__init__()
         # time constant (seconds) for bias adaptation
         self.tau = tau
@@ -32,6 +32,9 @@ class AlignIMUToWorldCmd(Command):
         self.tol = tol_rad
         # minimum samples before allowing early finish
         self.min_samples = min_samples
+        
+        self._uwb = uwb
+        self._imu = imu
 
         # runtime state
         self._start_time: float | None = None
@@ -43,7 +46,7 @@ class AlignIMUToWorldCmd(Command):
         self._last_csv_log_time: float | None = None
 
         project_root = Path(__file__).resolve().parents[2]
-        self._yaw_offset_dir = project_root / "yaw_offset"
+        self._yaw_offset_dir = project_root / "records"
         self._yaw_offset_csv = self._yaw_offset_dir / "yaw_offset.csv"
         self._yaw_offset_fieldnames = ["timestamp", "source", "yaw_offset_deg", "yaw_offset_rad"]
 
@@ -80,7 +83,7 @@ class AlignIMUToWorldCmd(Command):
         self._last_csv_log_time = self._start_time
         self._samples = 0
         self._stable_count = 0
-        imu = IMU()
+        imu = self._imu
 
         saved_offset_deg = self._read_last_logged_yaw_offset_deg()
         if saved_offset_deg is not None:
@@ -97,7 +100,7 @@ class AlignIMUToWorldCmd(Command):
         now = time.time()
 
         # Get instantaneous UWB yaw (radians)
-        uwb = UWB()
+        uwb = self._uwb
         uwb_yaw = uwb.get_angle()
         if uwb_yaw is None:
             #  logger.warning("AlignIMUToWorldCmd: insufficient UWB tags to compute heading; skipping this cycle")
@@ -105,7 +108,7 @@ class AlignIMUToWorldCmd(Command):
             return
         
         # Get IMU yaw in radians (IMU.get_euler returns degrees: (yaw, roll, pitch))
-        imu = IMU()
+        imu = self._imu
         imu_euler = imu.get_euler()
         imu_yaw_deg = float(imu_euler[0])
         imu_yaw_rad = math.radians(imu_yaw_deg)

@@ -4,8 +4,6 @@ import csv
 from pathlib import Path
 from uuid import uuid4
 
-from pydantic.dataclasses import dataclass
-
 from Robot.subsystems.algorithms.PathCreation import PathCreation
 from Robot.subsystems.algorithms.KalmanStateEstimator import KalmanStateEstimator
 from structure.commands.Command import Command

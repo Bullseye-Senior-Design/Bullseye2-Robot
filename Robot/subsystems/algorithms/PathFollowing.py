@@ -32,6 +32,7 @@ class PathFollowing(Subsystem):
     
     def start(self):
         """Initialize MPC Navigator with default parameters."""
+        super().__init__()
         # ────────────────────────────────────────────────
         # Parameters & Constants
         # ────────────────────────────────────────────────
@@ -242,7 +243,7 @@ class PathFollowing(Subsystem):
             ref[i, :] = [interp_x(s_f), interp_y(s_f), interp_theta(s_f)]
         return ref
     
-    def set_path(self, path_matrix):
+    def set_path(self, path_matrix: np.ndarray):
         """Set the path to follow."""
         with self._lock:
             self.path_matrix = np.asarray(path_matrix, dtype=float)

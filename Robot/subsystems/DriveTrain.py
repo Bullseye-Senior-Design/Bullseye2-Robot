@@ -12,7 +12,6 @@ from Robot.subsystems.subsystemChildren.FrontWheelEncoder import FrontWheelEncod
 import math
 import time
 import logging
-import spidev
 import RPi.GPIO as GPIO
 from simple_pid import PID
 from Robot.MathUtil import MathUtil
