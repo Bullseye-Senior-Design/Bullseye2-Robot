@@ -16,10 +16,10 @@ from Comms.DataPacket import DataPacket
 from Robot.Constants import Constants
 
 # ==== CONFIG ====
-DEBUG = True                # Set to True for debugging output
+DEBUG = False                # Set to True for debugging output
 DEBUGPRINT = False           # Set to True for debug print statements
 ErrTEST = False             # Set to True to allow running without serial connection (for testing without hardware)
-MENU = True
+MENU = False
 ESTOP = False              # If True, pressing the Y button will immediately send a DISABLED state to the robot (emergency stop)
 PORT = Constants.controller_serial_port
 BAUD = Constants.serial_baud_rate
@@ -127,12 +127,19 @@ def main():
     if pygame.joystick.get_count() == 0:
         print("❌ No controller detected!")
         sys.exit(1)
+
+
+
     joystick = pygame.joystick.Joystick(0)
     joystick.init()
     if joystick:
         print(f"[OK] Detected controller: {joystick.get_name()}")
     else:
         print("[OK] Detected a controller, but could not get its name.")
+    
+    #print("Number of buttons:", joystick.get_numbuttons())
+    #print("Number of hats:", joystick.get_numhats())   # Important for D-pad
+    #print("Number of axes:", joystick.get_numaxes())
 
     # Track previous button states to detect presses (not holds)
     prev_dpad_up = False
@@ -154,21 +161,21 @@ def main():
             left_y = -left_y  # Invert Y-axis for intuitive control
             right_x = joystick.get_axis(2)
             right_y = joystick.get_axis(3)
-            right_y = -right_y  # Invert Y-axis for intuitive control
+            right_x = -right_x  # Invert Y-axis for intuitive control
 
             l2_axis = joystick.get_axis(4)
             r2_axis = joystick.get_axis(5)
 
             # Debug: Print axis values
             if DEBUG:
-                if abs(left_x) > DEADZONE:
-                    print(f"axis(0) - {left_x:.2f}")
-                if abs(left_y) > DEADZONE:
-                    print(f"axis(1) - {left_y:.2f}")
-                if abs(right_x) > DEADZONE:
-                    print(f"axis(2) - {right_x:.2f}")
-                if abs(right_y) > DEADZONE:
-                    print(f"axis(3) - {right_y:.2f}")
+                # if abs(left_x) > DEADZONE:
+                #     print(f"axis(0) - {left_x:.2f}")
+                # if abs(left_y) > DEADZONE:
+                #     print(f"axis(1) - {left_y:.2f}")
+                # if abs(right_x) > DEADZONE:
+                #     print(f"axis(2) - {right_x:.2f}")
+                # if abs(right_y) > DEADZONE:
+                #     print(f"axis(3) - {right_y:.2f}")
                 if abs(l2_axis - l2_prev) > 0.01:  # Only print if changed significantly to reduce spam
                     print(f"axis(4-L2) - {l2_axis:.2f}")
                 if abs(r2_axis - r2_prev) > 0.01:  # Only print if changed significantly to reduce spam
@@ -203,7 +210,6 @@ def main():
                     ser.write((packet.model_dump_json() + "\n").encode())
                 print(f"[STATE] Sent: {packet.model_dump_json()}")
                 continue  # Skip rest of loop to immediately send stop command
-            
             # Debug: Print button presses
             if DEBUG:
                 if btn_A:
@@ -222,6 +228,7 @@ def main():
                     print("button(7-LS) pressed")
                 if btn_RS:
                     print("button(8-RS) pressed")
+
                 if btn_share:
                     print("button(4-Share) pressed")
                 if btn_options:
@@ -241,6 +248,8 @@ def main():
             # ===== MODE SELECTION LOGIC =====
             state_changed = False
             new_state = current_state
+
+            # print("am here")
 
             # Check for mode change inputs (only on press, not hold)
             if current_state != State.DISABLED:

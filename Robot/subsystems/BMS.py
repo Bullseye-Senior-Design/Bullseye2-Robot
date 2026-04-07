@@ -56,7 +56,12 @@ class BMS(Subsystem):
 
         data = {}
         while True:
-            line = self._ser.readline().decode(errors="ignore").strip()
+            try:
+                line = self._ser.readline().decode(errors="ignore").strip()
+            except Exception as e:
+                logger.debug(f"[BMS] Serial read error: {e}")
+                self._ser = None
+                return None
 
             # VE.Direct packets end with a checksum
             if line.startswith("Checksum"):

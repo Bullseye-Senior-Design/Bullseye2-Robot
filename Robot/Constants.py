@@ -33,13 +33,13 @@ class Constants:
     # Front Wheel Encoder Constants
     frontwheel_encoder_resolution = 14  # bits
     frontwheel_encoder_max_position = (1 << frontwheel_encoder_resolution) - 1
-    frontwheel_encoder_zero_offset = 0  # To be calibrated for straight-ahead position
+    frontwheel_encoder_zero_offset = 4.5  # calibrated for straight-ahead position
     
     # Back Wheel Encoder Constants
     back_right_encoder_pin = 5
     back_left_encoder_pin = 25
-    wheel_circumference = 0.25  # meters
-    counts_per_revolution = 6  # encoder pulses per wheel rotation
+    wheel_circumference = 1.651  # meters
+    counts_per_revolution = 16  # encoder pulses per wheel rotation
     
     # Back Wheel Constants
     backwheel_forward_ssr_pin = 27
@@ -47,6 +47,7 @@ class Constants:
     backwheel_power_ssr_pin = 4
     rear_motor_top_speed = 0.13
     backwheel_power_scale_factor = 0.3  # Scale factor for back wheel speed control
+    backwheel_accel_limit_per_sec = 1.0  # Max normalized speed change per second
     
     # Front Wheel Constants
     frontwheel_power_ssr_pin = 17
@@ -62,8 +63,8 @@ class Constants:
     # For the tag offsets:
     # +x : tag is forward of the robot center
     # +y : tag is to the robot's left side
-    uwb_tag_data = [ UWBTagInfo(port="/dev/ttyACM0", id=0, offset=(-24.77 / 2 / 100, 22.225 / 2 / 100, 0.0)), # back left tag
-                     UWBTagInfo(port="/dev/ttyACM1", id=1, offset=(24.77 / 2 / 100, -22.225 / 2 / 100, 0.0)) ] # front right tag
+    uwb_tag_data = [ UWBTagInfo(port="/dev/ttyACM0", id=0, offset=(0.0, -91.44 / 100, 0.0)), # back left tag in Meters
+                     UWBTagInfo(port="/dev/ttyACM1", id=1, offset=(0.0, 22.86 / 100, 0.0)) ] # front right tag
 
     status_led_green = 13
     status_led_red = 19
