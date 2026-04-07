@@ -38,7 +38,7 @@ class Constants:
     # Back Wheel Encoder Constants
     back_right_encoder_pin = 5
     back_left_encoder_pin = 25
-    wheel_circumference = 0.25  # meters
+    wheel_circumference = 1.651  # meters
     counts_per_revolution = 16  # encoder pulses per wheel rotation
     
     # Back Wheel Constants
