@@ -1,5 +1,7 @@
+from Robot.Commands.CreatePathCmd import CreatePathCmd
 from Robot.Commands.DefaultMovementCmd import DefaultMovementCmd
 from Robot.Constants import Constants
+from structure.Input.InputScheduler import InputScheduler
 from structure.commands.InstantCommand import InstantCommand
 from structure.commands.SequentialCommandGroup import SequentialCommandGroup
 import time
@@ -25,6 +27,7 @@ from Robot.Commands.FollowPathCmd import FollowPathCmd
 from Comms.PiCommThread import PiCommThread
 
 
+
 class RobotContainer:
     def __init__(self):
         self.uwb = UWB()
@@ -48,13 +51,18 @@ class RobotContainer:
                                                             lambda: self.comm_thread.get_controller_data().left_y, 
                                                             lambda: self.comm_thread.get_controller_data().right_x))
         
+        InputScheduler(lambda: self.comm_thread.get_controller_data().btn_A).on_true(
+            CreatePathCmd(self.path_following, lambda: self.comm_thread.get_controller_data().btn_B)
+        )
+        
         #self.path_following.default_command(FollowPathCmd(self.drive_train, self.path_following))
                     
     def begin_data_log(self):
         LogDataCmd(self.path_following).schedule()
         # ZeroIMUCmd(self.drive_train, self.path_following, schedule_followup=False).schedule()
         # PlotStateCmd().schedule()
-        #MotorMovementExampleCmd(self.drive_train, self.clutches, self.header_healer_switches, self.pcb_leds).schedule()
+        # MotorMovementExampleCmd(self.drive_train, self.clutches, self.header_healer_switches, self.pcb_leds).schedule()
+        
         
         # AlignIMUToWorldCmd(tau=0.5, duration=30.0).schedule()
                 

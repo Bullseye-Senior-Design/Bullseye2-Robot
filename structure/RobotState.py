@@ -16,18 +16,34 @@ class RobotState:
         self._enabled = False
         self._teleop_enabled = False
         self._autonomous_enabled = False
+        self._path_creation_enabled = False
+        self._return_to_home_enabled = False
         self._test_enabled = False
         
         self._teleop_to_be_initialized = False
         self._autonomous_to_be_initialized = False
         self._test_to_be_initialized = False
         self._disabled_to_be_initialized = False
+        self._path_creation_to_be_initialized = False
+        self._return_to_home_to_be_initialized = False
         
     def should_init_teleop(self):
         should_boot_teleop = self._enabled and self._teleop_to_be_initialized
         self._teleop_to_be_initialized = False
         
         return should_boot_teleop
+    
+    def should_init_path_creation(self):
+        should_boot_path_creation = self._enabled and self._path_creation_to_be_initialized
+        self._path_creation_to_be_initialized = False
+
+        return should_boot_path_creation
+    
+    def should_init_return_to_home(self):
+        should_boot_return_to_home = self._enabled and self._return_to_home_to_be_initialized
+        self._return_to_home_to_be_initialized = False
+
+        return should_boot_return_to_home
 
     def should_init_test(self):
         should_boot_test = self._enabled and self._test_to_be_initialized
@@ -53,8 +69,14 @@ class RobotState:
     def is_teleop_enabled(self):
         return self._teleop_enabled
     
+    def is_path_creation_enabled(self):
+        return self._path_creation_enabled
+    
     def is_autonomous_enabled(self):
         return self._autonomous_enabled
+
+    def is_return_to_home_enabled(self):
+        return self._return_to_home_enabled
     
     def is_test_enabled(self):
         return self._test_enabled
@@ -71,6 +93,27 @@ class RobotState:
         self._teleop_to_be_initialized = True
         return True
     
+    def enable_path_creation(self):
+        if self._enabled:
+            print("Cannot enable path creation, robot is already enabled")
+            return False
+        
+        self._enabled = True
+        self._path_creation_enabled = True
+        self._path_creation_to_be_initialized = True
+        return True
+
+    def enable_return_to_home(self):
+        if self._enabled:
+            print("Cannot enable return to home, robot is already enabled")
+            return False
+        
+        self._enabled = True
+        self._return_to_home_enabled = True
+        self._return_to_home_to_be_initialized = True
+        return True
+
+
     def enable_test(self):
         if self._enabled:
             print("Cannot enable test, robot is already enabled")
@@ -96,4 +139,6 @@ class RobotState:
         self._teleop_enabled = False
         self._test_enabled = False
         self._autonomous_enabled = False
+        self._path_creation_enabled = False
+        self._return_to_home_enabled = False    
         self._disabled_to_be_initialized = True

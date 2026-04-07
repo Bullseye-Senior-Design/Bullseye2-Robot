@@ -14,10 +14,6 @@ logger = logging.getLogger(f"{__name__}.DriveTrain")
 logger.setLevel(logging.INFO)
 
 class CreatePathCmd(Command):
-    
-    
-    
-
     def __init__(self, path_creation: PathCreation, exit_button: Callable[[], bool]):
         super().__init__()
         self._exit_button = exit_button
