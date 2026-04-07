@@ -1,5 +1,7 @@
+from Robot.Commands.CreatePathCmd import CreatePathCmd
 from Robot.Commands.DefaultMovementCmd import DefaultMovementCmd
 from Robot.Constants import Constants
+from structure.Input.InputScheduler import InputScheduler
 from structure.commands.InstantCommand import InstantCommand
 from structure.commands.SequentialCommandGroup import SequentialCommandGroup
 import time
@@ -55,6 +57,10 @@ class RobotContainer:
         self.drive_train.default_command(DefaultMovementCmd(self.drive_train, self.clutches,
                                                             lambda: self.comm_thread.get_controller_data().left_y, 
                                                             lambda: self.comm_thread.get_controller_data().right_x))
+        
+        InputScheduler(lambda: self.comm_thread.get_controller_data().btn_A).on_true(
+            CreatePathCmd(self.path_following, lambda: self.comm_thread.get_controller_data().btn_B)
+        )
         
         #self.path_following.default_command(FollowPathCmd(self.drive_train, self.path_following))
                     
