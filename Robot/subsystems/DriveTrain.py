@@ -18,7 +18,7 @@ from simple_pid import PID
 from Robot.MathUtil import MathUtil
 
 logger = logging.getLogger(f"{__name__}.DriveTrain")
-logger.setLevel(logging.DEBUG)  # Set to DEBUG for detailed output
+logger.setLevel(logging.INFO)  # Set to DEBUG for detailed output
 
 
 class DriveTrain(Subsystem):
