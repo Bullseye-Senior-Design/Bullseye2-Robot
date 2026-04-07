@@ -41,7 +41,7 @@ class BackWheelEncoder:
         self.debounce_ms = 1
         self.edge = 'rising'
 
-        self.interval = 1  # update interval in seconds
+        self.interval = 0.1  # update interval in seconds
         self._running = False
         self._lock_left = threading.Lock()
         self._lock_right = threading.Lock()
