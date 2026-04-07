@@ -4,7 +4,6 @@ from Robot.Constants import Constants
 from structure.Input.InputScheduler import InputScheduler
 from structure.commands.InstantCommand import InstantCommand
 from structure.commands.SequentialCommandGroup import SequentialCommandGroup
-import time
 
 from Robot.subsystems.sensors.UWB import UWB
 from Robot.subsystems.sensors.IMU import IMU
@@ -12,11 +11,14 @@ from Robot.subsystems.algorithms.PathFollowing import PathFollowing
 from Robot.subsystems.DriveTrain import DriveTrain
 from Robot.subsystems.BMS import BMS
 from Robot.subsystems.PCBLEDs import PCBLEDs
+from Robot.subsystems.algorithms.PathCreation import PathCreation
+
 import time
 
 from Robot.subsystems.sensors.BackWheelEncoder import BackWheelEncoder
 from Robot.subsystems.Clutches import Clutches
 from Robot.subsystems.HeaderHealerSwitches import HeaderHealerSwitches
+from Robot.subsystems.algorithms.ParkingController import ParkingController
 
 from Robot.Commands.LogDataCmd import LogDataCmd
 from Robot.Commands.PlotStateCmd import PlotStateCmd
@@ -25,6 +27,8 @@ from Robot.Commands.AlignIMUToWorldCmd import AlignIMUToWorldCmd
 from Robot.Commands.ZeroIMUCmd import ZeroIMUCmd
 from Robot.Commands.FollowPathCmd import FollowPathCmd
 from Comms.PiCommThread import PiCommThread
+from Robot.Commands.ParkingCmd import ParkingCmd
+from Robot.Commands.DriveHomeCmd import DriveHomeCmd
 
 
 
@@ -35,6 +39,8 @@ class RobotContainer:
         self.imu = IMU()
         self.clutches = Clutches()
         self.path_following = PathFollowing()
+        self.parking_controller = ParkingController()
+        self.path_creation = PathCreation()
         self.drive_train = DriveTrain()
         self.header_healer_switches = HeaderHealerSwitches()
         self.pcb_leds = PCBLEDs()
@@ -44,6 +50,9 @@ class RobotContainer:
         self.comm_thread = PiCommThread(bms=self.bms)
         self.comm_thread.start()
         
+        AlignIMUToWorldCmd(self.imu, self.uwb).schedule()  # Align IMU to UWB at startup
+    
+        
         # Start subsystems
         self.uwb.start(uwb_tag_data=Constants.uwb_tag_data, anchors_pos=None)
         self.back_Wheel_encoder.start()
@@ -52,20 +61,22 @@ class RobotContainer:
                                                             lambda: self.comm_thread.get_controller_data().right_x))
         
         InputScheduler(lambda: self.comm_thread.get_controller_data().btn_A).on_true(
-            CreatePathCmd(self.path_following, lambda: self.comm_thread.get_controller_data().btn_B)
+            CreatePathCmd(self.path_creation, lambda: self.comm_thread.get_controller_data().btn_B)
         )
         
         #self.path_following.default_command(FollowPathCmd(self.drive_train, self.path_following))
                     
     def begin_data_log(self):
         LogDataCmd(self.path_following).schedule()
-        # ZeroIMUCmd(self.drive_train, self.path_following, schedule_followup=False).schedule()
-        # PlotStateCmd().schedule()
-        # MotorMovementExampleCmd(self.drive_train, self.clutches, self.header_healer_switches, self.pcb_leds).schedule()
         
-        
-        # AlignIMUToWorldCmd(tau=0.5, duration=30.0).schedule()
-                
+    def start_parking(self):
+        return_home_cmd = SequentialCommandGroup()
+        return_home_cmd.add_commands(
+            DriveHomeCmd(self.drive_train, self.path_following),
+            ParkingCmd(self.drive_train, self.parking_controller)
+        )
+        return_home_cmd.schedule()
+
     def shutdown(self):
         self.clutches.close()
         self.uwb.close_all()

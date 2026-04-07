@@ -113,6 +113,11 @@ class KalmanStateEstimator:
     
     @property
     def euler(self) -> np.ndarray:
+        """Returns the current orientation of the robot as Euler angles (roll, pitch, yaw) in radians.
+
+        Returns:
+            np.ndarray: A 3-element array containing the roll, pitch, and yaw angles in radians.
+        """
         # quat property already locks so just call it
         q = self.quat
         return MathUtil.quat_to_euler(q)

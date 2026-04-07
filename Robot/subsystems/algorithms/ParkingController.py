@@ -2,13 +2,13 @@ import math
 import numpy as np
 from Robot.Constants import Constants
 
-class PolarParkingController:
+class ParkingController:
     """Lyapunov-based kinematic controller for precise goal alignment."""
     
-    def __init__(self, max_speed):
+    def __init__(self):
         # Kinematic parameters
         self.L = Constants.wheel_base_width
-        self.max_v = max_speed
+        self.max_v = 0.3 # IMPORTANT: Limit max velocity for better stability during parking
         self.max_delta = Constants.steering_angle_limit_rads
         
         # Controller Gains (TUNE THESE)
@@ -79,3 +79,16 @@ class PolarParkingController:
     def normalize_angle(self, angle):
         """Keep angle between -pi and pi."""
         return (angle + np.pi) % (2 * np.pi) - np.pi
+    
+    def is_at_goal(self, current_pose, goal_pose, pos_threshold=0.3, angle_threshold_rads=0.1):
+        """Check if we are close enough to the goal pose."""
+        x, y, th = current_pose
+        gx, gy, gth = goal_pose
+        
+        # Position error
+        pos_error = math.hypot(gx - x, gy - y)
+        
+        # Angle error
+        angle_error = abs(self.normalize_angle(gth - th))
+        
+        return pos_error < pos_threshold and angle_error < angle_threshold_rads

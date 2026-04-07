@@ -14,6 +14,7 @@ import RPi.GPIO as GPIO
 
 class HeaderHealerSwitches(Subsystem):
 	def __init__(self):
+		super().__init__()
 		try:
 			self.header_switch_pin = Constants.header_limit_switch_pin
 			self.healer_switch_pin = Constants.healer_limit_switch_pin
