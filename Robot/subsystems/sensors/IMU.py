@@ -16,7 +16,7 @@ from Robot.subsystems.algorithms.KalmanStateEstimator import KalmanStateEstimato
 from Robot.MathUtil import MathUtil
 
 logger = logging.getLogger(f"{__name__}.IMU")
-logger.setLevel(logging.DEBUG)  # Set to DEBUG for detailed output
+logger.setLevel(logging.INFO)  # Set to DEBUG for detailed output
 
 # implement a simple low-pass IIR filter for smoothing IMU data
 # cutoff frequency fc_hz, sampling frequency fs_hz
@@ -329,7 +329,7 @@ class IMU():
             logger.error(f"Failed to read IMU sensor data: {e}")
             time.sleep(self.interval)
             return
-        # print(f"IMU Readings - Accel: {accel_val}, Gyro: {gyro_val}, Mag: {mag_val}, Quat: {quat_val}")
+        logger.debug(f"IMU Readings - Accel: {accel_val}, Gyro: {gyro_val}, Mag: {mag_val}, Quat: {quat_val}")
 
         # Use the pre-read values if available
         if all(v is not None for v in accel_val):

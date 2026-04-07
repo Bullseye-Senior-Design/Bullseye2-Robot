@@ -18,7 +18,7 @@ from simple_pid import PID
 from Robot.MathUtil import MathUtil
 
 logger = logging.getLogger(f"{__name__}.DriveTrain")
-logger.setLevel(logging.INFO)  # Set to DEBUG for detailed output
+logger.setLevel(logging.DEBUG)  # Set to DEBUG for detailed output
 
 
 class DriveTrain(Subsystem):
@@ -55,7 +55,7 @@ class DriveTrain(Subsystem):
             # Pitch PID controller
             # TODO Fine-tune PID parameters for better performance
             self.front_wheel_pid = PID(
-                0.5, 0.0, 0.0, 
+                0.6, 0.25, 0.0, 
                 setpoint=0,
                 error_map=MathUtil.wrap_to_pi  # Wrap error to [-pi, pi]
             )
@@ -101,7 +101,7 @@ class DriveTrain(Subsystem):
         self.front_wheel_pid.setpoint = target_angle
         pid_speed = self.front_wheel_pid(current_angle)
         
-        logger.debug(f"PID target: {target_angle}, current: {current_angle}, output: {pid_speed}")
+        logger.debug(f"PID target: {math.degrees(target_angle):.2f}°, current: {math.degrees(current_angle):.2f}°, output: {pid_speed:.2f}")
         
         if pid_speed is None or math.isnan(pid_speed):
             logger.warning("PID output is NaN, defaulting to 0")
@@ -131,7 +131,7 @@ class DriveTrain(Subsystem):
         pid_speed = self._get_angle_from_pid(target_angle)
         write_value = MathUtil.map(pid_speed, self.output_limits[0], self.output_limits[1], 0, 1)
         self._dac.write(self._dac_frontwheel_channel, write_value)
-        logger.debug(f"Set speed cmd: {speed}, limited: {limited_speed}, angle: {target_angle} with speed of {pid_speed}, is_reverse: {is_reverse}")
+        logger.debug(f"Set speed cmd: {speed:.2f}, limited: {limited_speed:.2f}, angle: {math.degrees(target_angle):.2f}, with speed of {pid_speed:.2f}, is_reverse: {is_reverse}")
     
     def _set_wheel_directions(self, is_reverse: bool):
         """Set SSRs for wheel direction based on speed sign."""
