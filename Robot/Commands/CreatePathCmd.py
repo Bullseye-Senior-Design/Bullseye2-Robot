@@ -6,8 +6,8 @@ from uuid import uuid4
 
 from pydantic.dataclasses import dataclass
 
-from Robot.subsystems.controllers.PathCreation import PathCreation
-from Robot.subsystems.controllers.KalmanStateEstimator import KalmanStateEstimator
+from Robot.subsystems.algorithms.PathCreation import PathCreation
+from Robot.subsystems.algorithms.KalmanStateEstimator import KalmanStateEstimator
 from structure.commands.Command import Command
 
 logger = logging.getLogger(f"{__name__}.DriveTrain")
