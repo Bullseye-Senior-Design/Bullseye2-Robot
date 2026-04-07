@@ -1,3 +1,4 @@
+from Robot.Commands.StopMovementCmd import StopMovementCmd
 from Robot.Commands.CreatePathCmd import CreatePathCmd
 from Robot.Commands.DefaultMovementCmd import DefaultMovementCmd
 from Robot.Constants import Constants
@@ -56,9 +57,6 @@ class RobotContainer:
         # Start subsystems
         self.uwb.start(uwb_tag_data=Constants.uwb_tag_data, anchors_pos=None)
         self.back_Wheel_encoder.start()
-        self.drive_train.default_command(DefaultMovementCmd(self.drive_train, self.clutches,
-                                                            lambda: self.comm_thread.get_controller_data().left_y, 
-                                                            lambda: self.comm_thread.get_controller_data().right_x))
         
         InputScheduler(lambda: self.comm_thread.get_controller_data().btn_A).on_true(
             CreatePathCmd(self.path_creation, lambda: self.comm_thread.get_controller_data().btn_B)
@@ -76,6 +74,22 @@ class RobotContainer:
             ParkingCmd(self.drive_train, self.parking_controller)
         )
         return_home_cmd.schedule()
+
+
+    def start_teleop(self):
+        DefaultMovementCmd(self.drive_train, self.clutches,
+                            lambda: self.comm_thread.get_controller_data().left_y, 
+                            lambda: self.comm_thread.get_controller_data().right_x).schedule()
+        
+        InputScheduler(lambda: self.comm_thread.get_controller_data().btn_Y).on_true(
+            StopMovementCmd(self.drive_train)
+        )
+
+        InputScheduler(lambda: self.comm_thread.get_controller_data().btn_X).on_true(
+            DefaultMovementCmd(self.drive_train, self.clutches,
+                            lambda: self.comm_thread.get_controller_data().left_y, 
+                            lambda: self.comm_thread.get_controller_data().right_x)
+        )
 
     def shutdown(self):
         self.clutches.close()
