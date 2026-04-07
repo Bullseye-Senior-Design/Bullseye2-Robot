@@ -11,7 +11,7 @@ from Robot.subsystems.controllers.KalmanStateEstimator import KalmanStateEstimat
 from structure.commands.Command import Command
 
 logger = logging.getLogger(f"{__name__}.DriveTrain")
-logger.setLevel(logging.INFO)
+logger.setLevel(logging.DEBUG)
 
 class CreatePathCmd(Command):
     
@@ -25,6 +25,8 @@ class CreatePathCmd(Command):
         self.add_requirement(path_creation)
 
     def initialize(self):
+        logger.debug("Initializing CreatePathCmd")
+
         self._saved_file_path = None
 
         self.kf = KalmanStateEstimator()
@@ -35,6 +37,8 @@ class CreatePathCmd(Command):
         self._path_creation.add_path_point()
     
     def end(self, interrupted):
+        logger.debug("Ending CreatePathCmd")
+
         self._path_creation.stop_path_creation()
     
     def is_finished(self):
