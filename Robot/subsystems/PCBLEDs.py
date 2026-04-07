@@ -12,7 +12,7 @@ class PCBLEDs(Subsystem):
     def __init__(self):
         """Initialize PCB LED control GPIO pins and state."""
         # GPIO pin setup code here
-
+        super().__init__()
         self.status_pin_green = Constants.status_led_green
         self.status_pin_red = Constants.status_led_red
         GPIO.setmode(GPIO.BCM)

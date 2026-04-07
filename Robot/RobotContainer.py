@@ -4,7 +4,6 @@ from Robot.Constants import Constants
 from structure.Input.InputScheduler import InputScheduler
 from structure.commands.InstantCommand import InstantCommand
 from structure.commands.SequentialCommandGroup import SequentialCommandGroup
-import time
 
 from Robot.subsystems.sensors.UWB import UWB
 from Robot.subsystems.sensors.IMU import IMU
@@ -12,6 +11,8 @@ from Robot.subsystems.algorithms.PathFollowing import PathFollowing
 from Robot.subsystems.DriveTrain import DriveTrain
 from Robot.subsystems.BMS import BMS
 from Robot.subsystems.PCBLEDs import PCBLEDs
+from Robot.subsystems.algorithms.PathCreation import PathCreation
+
 import time
 
 from Robot.subsystems.sensors.BackWheelEncoder import BackWheelEncoder
@@ -39,6 +40,7 @@ class RobotContainer:
         self.clutches = Clutches()
         self.path_following = PathFollowing()
         self.parking_controller = ParkingController()
+        self.path_creation = PathCreation()
         self.drive_train = DriveTrain()
         self.header_healer_switches = HeaderHealerSwitches()
         self.pcb_leds = PCBLEDs()
@@ -59,7 +61,7 @@ class RobotContainer:
                                                             lambda: self.comm_thread.get_controller_data().right_x))
         
         InputScheduler(lambda: self.comm_thread.get_controller_data().btn_A).on_true(
-            CreatePathCmd(self.path_following, lambda: self.comm_thread.get_controller_data().btn_B)
+            CreatePathCmd(self.path_creation, lambda: self.comm_thread.get_controller_data().btn_B)
         )
         
         #self.path_following.default_command(FollowPathCmd(self.drive_train, self.path_following))

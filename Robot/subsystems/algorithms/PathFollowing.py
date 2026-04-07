@@ -32,6 +32,7 @@ class PathFollowing(Subsystem):
     
     def start(self):
         """Initialize MPC Navigator with default parameters."""
+        super().__init__()
         # ────────────────────────────────────────────────
         # Parameters & Constants
         # ────────────────────────────────────────────────
