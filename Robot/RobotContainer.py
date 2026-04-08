@@ -103,6 +103,10 @@ class RobotContainer:
                             lambda: self.comm_thread.get_controller_data().left_y, 
                             lambda: self.comm_thread.get_controller_data().right_x)
         )
+    
+    def disabled_init(self):
+        logger.info("Robot disabled, stopping all movement")
+        StopMovementCmd(self.drive_train).schedule()
 
     def shutdown(self):
         self.clutches.close()
