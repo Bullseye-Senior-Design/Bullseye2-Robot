@@ -41,7 +41,7 @@ class Robot:
         pass
     
     def disabled_init(self):
-        pass
+        self.robot_container.disabled_init()
     
     def shutdown(self):
         self.robot_container.shutdown()
