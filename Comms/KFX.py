@@ -28,8 +28,9 @@ import json
 import logging
 from pathlib import Path
 
-from Comms.DataPacket import DataPacket
-from Comms.StateData import State, StateData
+from Comms.Models.KFXButtonData import KFXButtonData
+from Comms.Models.DataPacket import DataPacket
+from Comms.Models.StateData import State, StateData
 
 logger = logging.getLogger(f"{__name__}.KFXController")
 
@@ -70,6 +71,9 @@ KFX_DEFAULT_SPEED = 0.5
 
 
 class KFXController:
+    
+
+
     """
     Manages the KFX remote receiver thread and button-to-action dispatch.
 
@@ -99,6 +103,17 @@ class KFXController:
         self._config_lock = threading.Lock()   # Separate lock – config can update while
                                                # data_lock is held for state changes
         self._config: dict[str, int | None] = self._load_config()
+
+        self.kfx_button_data = KFXButtonData(
+            btn_1=False,
+            btn_2=False,
+            btn_3=False,
+            btn_4=False,
+            btn_5=False,
+            btn_6=False,
+            btn_7=False,
+            btn_8=False
+        )
 
         logger.info("KFXController initialised – config: %s", self._config)
 
