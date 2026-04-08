@@ -40,6 +40,8 @@ class BackWheelEncoder:
         self.pull_up = True
         self.debounce_ms = 1
         self.edge = 'rising'
+        
+        self.backwheel_is_reversing = False
 
         self.interval = 0.1  # update interval in seconds
         self._running = False
@@ -112,8 +114,8 @@ class BackWheelEncoder:
             count = self.get_count_total_and_reset() / 2.0  # Average of left and right counts
             distance = (count / self.counts_per_revolution) * self.wheel_circumference
             
-            #logger.info(f"count ={self._count} reset for next interval")
-            self._velocity = distance / dt
+            direction_multiplier = -1 if self.backwheel_is_reversing else 1
+            self._velocity = (distance / dt) * direction_multiplier
             logger.debug(f"Encoder pin {self.pin_left} velocity: {self._velocity:.3f} m/s over dt={dt:.3f}s with count={count}")
             self.state_estimator.update_encoder_velocity(self._velocity)
                 
@@ -162,5 +164,10 @@ class BackWheelEncoder:
 
     def get_velocity(self) -> float:
         """Return current velocity estimate in m/s (forward direction)"""
-        return self._velocity
+        with self._lock_left, self._lock_right:
+            return self._velocity
 
+    def set_reversing(self, is_reversing: bool):
+        """Set whether the robot is currently reversing. This will affect how encoder counts are interpreted."""
+        with self._lock_left, self._lock_right:
+            self.backwheel_is_reversing = is_reversing

@@ -8,6 +8,7 @@ from Robot.subsystems.algorithms.KalmanStateEstimator import KalmanStateEstimato
 from Robot.Constants import Constants
 from Robot.subsystems.subsystemChildren.DAC import DAC
 from Robot.subsystems.subsystemChildren.FrontWheelEncoder import FrontWheelEncoder
+from Robot.subsystems.sensors.BackWheelEncoder import BackWheelEncoder
 
 import math
 import time
@@ -46,6 +47,7 @@ class DriveTrain(Subsystem):
             GPIO.output(self._frontwheel_power_ssr_pin, GPIO.HIGH)
             
             self.shutdown = False
+            self.is_reversing = False
 
             # Initialize motors to stopped state
             self._dac.write(self._dac_backwheel_channel, 0)
@@ -116,26 +118,37 @@ class DriveTrain(Subsystem):
             logger.warning("Attempted to set speed/angle after shutdown. Command ignored.")
             return
         
+        # Permit direction changes only when measured wheel speed magnitude is near zero.
+        is_speed_reversing = speed < 0
+        wheel_speed_magnitude = abs(BackWheelEncoder().get_velocity())
+        if (is_speed_reversing is not self.is_reversing) and (wheel_speed_magnitude > Constants.min_swap_speed_threshold):
+            logger.debug(
+                f"Direction swap blocked at wheel speed {wheel_speed_magnitude:.3f} m/s "
+                f"(threshold {Constants.min_swap_speed_threshold:.3f} m/s). Clamping speed to 0."
+            )
+            speed = 0.0
+        
         limited_speed = self._apply_backwheel_accel_limit(speed)
 
         self._speed = limited_speed
         self._angle = target_angle
         
         # set back wheel speed
-        is_reverse = limited_speed < 0
-        self._set_wheel_directions(is_reverse)
+        self.is_reversing = limited_speed < 0
+        BackWheelEncoder().set_reversing(self.is_reversing)  # Inform encoder of current direction for correct velocity calculation
+        self._set_wheel_directions(self.is_reversing)
         self._dac.write(self._dac_backwheel_channel, abs(limited_speed) * self._backwheel_power_scale_factor)
         
         # set front wheel speed using PID controller
         pid_speed = self._get_angle_from_pid(target_angle)
         write_value = MathUtil.map(pid_speed, self.output_limits[0], self.output_limits[1], 0, 1)
         self._dac.write(self._dac_frontwheel_channel, write_value)
-        logger.debug(f"Set speed cmd: {speed:.2f}, limited: {limited_speed:.2f}, angle: {math.degrees(target_angle):.2f}, with speed of {pid_speed:.2f}, is_reverse: {is_reverse}")
+        logger.debug(f"Set speed cmd: {speed:.2f}, limited: {limited_speed:.2f}, angle: {math.degrees(target_angle):.2f}, with speed of {pid_speed:.2f}, is_reversing: {self.is_reversing}")
     
-    def _set_wheel_directions(self, is_reverse: bool):
+    def _set_wheel_directions(self, is_reversing: bool):
         """Set SSRs for wheel direction based on speed sign."""
         try:
-            if not is_reverse:
+            if not is_reversing:
                 # Forward
                 GPIO.output(self._backwheel_forward_ssr_pin, GPIO.HIGH)
                 GPIO.output(self._backwheel_reverse_ssr_pin, GPIO.LOW)

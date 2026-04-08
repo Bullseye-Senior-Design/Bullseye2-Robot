@@ -40,6 +40,7 @@ class Constants:
     back_left_encoder_pin = 25
     wheel_circumference = 1.651  # meters
     counts_per_revolution = 16  # encoder pulses per wheel rotation
+    min_swap_speed_threshold = 0.01  # m/s, below this we consider the robot stopped. This determines wether to allow swapping to direction or not.
     
     # Back Wheel Constants
     backwheel_forward_ssr_pin = 27
