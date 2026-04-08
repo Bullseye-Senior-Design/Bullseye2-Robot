@@ -1,3 +1,5 @@
+import logging
+
 from Robot.Commands.StopMovementCmd import StopMovementCmd
 from Robot.Commands.CreatePathCmd import CreatePathCmd
 from Robot.Commands.DefaultMovementCmd import DefaultMovementCmd
@@ -32,7 +34,8 @@ from Comms.PiCommThread import PiCommThread
 from Robot.Commands.ParkingCmd import ParkingCmd
 from Robot.Commands.DriveHomeCmd import DriveHomeCmd
 
-
+logger = logging.getLogger(f"{__name__}.DriveTrain")
+logger.setLevel(logging.INFO)  # Set to DEBUG for detailed output
 
 class RobotContainer:
     def __init__(self):
@@ -66,9 +69,12 @@ class RobotContainer:
         #self.path_following.default_command(FollowPathCmd(self.drive_train, self.path_following))
                     
     def begin_data_log(self):
+        logger.info("Starting data logging")
         LogDataCmd(self.path_following).schedule()
         
     def start_parking(self):
+        logger.info("Starting parking sequence")
+
         return_home_cmd = SequentialCommandGroup()
         return_home_cmd.add_commands(
             DriveHomeCmd(self.drive_train, self.path_following),
@@ -78,6 +84,8 @@ class RobotContainer:
 
 
     def start_teleop(self):
+        logger.info("Starting teleop control")
+
         DefaultMovementCmd(self.drive_train, self.clutches,
                             lambda: self.comm_thread.get_controller_data().left_y, 
                             lambda: self.comm_thread.get_controller_data().right_x).schedule()
