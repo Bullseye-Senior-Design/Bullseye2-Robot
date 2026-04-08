@@ -65,6 +65,7 @@ class RobotContainer:
             CreatePathCmd(self.path_creation, lambda: self.comm_thread.get_controller_data().btn_B)
         )
         
+        logger.info("Scheduling MotorMovementExampleCmd for testing")
         MotorMovementExampleCmd(self.drive_train, self.clutches, self.header_healer_switches, self.pcb_leds).schedule()
         #self.path_following.default_command(FollowPathCmd(self.drive_train, self.path_following))
                     

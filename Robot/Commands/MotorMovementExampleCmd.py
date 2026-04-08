@@ -22,6 +22,8 @@ class MotorMovementExampleCmd(Command):
         self.add_requirement(self.header_healer_switches)
         self.add_requirement(self.clutches)
         self.add_requirement(self.pcb_leds)
+
+        logger.info("MotorMovementExampleCmd initialized with DriveTrain, Clutches, HeaderHealerSwitches, and PCBLEDs")
         
     def initialize(self):
         logger.info("Starting MotorMovementExampleCmd: Cycling motor speed and steering angle while toggling LEDs")
