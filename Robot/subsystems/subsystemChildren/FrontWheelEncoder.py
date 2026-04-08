@@ -110,13 +110,15 @@ class FrontWheelEncoder:
                 binary &= 0x3FFF
 
                 logger.debug(f"Gray 0x{gray:04X} → Binary 0x{binary:04X} ({binary})")
+                logger.debug(f"Binary Angle: {(binary * 360.0) / self._max_position:.2f} degrees")
 
                 # Now use the *binary* value (not the Gray value)
                 raw_angle = (binary * 2.0 * math.pi) / self._max_position
 
                 # Apply calibration offset and wrap to [-π, π]
-                logger.debug(f"Subtraction: {raw_angle:.4f} - {self.frontwheel_zero_offset:.4f} = {raw_angle - self.frontwheel_zero_offset:.4f}")
-                angle = MathUtil.wrap_to_pi(raw_angle - self.frontwheel_zero_offset)
+                #logger.debug(f"Subtraction: {raw_angle:.4f} - {self.frontwheel_zero_offset:.4f} = {raw_angle - self.frontwheel_zero_offset:.4f}")
+                #angle = MathUtil.wrap_to_pi(raw_angle - self.frontwheel_zero_offset)
+                angle = MathUtil.wrap_to_pi(raw_angle)
 
                 logger.debug(f"→ VALID Degrees: {math.degrees(angle):.2f}")
 
@@ -124,8 +126,6 @@ class FrontWheelEncoder:
                     self._position = angle
             else:
                 logger.debug("→ CRC / Communication Error")
-                
-
                 
         except Exception as e:
             logger.error(f"Error reading front wheel encoder: {e}")
