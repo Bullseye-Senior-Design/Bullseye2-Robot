@@ -35,7 +35,6 @@ class DriveTrain(Subsystem):
             self._dac_backwheel_channel = Constants.dac_backwheel_channel
             self._dac_frontwheel_channel = Constants.dac_frontwheel_channel
             self._backwheel_power_scale_factor = Constants.backwheel_power_scale_factor
-            self._backwheel_accel_limit_per_sec = Constants.backwheel_accel_limit_per_sec
             
             GPIO.setmode(GPIO.BCM)
             GPIO.setup(self._backwheel_forward_ssr_pin, GPIO.OUT)
@@ -73,21 +72,6 @@ class DriveTrain(Subsystem):
         
         self._angle = 0 # Default to straight
         self._speed = 0 # Default to stopped
-
-    def _apply_backwheel_accel_limit(self, target_speed: float) -> float:
-        now = time.monotonic()
-        elapsed_seconds = max(0.0, now - self._last_backwheel_speed_update_time)
-        max_delta = self._backwheel_accel_limit_per_sec * elapsed_seconds
-
-        speed_delta = target_speed - self._last_backwheel_speed_cmd
-        if abs(speed_delta) > max_delta:
-            limited_speed = self._last_backwheel_speed_cmd + math.copysign(max_delta, speed_delta)
-        else:
-            limited_speed = target_speed
-
-        self._last_backwheel_speed_cmd = limited_speed
-        self._last_backwheel_speed_update_time = now
-        return limited_speed
     
     def _get_angle_from_pid(self, target_angle: float) -> float:
         """Calculate front wheel angle using PID controller based on target angle.
@@ -139,7 +123,7 @@ class DriveTrain(Subsystem):
             )
             speed = 0.0
         
-        limited_speed = self._apply_backwheel_accel_limit(speed)
+        limited_speed = speed
 
         self._speed = limited_speed
         self._angle = target_angle
