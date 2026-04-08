@@ -46,8 +46,8 @@ class Constants:
     backwheel_reverse_ssr_pin = 22
     backwheel_power_ssr_pin = 4
     rear_motor_top_speed = 0.13
-    backwheel_power_scale_factor = 0.3  # Scale factor for back wheel speed control
-    backwheel_accel_limit_per_sec = 1.0  # Max normalized speed change per second
+    backwheel_power_scale_factor = 0.5  # Scale factor for back wheel speed control
+    backwheel_accel_limit_per_sec = 2.0  # Max normalized speed change per second
     
     # Front Wheel Constants
     frontwheel_power_ssr_pin = 17

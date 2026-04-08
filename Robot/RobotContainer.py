@@ -54,7 +54,6 @@ class RobotContainer:
         
         AlignIMUToWorldCmd(self.imu, self.uwb).schedule()  # Align IMU to UWB at startup
     
-        
         # Start subsystems
         self.uwb.start(uwb_tag_data=Constants.uwb_tag_data, anchors_pos=None)
         self.back_Wheel_encoder.start()
@@ -63,6 +62,7 @@ class RobotContainer:
             CreatePathCmd(self.path_creation, lambda: self.comm_thread.get_controller_data().btn_B)
         )
         
+        MotorMovementExampleCmd(self.drive_train, self.clutches, self.header_healer_switches, self.pcb_leds).schedule()
         #self.path_following.default_command(FollowPathCmd(self.drive_train, self.path_following))
                     
     def begin_data_log(self):
