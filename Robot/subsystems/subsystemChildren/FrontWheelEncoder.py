@@ -100,7 +100,7 @@ class FrontWheelEncoder:
             logger.debug(f"Data   : 0x{data:04X}   ~Data : 0x{inv:04X}   XOR = 0x{data ^ inv:04X}")
 
             if (data ^ inv) == 0xFFFF:
-                angle = ((data & 0x3FFF) * 2.0 * math.pi) / self._max_position
+                angle = ( ((data & 0xFFFC) >> 2) * 2.0 * math.pi) / self._max_position
 
                 angle -= self.frontwheel_zero_offset  # Apply zero offset correction
                 logger.debug(f"â†’ VALID Degrees: {math.degrees(angle):.2f}")
