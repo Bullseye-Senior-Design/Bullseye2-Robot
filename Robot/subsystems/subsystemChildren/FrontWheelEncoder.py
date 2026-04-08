@@ -100,8 +100,13 @@ class FrontWheelEncoder:
             logger.debug(f"Data   : 0x{data:04X}   ~Data : 0x{inv:04X}   XOR = 0x{data ^ inv:04X}")
 
             if (data ^ inv) == 0xFFFF:
+                raw_angle = ((data & 0x3FFF) / self._max_position)
+                logger.debug(f"Actual Data: {data & 0x3FFF}")
+                logger.debug(f"Raw angle (normalized): {raw_angle:.4f} turns")
                 raw_angle = ((data & 0x3FFF) * 2.0 * math.pi) / self._max_position
                 # Apply calibration offset and keep angle wrapped to [-pi, pi])
+                logger.debug(f"Subtraction: {raw_angle:.4f} - {self.frontwheel_zero_offset:.4f} = {raw_angle - self.frontwheel_zero_offset:.4f}")
+                logger.debug(f"Wrapped angle (radians): {MathUtil.wrap_to_pi(raw_angle - self.frontwheel_zero_offset):.4f}")
                 angle = MathUtil.wrap_to_pi(raw_angle - self.frontwheel_zero_offset)
                 logger.debug(f"→ VALID Degrees: {math.degrees(angle):.2f}")
                 with self._lock:
