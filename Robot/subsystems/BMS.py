@@ -3,7 +3,7 @@ import time
 import logging
 
 import serial
-from Comms.BatteryData import BatteryData
+from Comms.Models.BatteryData import BatteryData
 from Robot.Constants import Constants
 from structure.Subsystem import Subsystem
 

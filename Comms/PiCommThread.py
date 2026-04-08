@@ -19,10 +19,10 @@ import json
 import sys
 import logging
 
-from Comms.DataPacket import DataPacket
-from Comms.ControllerData import ControllerData
-from Comms.BatteryData import BatteryData
-from Comms.StateData import State, StateData
+from Comms.Models.DataPacket import DataPacket
+from Comms.Models.ControllerData import ControllerData
+from Comms.Models.BatteryData import BatteryData
+from Comms.Models.StateData import State, StateData
 from Comms.KFX import KFXController
 from Robot.Constants import Constants
 from structure.RobotState import RobotState
