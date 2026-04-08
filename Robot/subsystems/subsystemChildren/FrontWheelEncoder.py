@@ -103,10 +103,10 @@ class FrontWheelEncoder:
                 gray = data & 0x3FFF
 
                 binary = gray
-                while gray > 0:
-                    gray >>= 1
-                    binary ^= gray
-                binary &= 0x3FFF
+                shift = 1
+                while (gray >> shift) > 0:
+                    binary ^= (gray >> shift)
+                    shift += 1
 
                 logger.debug(f"Gray 0x{gray:04X} → Binary 0x{binary:04X} ({binary})")
                 logger.debug(f"Binary Angle: {(binary * 360.0) / self._max_position:.2f} degrees")
