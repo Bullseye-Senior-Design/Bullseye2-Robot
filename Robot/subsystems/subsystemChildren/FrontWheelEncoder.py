@@ -11,7 +11,7 @@ import math
 
 
 logger = logging.getLogger(f"{__name__}.DriveTrain")
-logger.setLevel(logging.DEBUG)  # Set to DEBUG for detailed output
+logger.setLevel(logging.INFO)  # Set to DEBUG for detailed output
 
 class FrontWheelEncoder:
     def __init__(self):
@@ -100,31 +100,14 @@ class FrontWheelEncoder:
             logger.debug(f"Data   : 0x{data:04X}   ~Data : 0x{inv:04X}   XOR = 0x{data ^ inv:04X}")
 
             if (data ^ inv) == 0xFFFF:
-                gray = data & 0x3FFF
+                angle = ( ((data & 0xFFFC) >> 2) * 2.0 * math.pi) / self._max_position
 
-                binary = gray
-                while gray > 0:
-                    gray >>= 1
-                    binary ^= gray
-                binary &= 0x3FFF
-
-                logger.debug(f"Gray 0x{gray:04X} → Binary 0x{binary:04X} ({binary})")
-                logger.debug(f"Binary Angle: {(binary * 360.0) / self._max_position:.2f} degrees")
-
-                # Now use the *binary* value (not the Gray value)
-                raw_angle = (binary * 2.0 * math.pi) / self._max_position
-
-                # Apply calibration offset and wrap to [-π, π]
-                #logger.debug(f"Subtraction: {raw_angle:.4f} - {self.frontwheel_zero_offset:.4f} = {raw_angle - self.frontwheel_zero_offset:.4f}")
-                #angle = MathUtil.wrap_to_pi(raw_angle - self.frontwheel_zero_offset)
-                angle = MathUtil.wrap_to_pi(raw_angle)
-
-                logger.debug(f"→ VALID Degrees: {math.degrees(angle):.2f}")
-
+                angle -= self.frontwheel_zero_offset  # Apply zero offset correction
+                logger.debug(f"â†’ VALID Degrees: {math.degrees(angle):.2f}")
                 with self._lock:
                     self._position = angle
             else:
-                logger.debug("→ CRC / Communication Error")
+                logger.debug("â†’ CRC / Communication Error")
                 
         except Exception as e:
             logger.error(f"Error reading front wheel encoder: {e}")

@@ -8,7 +8,7 @@ from Robot.Constants import Constants
 from Robot.subsystems.algorithms.KalmanStateEstimator import KalmanStateEstimator
 
 logger = logging.getLogger(f"{__name__}.BackWheelEncoder")
-logger.setLevel(logging.INFO)  # Set to INFO for detailed output
+logger.setLevel(logging.DEBUG)  # Set to INFO for detailed output
 
 import RPi.GPIO as GPIO
 
@@ -43,7 +43,7 @@ class BackWheelEncoder:
         
         self.backwheel_is_reversing = False
 
-        self.interval = 0.1  # update interval in seconds
+        self.interval = 0.2  # update interval in seconds
         self._running = False
         self._lock_left = threading.Lock()
         self._lock_right = threading.Lock()
@@ -117,7 +117,7 @@ class BackWheelEncoder:
             direction_multiplier = -1 if self.backwheel_is_reversing else 1
             self._velocity = (distance / dt) * direction_multiplier
             logger.debug(f"Encoder pin {self.pin_left} velocity: {self._velocity:.3f} m/s over dt={dt:.3f}s with count={count}")
-            self.state_estimator.update_encoder_velocity(self._velocity)
+            # self.state_estimator.update_encoder_velocity(self._velocity)
                 
             # Reset for next interval
             self._last_update_time = current_time
