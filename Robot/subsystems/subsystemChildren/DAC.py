@@ -6,7 +6,7 @@ from Robot.Constants import Constants
 import RPi.GPIO as GPIO
 
 logger = logging.getLogger(f"{__name__}.DriveTrain")
-logger.setLevel(logging.DEBUG)  # Set to DEBUG for detailed output
+logger.setLevel(logging.INFO)  # Set to DEBUG for detailed output
 
 class DAC:
 	def __init__(self):

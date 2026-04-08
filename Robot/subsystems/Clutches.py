@@ -11,6 +11,7 @@ class Clutches(Subsystem):
     
     def __init__(self):
         """Initialize clutch control GPIO pins and state."""
+        super().__init__()
         # GPIO pin setup code here
         self.left_clutch_pin = Constants.left_clutch_pin
         self.right_clutch_pin = Constants.right_clutch_pin

@@ -7,9 +7,11 @@ import spidev
 from Robot.Constants import Constants
 import RPi.GPIO as GPIO
 from Robot.MathUtil import MathUtil
+import math
+
 
 logger = logging.getLogger(f"{__name__}.DriveTrain")
-logger.setLevel(logging.INFO)  # Set to DEBUG for detailed output
+logger.setLevel(logging.DEBUG)  # Set to DEBUG for detailed output
 
 class FrontWheelEncoder:
     def __init__(self):
@@ -101,7 +103,7 @@ class FrontWheelEncoder:
                 raw_angle = ((data & 0x3FFF) * 2.0 * math.pi) / self._max_position
                 # Apply calibration offset and keep angle wrapped to [-pi, pi])
                 angle = MathUtil.wrap_to_pi(raw_angle - self.frontwheel_zero_offset)
-                logger.debug(f"→ VALID Radians: {angle:.2f}")
+                logger.debug(f"→ VALID Degrees: {math.degrees(angle):.2f}")
                 with self._lock:
                     self._position = angle
             else:
