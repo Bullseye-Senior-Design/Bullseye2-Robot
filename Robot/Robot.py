@@ -13,6 +13,7 @@ class Robot:
     
     def robot_periodic(self):
         self.command_runner.run_commands()
+        print(f"Commands scheduled: {self.command_runner.commands}")
     
     def teleop_init(self):
         self.robot_container.start_teleop()
