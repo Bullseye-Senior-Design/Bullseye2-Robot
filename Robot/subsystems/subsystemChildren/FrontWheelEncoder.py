@@ -90,9 +90,9 @@ class FrontWheelEncoder:
 
                 GPIO.output(self.cs_pin, GPIO.HIGH)
 
-                # Data bytes: rx[2]=MSB, rx[3]=LSB, rx[4]=~MSB, rx[5]=~LSB
-                data = (rx[2] << 8) | rx[3]
-                inv  = (rx[4] << 8) | rx[5]
+            # Data bytes: rx[2]=MSB, rx[3]=LSB, rx[4]=~MSB, rx[5]=~LSB
+            data = (rx[2] << 8) | rx[3]
+            inv  = (rx[4] << 8) | rx[5]
 
             # Print raw bytes for debugging
             logger.debug("Raw RX: %s", " ".join(f"{b:02X}" for b in rx))
@@ -103,10 +103,9 @@ class FrontWheelEncoder:
                 gray = data & 0x3FFF
 
                 binary = gray
-                binary ^= (binary >> 1)
-                binary ^= (binary >> 2)
-                binary ^= (binary >> 4)
-                binary ^= (binary >> 8)
+                while gray > 0:
+                    gray >>= 1
+                    binary ^= gray
                 binary &= 0x3FFF
 
                 logger.debug(f"Gray 0x{gray:04X} → Binary 0x{binary:04X} ({binary})")
