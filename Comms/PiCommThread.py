@@ -23,6 +23,7 @@ from Comms.DataPacket import DataPacket
 from Comms.ControllerData import ControllerData
 from Comms.BatteryData import BatteryData
 from Comms.StateData import State, StateData
+from Comms.KFX import KFXController
 from Robot.Constants import Constants
 from structure.RobotState import RobotState
 
@@ -37,7 +38,7 @@ _FIELD_UNMAP = {
 
 # ==== LOGGING CONFIGURATION ====
 logger = logging.getLogger(f"{__name__}.PiCommThread")
-logger.setLevel(logging.DEBUG)  # Set to DEBUG for detailed output
+logger.setLevel(logging.INFO)  # Set to DEBUG for detailed output
 
 # ==== DEBUG/CONFIGURATION ====
 SUBSYSTEM_UPDATE_RATE = Constants.controller_update_rate  # ~10 Hz for subsystem polling
@@ -113,13 +114,28 @@ class PiCommThread:
         self._running = True
         self._data_lock = threading.Lock()
 
-        # Serial connection for receiving from ControllerMessager
+        # Serial connection for receiving from ControllerMessager (Steam Deck XBee).
+        # Assigned inside _receive_controller_commands once the port opens so that
+        # KFXController can use it to send kfx_ack packets back to the Deck.
         self.pi_ser = None
+
+        # KFXController is created here but NOT started yet – we start it in
+        # start() so that pi_ser is guaranteed to be assigned before KFX needs
+        # it.  pi_ser may still be None at start() time if the port fails, which
+        # is fine – KFXController skips the ack and logs a warning.
+        self.kfx = KFXController(
+            robot_state=self.robot_state,
+            comm_data=self.comm_data,
+            data_lock=self._data_lock,
+            pi_ser=None,   # Updated to the real serial object once port opens
+        )
 
         logger.info("PiCommThread initialized")
 
     def start(self):
-        # Start controller receiver thread
+        # Start controller receiver thread.
+        # This also opens pi_ser; once that succeeds _receive_controller_commands
+        # updates self.kfx.pi_ser so KFX ack packets can reach the Steam Deck.
         self.comms_thread = threading.Thread(
             target=self._receive_controller_commands,
             daemon=True,
@@ -127,6 +143,12 @@ class PiCommThread:
         )
         self.comms_thread.start()
         logger.info("Started controller receiver thread")
+
+        # Start KFX remote listener thread.
+        # KFX runs independently of the Steam Deck connection – the rider can
+        # press buttons regardless of whether the Deck is communicating.
+        self.kfx.start()
+        logger.info("Started KFX remote listener thread")
 
         # Start BMS update thread (polls SmartShunt and keeps battery_data fresh)
         if self.bms:
@@ -156,6 +178,10 @@ class PiCommThread:
             # Initialize serial connection to receive from ControllerMessager
             self.pi_ser = serial.Serial(Constants.pi_serial_port, Constants.serial_baud_rate, timeout=1)
             logger.info(f"Connected to controller receiver on {Constants.pi_serial_port}")
+
+            # Give KFXController a reference to the now-open serial port so it
+            # can send kfx_ack packets back to the Steam Deck.
+            self.kfx.pi_ser = self.pi_ser
 
             buffer = ""  # Accumulate incoming data
 
@@ -193,10 +219,12 @@ class PiCommThread:
         logger.debug(f"data received {line}")
 
         packet = DataPacket.model_validate_json(line)
+
         if packet.type == "state":
             state_data = StateData.model_validate_json(packet.json_data)
             self._handle_state_change(state_data.state)
             self.comm_data.state_data = state_data
+
         elif packet.type == "c":
             delta = json.loads(packet.json_data)
             current = self.comm_data.controller_data.model_dump()
@@ -205,6 +233,13 @@ class PiCommThread:
                 if full_key:
                     current[full_key] = value
             self.comm_data.controller_data = ControllerData(**current)
+
+        elif packet.type == "kfx_config":
+            # Steam Deck is sending updated KFX button assignments.
+            # Forward to KFXController which persists them and sends kfx_ack.
+            new_config = json.loads(packet.json_data)
+            self.kfx.update_config(new_config)
+            logger.info(f"KFX config received and forwarded: {new_config}")
 
     def _send_battery_data(self):
         """
@@ -303,6 +338,9 @@ class PiCommThread:
         logger.info("CommandBrain shutting down...")
 
         self._running = False
+
+        # Stop KFX listener thread
+        self.kfx.stop()
 
         # Wait for all threads to finish (with timeout)
         self.comms_thread.join(timeout=2.0)

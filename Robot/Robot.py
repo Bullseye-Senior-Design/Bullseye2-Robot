@@ -1,5 +1,9 @@
 from structure.CommandRunner import CommandRunner
 from Robot.RobotContainer import RobotContainer
+import logging
+
+logger = logging.getLogger(f"{__name__}.Robot")
+logger.setLevel(logging.INFO)  # Set to INFO for high-level robot events
 
 class Robot:    
     def __init__(self):
@@ -9,11 +13,15 @@ class Robot:
     def robot_init(self):
         self.command_runner.turn_on()
         self.robot_container.begin_data_log()
+        self.robot_container.start_teleop()
     
     def robot_periodic(self):
         self.command_runner.run_commands()
+        logger.debug(f"Commands scheduled: {self.command_runner.commands}")
+        # logger.debug(f"Command Event Loop: {self.command_runner.commands_to_schedule}")
     
     def teleop_init(self):
+        #self.robot_container.start_teleop()
         pass
             
     def teleop_periodic(self):

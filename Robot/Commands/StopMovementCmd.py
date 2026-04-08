@@ -1,7 +1,7 @@
 from Robot.subsystems.DriveTrain import DriveTrain
 from structure.commands.Command import Command
 
-class TemplateCommand(Command):
+class StopMovementCmd(Command):
     def __init__(self, drive_train: DriveTrain):
         super().__init__()
         self._drive_train = drive_train

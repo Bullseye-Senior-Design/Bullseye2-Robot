@@ -1,6 +1,10 @@
+import logging
+
+from Robot.Commands.StopMovementCmd import StopMovementCmd
 from Robot.Commands.CreatePathCmd import CreatePathCmd
 from Robot.Commands.DefaultMovementCmd import DefaultMovementCmd
 from Robot.Constants import Constants
+from Robot.subsystems.algorithms.PathCreation import PathCreation
 from structure.Input.InputScheduler import InputScheduler
 from structure.commands.InstantCommand import InstantCommand
 from structure.commands.SequentialCommandGroup import SequentialCommandGroup
@@ -30,7 +34,8 @@ from Comms.PiCommThread import PiCommThread
 from Robot.Commands.ParkingCmd import ParkingCmd
 from Robot.Commands.DriveHomeCmd import DriveHomeCmd
 
-
+logger = logging.getLogger(f"{__name__}.DriveTrain")
+logger.setLevel(logging.INFO)  # Set to DEBUG for detailed output
 
 class RobotContainer:
     def __init__(self):
@@ -52,30 +57,50 @@ class RobotContainer:
         
         AlignIMUToWorldCmd(self.imu, self.uwb).schedule()  # Align IMU to UWB at startup
     
-        
         # Start subsystems
         self.uwb.start(uwb_tag_data=Constants.uwb_tag_data, anchors_pos=None)
         self.back_Wheel_encoder.start()
-        self.drive_train.default_command(DefaultMovementCmd(self.drive_train, self.clutches,
-                                                            lambda: self.comm_thread.get_controller_data().left_y, 
-                                                            lambda: self.comm_thread.get_controller_data().right_x))
         
         InputScheduler(lambda: self.comm_thread.get_controller_data().btn_A).on_true(
             CreatePathCmd(self.path_creation, lambda: self.comm_thread.get_controller_data().btn_B)
         )
         
+        logger.info("Scheduling MotorMovementExampleCmd for testing")
         #self.path_following.default_command(FollowPathCmd(self.drive_train, self.path_following))
                     
     def begin_data_log(self):
+        logger.info("Starting data logging")
         LogDataCmd(self.path_following).schedule()
+        #MotorMovementExampleCmd(self.drive_train, self.clutches, self.header_healer_switches, self.pcb_leds).schedule()
+
         
     def start_parking(self):
+        logger.info("Starting parking sequence")
+
         return_home_cmd = SequentialCommandGroup()
         return_home_cmd.add_commands(
             DriveHomeCmd(self.drive_train, self.path_following),
             ParkingCmd(self.drive_train, self.parking_controller)
         )
         return_home_cmd.schedule()
+
+
+    def start_teleop(self):
+        logger.info("Starting teleop control")
+
+        DefaultMovementCmd(self.drive_train, self.clutches,
+                            lambda: self.comm_thread.get_controller_data().left_y, 
+                            lambda: self.comm_thread.get_controller_data().right_x).schedule()
+        
+        InputScheduler(lambda: self.comm_thread.get_controller_data().btn_Y).on_true(
+            StopMovementCmd(self.drive_train)
+        )
+
+        InputScheduler(lambda: self.comm_thread.get_controller_data().btn_X).on_true(
+            DefaultMovementCmd(self.drive_train, self.clutches,
+                            lambda: self.comm_thread.get_controller_data().left_y, 
+                            lambda: self.comm_thread.get_controller_data().right_x)
+        )
 
     def shutdown(self):
         self.clutches.close()

@@ -56,7 +56,7 @@ class DriveTrain(Subsystem):
             # Pitch PID controller
             # TODO Fine-tune PID parameters for better performance
             self.front_wheel_pid = PID(
-                0.6, 0.25, 0.0, 
+                0.8, 0.0, 0.0, 
                 setpoint=0,
                 error_map=MathUtil.wrap_to_pi  # Wrap error to [-pi, pi]
             )
@@ -101,6 +101,7 @@ class DriveTrain(Subsystem):
         
         self.front_wheel_pid.setpoint = target_angle
         pid_speed = self.front_wheel_pid(current_angle)
+        pid_speed = self.apply_soft_limits(current_angle, pid_speed)
         
         logger.debug(f"PID target: {math.degrees(target_angle):.2f}°, current: {math.degrees(current_angle):.2f}°, output: {pid_speed:.2f}")
         
@@ -108,6 +109,16 @@ class DriveTrain(Subsystem):
             logger.warning("PID output is NaN, defaulting to 0")
             return 0
         return pid_speed
+    
+    def apply_soft_limits(self, current_angle: float, commanded_speed: float) -> float:
+        """Apply soft limits to target angle."""
+        if current_angle > self.soft_limit:
+            logger.debug(f"Target angle {math.degrees(current_angle):.2f}° exceeds soft limit, applying limit")
+            return min(commanded_speed, 0)  # Prevent moving forward if over limit
+        elif current_angle < -self.soft_limit:
+            logger.debug(f"Target angle {math.degrees(current_angle):.2f}° exceeds soft limit, applying limit")
+            return max(commanded_speed, 0)  # Prevent moving forward if over limit
+        return commanded_speed
     
     def set_speed_angle(self, speed: float, target_angle: float):
         """Set motor speed and angle.

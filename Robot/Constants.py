@@ -11,7 +11,7 @@ class UWBTagInfo:
 class Constants:
     # Wheel base width in meters
     wheel_base_width = 0.25
-    steering_angle_limit_rads = math.radians(30)  # degrees converted to radians, max steering angle for the front wheel
+    steering_angle_limit_rads = math.radians(90)  # degrees converted to radians, max steering angle for the front wheel
 
     # Bit Banging Constants
     bitbang_setup_delay = 0.0001
@@ -47,8 +47,8 @@ class Constants:
     backwheel_reverse_ssr_pin = 22
     backwheel_power_ssr_pin = 4
     rear_motor_top_speed = 0.13
-    backwheel_power_scale_factor = 0.3  # Scale factor for back wheel speed control
-    backwheel_accel_limit_per_sec = 1.0  # Max normalized speed change per second
+    backwheel_power_scale_factor = 0.5  # Scale factor for back wheel speed control
+    backwheel_accel_limit_per_sec = 2.0  # Max normalized speed change per second
     
     # Front Wheel Constants
     frontwheel_power_ssr_pin = 17
