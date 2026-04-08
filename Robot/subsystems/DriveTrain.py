@@ -144,8 +144,10 @@ class DriveTrain(Subsystem):
         self._speed = limited_speed
         self._angle = target_angle
         
-        # set back wheel speed
-        self.is_reversing = limited_speed < 0
+        # Keep previous direction when command is effectively zero.
+        # This avoids prematurely changing direction during a sign transition.
+        if abs(limited_speed) > 1e-6:
+            self.is_reversing = limited_speed < 0
         BackWheelEncoder().set_reversing(self.is_reversing)  # Inform encoder of current direction for correct velocity calculation
         self._set_wheel_directions(self.is_reversing)
         self._dac.write(self._dac_backwheel_channel, abs(limited_speed) * self._backwheel_power_scale_factor)

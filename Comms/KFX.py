@@ -138,7 +138,7 @@ class KFXController:
         Called by PiCommThread when a 'kfx_config' DataPacket arrives
         from the Steam Deck.
 
-        Updates buttons 3–8 from the received dict (buttons 1–2 are fixed
+        Updates buttons 3-8 from the received dict (buttons 1-2 are fixed
         and are never included in the packet). Persists to disk immediately
         so the assignment survives a reboot. Sends 'kfx_ack' back so the
         Steam Deck can confirm its own local save.

@@ -12,6 +12,7 @@ class Robot:
     
     def robot_init(self):
         self.command_runner.turn_on()
+        self.robot_container.start_robot()
         self.robot_container.begin_data_log()
         self.robot_container.start_teleop()
     
