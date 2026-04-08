@@ -11,7 +11,7 @@ class UWBTagInfo:
 class Constants:
     # Wheel base width in meters
     wheel_base_width = 0.25
-    steering_angle_limit_rads = math.radians(60)  # degrees converted to radians, max steering angle for the front wheel
+    steering_angle_limit_rads = math.radians(22)  # degrees converted to radians, max steering angle for the front wheel
 
     # Bit Banging Constants
     bitbang_setup_delay = 0.0001
@@ -33,7 +33,7 @@ class Constants:
     # Front Wheel Encoder Constants
     frontwheel_encoder_resolution = 14  # bits
     frontwheel_encoder_max_position = (1 << frontwheel_encoder_resolution) - 1
-    frontwheel_encoder_zero_offset = 4.5  # calibrated for straight-ahead position
+    frontwheel_encoder_zero_offset = math.radians(243.74)  # calibrated for straight-ahead position
     
     # Back Wheel Encoder Constants
     back_right_encoder_pin = 5
