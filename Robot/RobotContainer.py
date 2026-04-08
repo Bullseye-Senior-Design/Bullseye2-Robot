@@ -66,12 +66,13 @@ class RobotContainer:
         )
         
         logger.info("Scheduling MotorMovementExampleCmd for testing")
-        MotorMovementExampleCmd(self.drive_train, self.clutches, self.header_healer_switches, self.pcb_leds).schedule()
         #self.path_following.default_command(FollowPathCmd(self.drive_train, self.path_following))
                     
     def begin_data_log(self):
         logger.info("Starting data logging")
         LogDataCmd(self.path_following).schedule()
+        #MotorMovementExampleCmd(self.drive_train, self.clutches, self.header_healer_switches, self.pcb_leds).schedule()
+
         
     def start_parking(self):
         logger.info("Starting parking sequence")

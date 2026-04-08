@@ -90,9 +90,9 @@ class FrontWheelEncoder:
 
                 GPIO.output(self.cs_pin, GPIO.HIGH)
 
-                # Data bytes: rx[2]=MSB, rx[3]=LSB, rx[4]=~MSB, rx[5]=~LSB
-                data = (rx[2] << 8) | rx[3]
-                inv  = (rx[4] << 8) | rx[5]
+            # Data bytes: rx[2]=MSB, rx[3]=LSB, rx[4]=~MSB, rx[5]=~LSB
+            data = (rx[2] << 8) | rx[3]
+            inv  = (rx[4] << 8) | rx[5]
 
             # Print raw bytes for debugging
             logger.debug("Raw RX: %s", " ".join(f"{b:02X}" for b in rx))
@@ -100,14 +100,32 @@ class FrontWheelEncoder:
             logger.debug(f"Data   : 0x{data:04X}   ~Data : 0x{inv:04X}   XOR = 0x{data ^ inv:04X}")
 
             if (data ^ inv) == 0xFFFF:
-                raw_angle = ((data & 0x3FFF) * 2.0 * math.pi) / self._max_position
-                # Apply calibration offset and keep angle wrapped to [-pi, pi])
-                angle = MathUtil.wrap_to_pi(raw_angle - self.frontwheel_zero_offset)
+                gray = data & 0x3FFF
+
+                binary = gray
+                while gray > 0:
+                    gray >>= 1
+                    binary ^= gray
+                binary &= 0x3FFF
+
+                logger.debug(f"Gray 0x{gray:04X} → Binary 0x{binary:04X} ({binary})")
+                logger.debug(f"Binary Angle: {(binary * 360.0) / self._max_position:.2f} degrees")
+
+                # Now use the *binary* value (not the Gray value)
+                raw_angle = (binary * 2.0 * math.pi) / self._max_position
+
+                # Apply calibration offset and wrap to [-π, π]
+                #logger.debug(f"Subtraction: {raw_angle:.4f} - {self.frontwheel_zero_offset:.4f} = {raw_angle - self.frontwheel_zero_offset:.4f}")
+                #angle = MathUtil.wrap_to_pi(raw_angle - self.frontwheel_zero_offset)
+                angle = MathUtil.wrap_to_pi(raw_angle)
+
                 logger.debug(f"→ VALID Degrees: {math.degrees(angle):.2f}")
+
                 with self._lock:
                     self._position = angle
             else:
                 logger.debug("→ CRC / Communication Error")
+                
         except Exception as e:
             logger.error(f"Error reading front wheel encoder: {e}")
     

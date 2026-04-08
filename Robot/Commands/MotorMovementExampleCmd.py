@@ -23,12 +23,11 @@ class MotorMovementExampleCmd(Command):
         self.add_requirement(self.clutches)
         self.add_requirement(self.pcb_leds)
 
-        logger.info("MotorMovementExampleCmd initialized with DriveTrain, Clutches, HeaderHealerSwitches, and PCBLEDs")
         
     def initialize(self):
-        logger.info("Starting MotorMovementExampleCmd: Cycling motor speed and steering angle while toggling LEDs")
+        logger.debug("Starting MotorMovementExampleCmd: Cycling motor speed and steering angle while toggling LEDs")
         self.start_time = time.time()
-        self.speed = 1
+        self.speed = 0
         self.clutches.disengage_clutches()
 
     def execute(self):
@@ -50,14 +49,14 @@ class MotorMovementExampleCmd(Command):
         #     self.drive_train.disengage_frontwheel()
         #     # self.clutches.disengage_clutches()
 
-        angle = math.radians(20)  # Convert 20 degrees to radians
+        #angle = math.radians(30)  # Convert 20 degrees to radians
 
-        logger.info(f"Setting speed to {self.speed:.2f} and angle to {math.degrees(angle):.2f} degrees")
+        #logger.debug(f"Setting speed to {self.speed:.2f} and angle to {math.degrees(angle):.2f} degrees")
 
-        self.drive_train.set_speed_angle(self.speed, angle)
+        #self.drive_train.set_speed_angle(self.speed, angle)
     
     def end(self, interrupted):
-        logger.info("Ending MotorMovementExampleCmd: Stopping motors and resetting LEDs")
+        logger.debug("Ending MotorMovementExampleCmd: Stopping motors and resetting LEDs")
         self.pcb_leds.set_green_status_led(False)
 
         self.drive_train.stop()
