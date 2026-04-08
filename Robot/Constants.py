@@ -11,7 +11,7 @@ class UWBTagInfo:
 class Constants:
     # Wheel base width in meters
     wheel_base_width = 0.25
-    steering_angle_limit_rads = math.radians(90)  # degrees converted to radians, max steering angle for the front wheel
+    steering_angle_limit_rads = math.radians(60)  # degrees converted to radians, max steering angle for the front wheel
 
     # Bit Banging Constants
     bitbang_setup_delay = 0.0001

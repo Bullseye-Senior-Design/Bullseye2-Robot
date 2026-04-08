@@ -11,7 +11,7 @@ import math
 
 
 logger = logging.getLogger(f"{__name__}.DriveTrain")
-logger.setLevel(logging.DEBUG)  # Set to DEBUG for detailed output
+logger.setLevel(logging.INFO)  # Set to DEBUG for detailed output
 
 class FrontWheelEncoder:
     def __init__(self):
@@ -101,6 +101,8 @@ class FrontWheelEncoder:
 
             if (data ^ inv) == 0xFFFF:
                 angle = ((data & 0x3FFF) * 2.0 * math.pi) / self._max_position
+
+                angle -= self.frontwheel_zero_offset  # Apply zero offset correction
                 logger.debug(f"â†’ VALID Degrees: {math.degrees(angle):.2f}")
                 with self._lock:
                     self._position = angle
