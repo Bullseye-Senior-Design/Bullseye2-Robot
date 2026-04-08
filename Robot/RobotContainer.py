@@ -2,6 +2,7 @@ from Robot.Commands.StopMovementCmd import StopMovementCmd
 from Robot.Commands.CreatePathCmd import CreatePathCmd
 from Robot.Commands.DefaultMovementCmd import DefaultMovementCmd
 from Robot.Constants import Constants
+from Robot.subsystems.algorithms.PathCreation import PathCreation
 from structure.Input.InputScheduler import InputScheduler
 from structure.commands.InstantCommand import InstantCommand
 from structure.commands.SequentialCommandGroup import SequentialCommandGroup
