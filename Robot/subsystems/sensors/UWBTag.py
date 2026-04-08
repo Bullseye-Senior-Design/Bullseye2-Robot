@@ -24,7 +24,7 @@ from Robot.subsystems.algorithms.KalmanStateEstimator import KalmanStateEstimato
 
 # Configure logging
 logger = logging.getLogger(f"UWBTag")
-logger.setLevel(logging.INFO)  # Set to DEBUG for detailed output
+logger.setLevel(logging.DEBUG)  # Set to DEBUG for detailed output
 
 @dataclass
 class Position:
