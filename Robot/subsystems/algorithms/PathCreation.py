@@ -152,7 +152,7 @@ class PathCreation(Subsystem):
 
         return
     
-    def group_nearby_points(self, points, distance_threshold=0.10):
+    def group_nearby_points(self, points : list[DataPoint], distance_threshold=0.10):
         """Collapse consecutive points that stay within distance_threshold meters.
 
         The representative point for each cluster is the running centroid of the
@@ -161,7 +161,7 @@ class PathCreation(Subsystem):
         if not points:
             return []
 
-        pts = np.asarray(points, dtype=float)
+        pts = np.asarray([(point.x, point.y) for point in points], dtype=float)
         grouped = []
 
         cluster_sum = pts[0].copy()
