@@ -10,6 +10,7 @@ from Robot.subsystems.sensors.UWB import UWB
 import logging
 
 logger = logging.getLogger(f"{__name__}.AlignIMUToWorldCmd")
+logger.setLevel(logging.INFO)
 
 
 def _wrap_angle(a: float) -> float:
@@ -113,8 +114,8 @@ class AlignIMUToWorldCmd(Command):
         imu_yaw_deg = float(imu_euler[0])
         imu_yaw_rad = math.radians(imu_yaw_deg)
 
-        logger.info(f"AlignIMUToWorldCmd: UWB yaw = {math.degrees(uwb_yaw):.3f} deg")
-        logger.info(f"AlignIMUToWorldCmd: IMU yaw = {imu_yaw_deg:.3f} deg (with offset {math.degrees(self._bias):.3f} deg)")
+        logger.debug(f"AlignIMUToWorldCmd: UWB yaw = {math.degrees(uwb_yaw):.3f} deg")
+        logger.debug(f"AlignIMUToWorldCmd: IMU yaw = {imu_yaw_deg:.3f} deg (with offset {math.degrees(self._bias):.3f} deg)")
 
         # residual between measured UWB yaw and corrected IMU yaw
         residual = _wrap_angle(uwb_yaw - imu_yaw_rad)
@@ -122,7 +123,7 @@ class AlignIMUToWorldCmd(Command):
         self._bias = float(np.median(self.residuals_window))
 
         # apply bias to IMU (degrees)
-        logger.info(f"AlignIMUToWorldCmd: applying yaw offset {math.degrees(self._bias):.3f} deg")
+        logger.debug(f"AlignIMUToWorldCmd: applying yaw offset {math.degrees(self._bias):.3f} deg")
         imu.set_yaw_offset(math.degrees(self._bias))
 
         if self._last_csv_log_time is None or (now - self._last_csv_log_time) >= 30.0:
