@@ -105,7 +105,8 @@ class RobotContainer:
 
     def start_path_creation(self):
         logger.info("Starting path creation mode")
-        self.path_cmd = CreatePathCmd(self.path_creation, lambda: self.comm_thread.get_controller_data().btn_B).schedule()
+        self.path_cmd = CreatePathCmd(self.path_creation, lambda: self.comm_thread.get_controller_data().btn_B)
+        self.path_cmd.schedule()
     
     def disabled_init(self):
         logger.info("Robot disabled, stopping all movement")
