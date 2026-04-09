@@ -27,8 +27,6 @@ class DataPoint:
 class PathCreation(Subsystem):
     PATH_FIELDNAMES = ['x', 'y', 'yaw']
 
-
-
     def __init__(self):
         super().__init__()
         self.kf = KalmanStateEstimator()
@@ -77,14 +75,14 @@ class PathCreation(Subsystem):
 
     def simplify_path(
         self,
-        smoothing=0.5,
-        num_samples=100,
-        savgol_window=11,
-        savgol_polyorder=3,
-        unwrap_yaw=True,
-        wrap_yaw_to_pi=True,
-        yaw_min_motion_distance=1e-3,
-    ):
+        smoothing: float = 0.5,
+        num_samples: int = 100,
+        savgol_window: int = 11,
+        savgol_polyorder: int = 3,
+        unwrap_yaw: bool = True,
+        wrap_yaw_to_pi: bool = True,
+        yaw_min_motion_distance: float = 1e-3,
+    ) -> None:
         """Read px/py/yaw from input_csv, smooth with Savitzky-Golay,
         fit a B-spline, compute yaw in radians from path direction, write smoothed path to output_csv.
         Returns the smoothed list of points.
@@ -92,7 +90,7 @@ class PathCreation(Subsystem):
         points = self._path
         if not points:
             logger.error(f"No points found in path data.")
-            return []
+            return
 
         # If too few points for a cubic spline, just write the original points
         if len(points) < 4:
@@ -128,7 +126,7 @@ class PathCreation(Subsystem):
 
         return
     
-    def smooth_savgol(self, points: list[DataPoint], window_length=11, polyorder=3):
+    def smooth_savgol(self, points: list[DataPoint], window_length: int = 11, polyorder: int = 3) -> list[DataPoint]:
         """
         window_length: Must be odd. Larger = smoother.
         polyorder: Polynomial order to fit in the window.
@@ -143,27 +141,27 @@ class PathCreation(Subsystem):
         return [DataPoint(x=float(x_val), y=float(y_val), yaw=point.yaw)
                 for x_val, y_val, point in zip(x_smooth, y_smooth, points)]
 
-    def fit_bspline(self, points, smoothing=0.5, num_samples=100):
+    def fit_bspline(self, points: list[DataPoint], smoothing: float = 0.5, num_samples: int = 100) -> list[tuple[float, float]]:
         """
         points: list of (x, y) tuples
         smoothing: The smoothing factor 's'. 
                 0 = Interpolation (hits every point, noisy). 
                 Higher = Smoother curve (loosely fits points).
         """
-        points = np.array(points, dtype=float)
+        points_array = np.array([(point.x, point.y) for point in points], dtype=float)        
 
         # 1. Parameterize by cumulative arc length so spacing reflects true travel distance.
-        deltas = np.diff(points, axis=0)
+        deltas = np.diff(points_array, axis=0)
         seg_len = np.sqrt(np.sum(deltas**2, axis=1))
         t = np.concatenate(([0.0], np.cumsum(seg_len)))
 
         # Remove duplicate-distance samples; splrep expects a strictly increasing parameter.
         keep = np.concatenate(([True], np.diff(t) > 1e-9))
         t_fit = t[keep]
-        points_fit = points[keep]
+        points_fit = points_array[keep]
 
         if len(points_fit) < 2:
-            return [tuple(points[0])] * num_samples
+            return [tuple(points_array[0])] * num_samples
 
         k = min(3, len(points_fit) - 1)
 
@@ -176,13 +174,14 @@ class PathCreation(Subsystem):
 
         return [tuple(row) for row in zip(*smoothed_columns)]
     
-    def compute_yaw_from_path(self, points, unwrap=True, wrap_to_pi=True, min_motion_distance=1e-3) -> list[DataPoint]:
+    def compute_yaw_from_path(self, points: list[DataPoint], unwrap: bool = True, wrap_to_pi: bool = True, min_motion_distance: float = 1e-3) -> list[DataPoint]:
         """Compute yaw as the direction of travel (angle) at each point.
-        Returns list of (x, y, yaw) tuples where yaw is atan2(dy, dx).
+        Returns list of DataPoint instances where yaw is atan2(dy, dx).
         """
-        points = np.array(points, dtype=float)
-        x = points[:, 0]
-        y = points[:, 1]
+        # Extract x, y from DataPoint instances for numpy conversion
+        xy_array = np.array([(p.x, p.y) for p in points], dtype=float)
+        x = xy_array[:, 0]
+        y = xy_array[:, 1]
 
         if len(points) == 0:
             return []
