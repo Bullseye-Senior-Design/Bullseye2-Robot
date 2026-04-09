@@ -27,12 +27,12 @@ sudo nano /etc/systemd/system/bullseye_boot.service
 Paste this into the file (Modify the file paths to be correct)
 ```txt
 [Unit]
-Description=My Python Startup Script
+Description=Bullseye Startup Program
 After=network.target
 
 [Service]
-ExecStart=/home/pi/myproject/.venv/bin/python /home/pi/myproject/myscript.py
-WorkingDirectory=/home/pi/myproject/
+ExecStart=/home/bullseye/Desktop/Bullseye2-Robot/.venv/bin/python /home/bullseye/Desktop/Bullseye2-Robot/main.py
+WorkingDirectory=/home/bullseye/Desktop/Bullseye2-Robot
 StandardOutput=inherit
 StandardError=inherit
 Restart=always
@@ -44,9 +44,9 @@ WantedBy=multi-user.target
 Then reload the sevice and enable it on boot
 ```bash
 sudo systemctl daemon-reload
-sudo systemctl enable myscript.service
+sudo systemctl enable bullseye_boot.service
 ```
 To test the service is operational run:
 ```bash
-sudo systemctl status myscript.service
+sudo systemctl status bullseye_boot.service
 ```
