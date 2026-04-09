@@ -2,7 +2,6 @@ import logging
 import csv
 import math
 from pathlib import Path
-from uuid import uuid4
 
 from dataclasses import dataclass
 import threading
@@ -51,7 +50,23 @@ class PathCreation(Subsystem):
         
         self.logs_dir.mkdir(parents=True, exist_ok=True)
 
-        filename = f"{uuid4()}.csv"
+        # Find the next sequential number by checking existing .csv files
+        next_number = 0
+        if self.logs_dir.exists():
+            existing_files = list(self.logs_dir.glob('*.csv'))
+            numbers = []
+            for f in existing_files:
+                try:
+                    # Try to parse filename as a number
+                    num = int(f.stem)
+                    numbers.append(num)
+                except ValueError:
+                    # Skip files that aren't purely numeric
+                    pass
+            if numbers:
+                next_number = max(numbers) + 1
+        
+        filename = f"{next_number}.csv"
         file_path = self.logs_dir / filename
 
         with file_path.open('w', newline='') as csvfile:
