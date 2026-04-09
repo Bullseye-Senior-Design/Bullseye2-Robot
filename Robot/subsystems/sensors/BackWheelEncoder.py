@@ -157,6 +157,9 @@ class BackWheelEncoder:
         """Return the number of callbacks since last reset and reset the counter."""
         left = self.get_count_left()  # Reset left count
         right = self.get_count_right()  # Reset right count
+
+        logger.debug(f"Encoder counts - Left: {left}, Right: {right}")
+        
         with self._lock_left, self._lock_right:
             self._count_left = 0
             self._count_right = 0

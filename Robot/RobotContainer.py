@@ -58,6 +58,8 @@ class RobotContainer:
         # Start subsystems
         self.uwb.start(uwb_tag_data=Constants.uwb_tag_data, anchors_pos=None)
         self.back_Wheel_encoder.start()
+
+        self.path_cmd = None  # To keep track of the path creation command for cancellation if needed
         
         InputScheduler(lambda: self.comm_thread.get_controller_data().btn_A).on_true(
             CreatePathCmd(self.path_creation, lambda: self.comm_thread.get_controller_data().btn_B)

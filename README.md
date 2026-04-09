@@ -62,3 +62,8 @@ To restart the service run:
 ```bash
 sudo systemctl restart bullseye_boot.service
 ```
+
+To stop the service run:
+```bash
+sudo systemctl stop bullseye_boot.service
+```
