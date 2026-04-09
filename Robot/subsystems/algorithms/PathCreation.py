@@ -114,7 +114,7 @@ class PathCreation(Subsystem):
 
         # If too few points for a cubic spline, just write the original points
         if len(points) < 4:
-            print(
+            logger.info(
                 f"Input points: {original_count}; Grouped points: {len(points)}; "
                 f"Smoothed points: {len(points)};"
             )
@@ -144,7 +144,10 @@ class PathCreation(Subsystem):
         )
         
         self._path = smoothed
-        logger.info(f"Input points: {len(points)}; Smoothed points: {len(smoothed)}")
+        logger.info(
+            f"Input points: {original_count}; Grouped points: {len(points)}; "
+            f"Smoothed points: {len(points)};"
+        )
         self.save_path_to_csv()
 
         return
