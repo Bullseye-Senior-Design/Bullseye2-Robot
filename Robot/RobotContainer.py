@@ -68,13 +68,11 @@ class RobotContainer:
     def start_robot(self):
         logger.info("Running robot initialization")
         AlignIMUToWorldCmd(self.imu, self.uwb).schedule()  # Align IMU to UWB at startup
-        
                     
     def begin_data_log(self):
         logger.info("Starting data logging")
         LogDataCmd(self.path_following).schedule()
         #MotorMovementExampleCmd(self.drive_train, self.clutches, self.header_healer_switches, self.pcb_leds).schedule()
-
         
     def start_parking(self):
         logger.info("Starting parking sequence")
@@ -85,7 +83,6 @@ class RobotContainer:
             ParkingCmd(self.drive_train, self.parking_controller)
         )
         return_home_cmd.schedule()
-
 
     def start_teleop(self):
         logger.info("Starting teleop control")
@@ -103,9 +100,15 @@ class RobotContainer:
                             lambda: self.comm_thread.get_controller_data().left_y, 
                             lambda: self.comm_thread.get_controller_data().right_x)
         )
+
+    def start_path_creation(self):
+        logger.info("Starting path creation mode")
+        self.path_cmd = CreatePathCmd(self.path_creation, lambda: self.comm_thread.get_controller_data().btn_B).schedule()
     
     def disabled_init(self):
         logger.info("Robot disabled, stopping all movement")
+        if self.path_cmd:
+            self.path_cmd.cancel()
         StopMovementCmd(self.drive_train).schedule()
 
     def shutdown(self):

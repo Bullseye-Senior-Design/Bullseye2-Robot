@@ -27,6 +27,19 @@ class Robot:
     def teleop_periodic(self):
         pass
 
+    def path_creation_init(self):
+        self.robot_container.start_path_creation()
+
+    def path_creation_periodic(self):
+        
+        pass
+
+    def return_to_home_init(self):
+        pass
+
+    def return_to_home_periodic(self):
+        pass
+
     def autonomous_init(self):
         pass
 
