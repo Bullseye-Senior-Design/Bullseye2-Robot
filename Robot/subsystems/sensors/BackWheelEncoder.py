@@ -35,7 +35,7 @@ class BackWheelEncoder:
             edge: 'rising', 'falling', or 'both' (which edge to detect)
         """
         self.pin_right = Constants.back_right_encoder_pin
-        self.pin_left = Constants.back_right_encoder_pin
+        self.pin_left = Constants.back_left_encoder_pin
         self.active_high = True
         self.pull_up = True
         self.debounce_ms = 1
