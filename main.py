@@ -40,6 +40,20 @@ def main():
             if robot_state.is_teleop_enabled():
                 robot.teleop_periodic()
 
+            if robot_state.should_init_path_creation():
+                print("Path creation mode enabled")
+                robot.path_creation_init()
+
+            if robot_state.is_path_creation_enabled():
+                robot.path_creation_periodic()
+
+            if robot_state.should_init_return_to_home():
+                print("Return to home mode enabled")
+                robot.return_to_home_init()
+
+            if robot_state.is_return_to_home_enabled():
+                robot.return_to_home_periodic()
+
             # Autonomous mode
             if robot_state.should_init_autonomous():
                 print("Autonomous mode enabled")
