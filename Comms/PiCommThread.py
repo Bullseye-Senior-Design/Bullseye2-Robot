@@ -361,7 +361,7 @@ class PiCommThread:
         elif new_state == State.RECORD_PATH:
             # Record path mode
             logger.info("MODE RECORD_PATH: Recording path")
-            self.robot_state.enable_record_path()
+            self.robot_state.enable_path_creation()
 
     def get_robot_data(self):
         """

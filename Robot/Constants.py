@@ -73,6 +73,7 @@ class Constants:
     # XBee Constants
     serial_baud_rate = 19200
     pi_serial_port = "/dev/ttyAMA1"
+    controller_update_rate = 0.05  # seconds between sending StateData updates to the controller
 
     #BMS Constants
     bms_update_interval = 0.05 # seconds between reads
