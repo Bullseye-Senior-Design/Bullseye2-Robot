@@ -23,6 +23,7 @@ class FrontWheelEncoder:
             self._max_position = Constants.frontwheel_encoder_max_position
             self._bitbang_spi_lock = Constants.bitbang_spi_lock
             self._bitbang_setup_delay = Constants.bitbang_setup_delay
+            self.steering_mechanics_adjustment_factor = Constants.steering_mechanics_adjustment_factor
             self._position = None
             self._running = False
             self._lock = threading.Lock()
@@ -103,11 +104,12 @@ class FrontWheelEncoder:
                 angle = ( ((data & 0xFFFC) >> 2) * 2.0 * math.pi) / self._max_position
 
                 angle -= self.frontwheel_zero_offset  # Apply zero offset correction
-                logger.debug(f"â†’ VALID Degrees: {math.degrees(angle):.2f}")
+                angle = angle * self.steering_mechanics_adjustment_factor # yolo
+                logger.debug(f"VALID Degrees: {math.degrees(angle):.2f}")
                 with self._lock:
                     self._position = angle
             else:
-                logger.debug("â†’ CRC / Communication Error")
+                logger.debug("CRC / Communication Error")
                 
         except Exception as e:
             logger.error(f"Error reading front wheel encoder: {e}")

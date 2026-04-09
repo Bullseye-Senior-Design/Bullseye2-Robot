@@ -4,6 +4,7 @@ __pycache__/
 *$py.class
 
 logs/
+records/
 sim_log/
 references/
 

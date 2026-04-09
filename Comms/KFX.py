@@ -33,6 +33,7 @@ from Comms.Models.DataPacket import DataPacket
 from Comms.Models.StateData import State, StateData
 
 logger = logging.getLogger(f"{__name__}.KFXController")
+logger.setLevel(logging.INFO)  # Set to INFO for high-level events; use DEBUG for more detail
 
 # ── Hardware constants ────────────────────────────────────────────────────────
 KFX_PORT = "/dev/ttyAMA0"   # UART on GPIO pins 14 (TX) / 15 (RX) – Pi 5
@@ -71,8 +72,6 @@ KFX_DEFAULT_SPEED = 0.5
 
 
 class KFXController:
-    
-
 
     """
     Manages the KFX remote receiver thread and button-to-action dispatch.
@@ -115,23 +114,16 @@ class KFXController:
             btn_8=False
         )
 
+        try:
+            self.ser = serial.Serial(KFX_PORT, KFX_BAUD, timeout=1)
+            logger.info("KFX port open: %s", KFX_PORT)
+        except serial.SerialException as e:
+            logger.error("KFX: could not open %s: %s", KFX_PORT, e)
+            return None
+
         logger.info("KFXController initialised – config: %s", self._config)
 
     # ── Public API ────────────────────────────────────────────────────────────
-
-    def start(self):
-        """Launch the background UART listener thread."""
-        self._thread = threading.Thread(
-            target=self._listen,
-            daemon=True,
-            name="KFXListener",
-        )
-        self._thread.start()
-        logger.info("KFX listener thread started on %s @ %d baud", KFX_PORT, KFX_BAUD)
-
-    def stop(self):
-        """Signal the listener loop to exit on its next timeout cycle."""
-        self._running = False
 
     def update_config(self, new_config: dict):
         """
@@ -156,6 +148,12 @@ class KFXController:
         # Acknowledge back to Steam Deck – must arrive before the Deck
         # unlocks its local config save so both sides always match.
         self._send_ack()
+
+    def close(self):
+        """Clean up resources when shutting down."""
+        if hasattr(self, "ser") and self.ser.is_open:
+            self.ser.close()
+            logger.info("KFX port closed")
 
     # ── Config persistence ────────────────────────────────────────────────────
 
@@ -209,7 +207,7 @@ class KFXController:
 
     # ── Listener thread ───────────────────────────────────────────────────────
 
-    def _listen(self):
+    def listen(self):
         """
         Background thread entry point. Opens /dev/ttyAMA0 and reads one byte
         at a time. Each byte is looked up in KFX_BYTE_TO_BUTTON; recognised
@@ -219,38 +217,30 @@ class KFXController:
         returning an empty bytes object, which lets us check self._running
         regularly without spinning the CPU.
         """
-        try:
-            ser = serial.Serial(KFX_PORT, KFX_BAUD, timeout=1)
-            logger.info("KFX port open: %s", KFX_PORT)
-        except serial.SerialException as e:
-            logger.error("KFX: could not open %s: %s", KFX_PORT, e)
-            return
+
 
         try:
-            while self._running:
-                byte = ser.read(1)   # Blocks up to 1 s then returns b''
-                if not byte:
-                    continue         # Timeout – loop back and check _running
+            byte = self.ser.read(1)   # Blocks up to 1 s then returns b''
+            if not byte:
+                return None         # Timeout – loop back and check _running
 
-                raw    = byte[0]
-                button = KFX_BYTE_TO_BUTTON.get(raw)
+            raw = byte[0]
+            button = KFX_BYTE_TO_BUTTON.get(raw)
 
-                if button is None:
-                    logger.debug("KFX: unrecognised byte 0x%02x – ignored", raw)
-                    continue
+            if button is None:
+                logger.debug("KFX: unrecognised byte 0x%02x – ignored", raw)
+                return None
 
-                logger.info("KFX button %d pressed (byte=%d)", button, raw)
-                self._dispatch(button)
+            logger.info("KFX button %d pressed (byte=%d)", button, raw)
+            
+            return button
 
         except Exception as e:
             logger.error("KFX listener crashed: %s", e)
-        finally:
-            ser.close()
-            logger.info("KFX port closed")
 
     # ── Button dispatch ───────────────────────────────────────────────────────
 
-    def _dispatch(self, button: int):
+    def update_button_data(self, button: int):
         """
         Map a button number to a robot action and execute it.
 
@@ -259,30 +249,69 @@ class KFXController:
         Buttons 3-8 – AUTONOMOUS with the route_id from config,
                       or silently ignored if the button is unassigned.
         """
+
+        logger.debug(f"Dispatching KFX button {button} with current config: {self._config}")
+
         if button == 1:
-            # ── STOP ─────────────────────────────────────────────────────────
-            logger.info("KFX dispatch: Button 1 → DISABLED (stop)")
-            self._apply_state(State.DISABLED, path_id=None, path_speed=None)
-
+            self.kfx_button_data.btn_1 = True
         elif button == 2:
-            # ── START ROUTE ───────────────────────────────────────────────────
-            logger.info("KFX dispatch: Button 2 → Start")
-            #TODO: Logic for start Route
+            self.kfx_button_data.btn_2 = True
+        elif button == 3:
+            self.kfx_button_data.btn_3 = True
+        elif button == 4:
+            self.kfx_button_data.btn_4 = True
+        elif button == 5:
+            self.kfx_button_data.btn_5 = True
+        elif button == 6:
+            self.kfx_button_data.btn_6 = True
+        elif button == 7:
+            self.kfx_button_data.btn_7 = True
+        elif button == 8:
+            self.kfx_button_data.btn_8 = True
 
-        else:
-            # ── CONFIGURED ROUTE ──────────────────────────────────────────────
-            btn_str = str(button)
-            with self._config_lock:
-                route_id = self._config.get(btn_str)
+        
+            
+        # if button == 1:
+        #     # ── STOP ─────────────────────────────────────────────────────────
+        #     logger.info("KFX dispatch: Button 1 → DISABLED (stop)")
+        #     self._apply_state(State.DISABLED, path_id=None, path_speed=None)
 
-            if route_id is None:
-                logger.info("KFX dispatch: Button %d is unassigned – ignored", button)
-                return
+        # elif button == 2:
+        #     # ── START ROUTE ───────────────────────────────────────────────────
+        #     logger.info("KFX dispatch: Button 2 → Start")
+        #     #TODO: Logic for start Route
 
-            logger.info("KFX dispatch: Button %d → AUTONOMOUS route_id=%d", button, route_id)
-            self._apply_state(State.AUTONOMOUS,
-                              path_id=route_id,
-                              path_speed=KFX_DEFAULT_SPEED)
+        # else:
+        #     # ── CONFIGURED ROUTE ──────────────────────────────────────────────
+        #     btn_str = str(button)
+        #     with self._config_lock:
+        #         route_id = self._config.get(btn_str)
+
+        #     if route_id is None:
+        #         logger.info("KFX dispatch: Button %d is unassigned – ignored", button)
+        #         return
+
+        #     logger.info("KFX dispatch: Button %d → AUTONOMOUS route_id=%d", button, route_id)
+        #     self._apply_state(State.AUTONOMOUS,
+        #                       path_id=route_id,
+        #                       path_speed=KFX_DEFAULT_SPEED)
+
+    def get_button_data(self) -> KFXButtonData:
+        """Returns the latest button data."""
+        return self.kfx_button_data
+    
+    def reset_button_data(self):
+        """Resets all button states to False."""
+        self.kfx_button_data = KFXButtonData(
+            btn_1=False,
+            btn_2=False,
+            btn_3=False,
+            btn_4=False,
+            btn_5=False,
+            btn_6=False,
+            btn_7=False,
+            btn_8=False
+        )
 
     def _apply_state(self, state: State,
                      path_id: int | None,
@@ -312,3 +341,4 @@ class KFXController:
             self.robot_state.enable_autonomous()
         elif state == State.TELEOP:
             self.robot_state.enable_teleop()
+

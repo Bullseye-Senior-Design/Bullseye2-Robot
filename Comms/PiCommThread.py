@@ -158,7 +158,12 @@ class PiCommThread:
         # Start KFX remote listener thread.
         # KFX runs independently of the Steam Deck connection – the rider can
         # press buttons regardless of whether the Deck is communicating.
-        self.kfx.start()
+        self.kfx_thread = threading.Thread(
+            target=self._receive_kfx_commands,
+            daemon=True,
+            name="KFXListener"
+        )
+        self.kfx_thread.start()
         logger.info("Started KFX remote listener thread")
 
         # Start BMS update thread (polls SmartShunt and keeps battery_data fresh)
@@ -179,6 +184,30 @@ class PiCommThread:
         )
         self.battery_thread.start()
         logger.info("Started battery sender thread")
+
+    def _receive_kfx_commands(self):
+        """
+        Continuously receive KFX button state updates over serial.
+        Runs in background thread.
+        """
+        while self._running:
+            button = self.kfx.listen()
+
+            if button is None:
+                continue  # No button data received, skip
+
+            self.kfx.update_button_data(button)
+
+            if button == 8:
+                # Example: Button 8 triggers an emergency stop
+                self._handle_state_change(State.DISABLED)
+            elif button == 7:
+                # Example: Button 7 triggers return to home
+                self._handle_state_change(State.RETURN_TO_HOME)
+
+                
+
+             
 
     def _receive_controller_commands(self):
         """
@@ -324,6 +353,16 @@ class PiCommThread:
             logger.info("MODE TEST: Test mode enabled (same as teleop)")
             self.robot_state.enable_teleop()
 
+        elif new_state == State.RETURN_TO_HOME:
+            # Return to home mode
+            logger.info("MODE RETURN_TO_HOME: Returning to home position")
+            self.robot_state.enable_return_to_home()
+
+        elif new_state == State.RECORD_PATH:
+            # Record path mode
+            logger.info("MODE RECORD_PATH: Recording path")
+            self.robot_state.enable_record_path()
+
     def get_robot_data(self):
         """
         Get a copy of current robot data (thread-safe)
@@ -343,6 +382,16 @@ class PiCommThread:
         """Get current controller data (thread-safe)"""
         with self._data_lock:
             return self.comm_data.controller_data
+        
+    def get_kfx_data(self):
+        """Get current KFX button state data (thread-safe)"""
+        with self._data_lock:
+            return self.kfx.get_button_data()
+        
+    def reset_kfx_button_data(self):
+        """Reset KFX button assignments to defaults"""
+        with self._data_lock:
+            self.kfx.reset_button_data()
 
     def close(self):
         """Gracefully shutdown the CommandBrain"""
@@ -351,7 +400,7 @@ class PiCommThread:
         self._running = False
 
         # Stop KFX listener thread
-        self.kfx.stop()
+        self.kfx.close()
 
         # Wait for all threads to finish (with timeout)
         self.comms_thread.join(timeout=2.0)
