@@ -110,7 +110,7 @@ class RobotContainer:
     
     def disabled_init(self):
         logger.info("Robot disabled, stopping all movement")
-        if self.path_cmd:
+        if self.path_cmd is not None:
             self.path_cmd.cancel()
         StopMovementCmd(self.drive_train).schedule()
 
