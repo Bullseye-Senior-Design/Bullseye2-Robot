@@ -111,6 +111,7 @@ class PathCreation(Subsystem):
         original_count = len(points)
         if group_distance is not None and group_distance > 0:
             points = self.group_nearby_points(points, distance_threshold=group_distance)
+            self._path = points  # Update the path with grouped points before smoothing
 
         # If too few points for a cubic spline, just write the original points
         if len(points) < 4:
