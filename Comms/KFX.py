@@ -228,20 +228,21 @@ class KFXController:
             return
 
         try:
-            while self._running:
                 byte = ser.read(1)   # Blocks up to 1 s then returns b''
                 if not byte:
-                    continue         # Timeout – loop back and check _running
+                    return None         # Timeout – loop back and check _running
 
-                raw    = byte[0]
+                raw = byte[0]
                 button = KFX_BYTE_TO_BUTTON.get(raw)
 
                 if button is None:
                     logger.debug("KFX: unrecognised byte 0x%02x – ignored", raw)
-                    continue
+                    return None
 
                 logger.info("KFX button %d pressed (byte=%d)", button, raw)
-                self._dispatch(button)
+
+                return 
+                # self._dispatch(button)
 
         except Exception as e:
             logger.error("KFX listener crashed: %s", e)
