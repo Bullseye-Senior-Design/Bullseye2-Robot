@@ -33,7 +33,7 @@ from Comms.Models.DataPacket import DataPacket
 from Comms.Models.StateData import State, StateData
 
 logger = logging.getLogger(f"{__name__}.KFXController")
-logger.setLevel(logging.DEBUG)  # Set to INFO for high-level events; use DEBUG for more detail
+logger.setLevel(logging.INFO)  # Set to INFO for high-level events; use DEBUG for more detail
 
 # ── Hardware constants ────────────────────────────────────────────────────────
 KFX_PORT = "/dev/ttyAMA0"   # UART on GPIO pins 14 (TX) / 15 (RX) – Pi 5
@@ -72,8 +72,6 @@ KFX_DEFAULT_SPEED = 0.5
 
 
 class KFXController:
-    
-
 
     """
     Manages the KFX remote receiver thread and button-to-action dispatch.
@@ -116,23 +114,16 @@ class KFXController:
             btn_8=False
         )
 
+        try:
+            self.ser = serial.Serial(KFX_PORT, KFX_BAUD, timeout=1)
+            logger.info("KFX port open: %s", KFX_PORT)
+        except serial.SerialException as e:
+            logger.error("KFX: could not open %s: %s", KFX_PORT, e)
+            return None
+
         logger.info("KFXController initialised – config: %s", self._config)
 
     # ── Public API ────────────────────────────────────────────────────────────
-
-    def start(self):
-        """Launch the background UART listener thread."""
-        self._thread = threading.Thread(
-            target=self._listen,
-            daemon=True,
-            name="KFXListener",
-        )
-        self._thread.start()
-        logger.info("KFX listener thread started on %s @ %d baud", KFX_PORT, KFX_BAUD)
-
-    def stop(self):
-        """Signal the listener loop to exit on its next timeout cycle."""
-        self._running = False
 
     def update_config(self, new_config: dict):
         """
@@ -157,6 +148,12 @@ class KFXController:
         # Acknowledge back to Steam Deck – must arrive before the Deck
         # unlocks its local config save so both sides always match.
         self._send_ack()
+
+    def close(self):
+        """Clean up resources when shutting down."""
+        if hasattr(self, "ser") and self.ser.is_open:
+            self.ser.close()
+            logger.info("KFX port closed")
 
     # ── Config persistence ────────────────────────────────────────────────────
 
@@ -210,7 +207,7 @@ class KFXController:
 
     # ── Listener thread ───────────────────────────────────────────────────────
 
-    def _listen(self):
+    def listen(self):
         """
         Background thread entry point. Opens /dev/ttyAMA0 and reads one byte
         at a time. Each byte is looked up in KFX_BYTE_TO_BUTTON; recognised
@@ -220,39 +217,30 @@ class KFXController:
         returning an empty bytes object, which lets us check self._running
         regularly without spinning the CPU.
         """
-        try:
-            ser = serial.Serial(KFX_PORT, KFX_BAUD, timeout=1)
-            logger.info("KFX port open: %s", KFX_PORT)
-        except serial.SerialException as e:
-            logger.error("KFX: could not open %s: %s", KFX_PORT, e)
-            return
+
 
         try:
-                byte = ser.read(1)   # Blocks up to 1 s then returns b''
-                if not byte:
-                    return None         # Timeout – loop back and check _running
+            byte = self.ser.read(1)   # Blocks up to 1 s then returns b''
+            if not byte:
+                return None         # Timeout – loop back and check _running
 
-                raw = byte[0]
-                button = KFX_BYTE_TO_BUTTON.get(raw)
+            raw = byte[0]
+            button = KFX_BYTE_TO_BUTTON.get(raw)
 
-                if button is None:
-                    logger.debug("KFX: unrecognised byte 0x%02x – ignored", raw)
-                    return None
+            if button is None:
+                logger.debug("KFX: unrecognised byte 0x%02x – ignored", raw)
+                return None
 
-                logger.info("KFX button %d pressed (byte=%d)", button, raw)
-
-                return 
-                # self._dispatch(button)
+            logger.info("KFX button %d pressed (byte=%d)", button, raw)
+            
+            return button
 
         except Exception as e:
             logger.error("KFX listener crashed: %s", e)
-        finally:
-            ser.close()
-            logger.info("KFX port closed")
 
     # ── Button dispatch ───────────────────────────────────────────────────────
 
-    def _dispatch(self, button: int):
+    def update_button_data(self, button: int):
         """
         Map a button number to a robot action and execute it.
 
@@ -353,3 +341,4 @@ class KFXController:
             self.robot_state.enable_autonomous()
         elif state == State.TELEOP:
             self.robot_state.enable_teleop()
+
