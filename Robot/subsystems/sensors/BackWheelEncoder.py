@@ -95,7 +95,7 @@ class BackWheelEncoder:
             gedge = GPIO.BOTH
 
         GPIO.add_event_detect(self.pin_right, gedge, callback=self._gpio_callback_right, bouncetime=self.debounce_ms)
-        #GPIO.add_event_detect(self.pin_left, gedge, callback=self._gpio_callback_left, bouncetime=self.debounce_ms)
+        GPIO.add_event_detect(self.pin_left, gedge, callback=self._gpio_callback_left, bouncetime=self.debounce_ms)
         logger.info(f"Started monitoring GPIO {self.pin_right} and {self.pin_left} (active_high={self.active_high})")
         
         def _update_loop():

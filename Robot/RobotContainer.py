@@ -61,9 +61,9 @@ class RobotContainer:
 
         self.path_cmd = None  # To keep track of the path creation command for cancellation if needed
         
-        InputScheduler(lambda: self.comm_thread.get_controller_data().btn_A).on_true(
-            CreatePathCmd(self.path_creation, lambda: self.comm_thread.get_controller_data().btn_B)
-        )
+        # InputScheduler(lambda: self.comm_thread.get_controller_data().btn_A).on_true(
+        #     CreatePathCmd(self.path_creation, lambda: self.comm_thread.get_controller_data().btn_B)
+        # )
         
         logger.info("Scheduling MotorMovementExampleCmd for testing")
     
