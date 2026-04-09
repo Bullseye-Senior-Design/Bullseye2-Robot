@@ -82,7 +82,7 @@ class PathCreation(Subsystem):
         savgol_polyorder=3,
     ):
         """Read px/py/yaw from input_csv, smooth with Savitzky-Golay,
-        fit a B-spline, compute yaw from path direction, write smoothed path to output_csv.
+        fit a B-spline, compute yaw in radians from path direction, write smoothed path to output_csv.
         Returns the smoothed list of points.
         """
         points = self._path
