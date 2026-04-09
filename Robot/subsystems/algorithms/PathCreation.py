@@ -90,13 +90,14 @@ class PathCreation(Subsystem):
 
     def simplify_path(
         self,
-        smoothing: float = 0.5,
-        num_samples: int = 100,
-        savgol_window: int = 11,
-        savgol_polyorder: int = 3,
-        unwrap_yaw: bool = True,
-        wrap_yaw_to_pi: bool = True,
-        yaw_min_motion_distance: float = 1e-3,
+        group_distance: float = 0.10, # meters, distance threshold for grouping nearby points before smoothing
+        smoothing: float = 0.5, # smoothing factor for B-spline fit (0 = interpolate, higher = smoother)
+        num_samples: int = 100, # number of points to sample along the smoothed path
+        savgol_window: int = 11, # window length for Savitzky-Golay filter (must be odd and >= polyorder+2)
+        savgol_polyorder: int = 3, # polynomial order for Savitzky-Golay filter
+        unwrap_yaw: bool = True, # whether to unwrap yaw angles to prevent discontinuities before smoothing
+        wrap_yaw_to_pi: bool = True, # whether to wrap final yaw angles to [-pi, pi] after smoothing
+        yaw_min_motion_distance: float = 1e-3, # minimum distance between points to consider for computing yaw (prevents unstable headings from tiny motions)
     ) -> None:
         """Read px/py/yaw from input_csv, smooth with Savitzky-Golay,
         fit a B-spline, compute yaw in radians from path direction, write smoothed path to output_csv.
@@ -106,10 +107,17 @@ class PathCreation(Subsystem):
         if not points:
             logger.error(f"No points found in path data.")
             return
+        
+        original_count = len(points)
+        if group_distance is not None and group_distance > 0:
+            points = self.group_nearby_points(points, distance_threshold=group_distance)
 
         # If too few points for a cubic spline, just write the original points
         if len(points) < 4:
-            logger.info(f"Input points: {len(points)}; Smoothed points: {len(points)}")
+            print(
+                f"Input points: {original_count}; Grouped points: {len(points)}; "
+                f"Smoothed points: {len(points)};"
+            )
             self.save_path_to_csv()  # Save original points
             return
 
@@ -140,6 +148,36 @@ class PathCreation(Subsystem):
         self.save_path_to_csv()
 
         return
+    
+    def group_nearby_points(self, points, distance_threshold=0.10):
+        """Collapse consecutive points that stay within distance_threshold meters.
+
+        The representative point for each cluster is the running centroid of the
+        cluster, so short jitter around a location gets compressed into one point.
+        """
+        if not points:
+            return []
+
+        pts = np.asarray(points, dtype=float)
+        grouped = []
+
+        cluster_sum = pts[0].copy()
+        cluster_count = 1
+        cluster_center = cluster_sum / cluster_count
+
+        for point in pts[1:]:
+            if np.hypot(*(point - cluster_center)) <= distance_threshold:
+                cluster_sum += point
+                cluster_count += 1
+                cluster_center = cluster_sum / cluster_count
+            else:
+                grouped.append(tuple(cluster_center))
+                cluster_sum = point.copy()
+                cluster_count = 1
+                cluster_center = cluster_sum
+
+        grouped.append(tuple(cluster_center))
+        return grouped
     
     def smooth_savgol(self, points: list[DataPoint], window_length: int = 11, polyorder: int = 3) -> list[DataPoint]:
         """
