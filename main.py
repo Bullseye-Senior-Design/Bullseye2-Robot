@@ -46,7 +46,7 @@ def main():
                 robot.autonomous_init()
 
             if robot_state.is_autonomous_enabled():
-                print("Running autonomous periodic function")
+                # print("Running autonomous periodic function")
                 robot.autonomous_periodic()
             
             # Test mode

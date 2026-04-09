@@ -38,7 +38,7 @@ _FIELD_UNMAP = {
 
 # ==== LOGGING CONFIGURATION ====
 logger = logging.getLogger(f"{__name__}.PiCommThread")
-logger.setLevel(logging.INFO)  # Set to DEBUG for detailed output
+logger.setLevel(logging.DEBUG)  # Set to DEBUG for detailed output
 
 # ==== DEBUG/CONFIGURATION ====
 SUBSYSTEM_UPDATE_RATE = Constants.controller_update_rate  # ~10 Hz for subsystem polling
@@ -48,7 +48,18 @@ BATTERY_CHECK_RATE = 5.0     # How often to poll SOC for threshold change (secon
 # ==== ROBOT STATE DATA ====
 class CommData:
     """Holds all the robot's current state and sensor data"""
-    def __init__(self):
+    _instance = None
+
+    # When a new instance is created, sets it to the same global instance
+    def __new__(cls):
+        # If the instance is None, create a new instance
+        # Otherwise, return already created instance
+        if cls._instance is None:
+            cls._instance = super().__new__(cls)
+            cls._instance._start()
+        return cls._instance
+    
+    def _start(self):
         # Battery data from BMS
         self.battery_data = BatteryData(
             voltage=0.0,
@@ -307,7 +318,7 @@ class PiCommThread:
             # Autonomous/path following mode
             logger.info("MODE AUTONOMOUS: Path following enabled")
             self.robot_state.enable_autonomous()
-
+            
         elif new_state == State.TEST:
             # Test mode (same as teleop for now)
             logger.info("MODE TEST: Test mode enabled (same as teleop)")

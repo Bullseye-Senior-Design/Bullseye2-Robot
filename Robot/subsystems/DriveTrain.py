@@ -35,7 +35,6 @@ class DriveTrain(Subsystem):
             self._dac_backwheel_channel = Constants.dac_backwheel_channel
             self._dac_frontwheel_channel = Constants.dac_frontwheel_channel
             self._backwheel_power_scale_factor = Constants.backwheel_power_scale_factor
-            self._backwheel_accel_limit_per_sec = Constants.backwheel_accel_limit_per_sec
             
             GPIO.setmode(GPIO.BCM)
             GPIO.setup(self._backwheel_forward_ssr_pin, GPIO.OUT)
@@ -56,7 +55,7 @@ class DriveTrain(Subsystem):
             # Pitch PID controller
             # TODO Fine-tune PID parameters for better performance
             self.front_wheel_pid = PID(
-                0.8, 0.0, 0.0, 
+                1.1, 0.1, 0.0, 
                 setpoint=0,
                 error_map=MathUtil.wrap_to_pi  # Wrap error to [-pi, pi]
             )
@@ -73,21 +72,6 @@ class DriveTrain(Subsystem):
         
         self._angle = 0 # Default to straight
         self._speed = 0 # Default to stopped
-
-    def _apply_backwheel_accel_limit(self, target_speed: float) -> float:
-        now = time.monotonic()
-        elapsed_seconds = max(0.0, now - self._last_backwheel_speed_update_time)
-        max_delta = self._backwheel_accel_limit_per_sec * elapsed_seconds
-
-        speed_delta = target_speed - self._last_backwheel_speed_cmd
-        if abs(speed_delta) > max_delta:
-            limited_speed = self._last_backwheel_speed_cmd + math.copysign(max_delta, speed_delta)
-        else:
-            limited_speed = target_speed
-
-        self._last_backwheel_speed_cmd = limited_speed
-        self._last_backwheel_speed_update_time = now
-        return limited_speed
     
     def _get_angle_from_pid(self, target_angle: float) -> float:
         """Calculate front wheel angle using PID controller based on target angle.
@@ -139,13 +123,15 @@ class DriveTrain(Subsystem):
             )
             speed = 0.0
         
-        limited_speed = self._apply_backwheel_accel_limit(speed)
+        limited_speed = speed
 
         self._speed = limited_speed
         self._angle = target_angle
         
-        # set back wheel speed
-        self.is_reversing = limited_speed < 0
+        # Keep previous direction when command is effectively zero.
+        # This avoids prematurely changing direction during a sign transition.
+        if abs(limited_speed) > 1e-6:
+            self.is_reversing = limited_speed < 0
         BackWheelEncoder().set_reversing(self.is_reversing)  # Inform encoder of current direction for correct velocity calculation
         self._set_wheel_directions(self.is_reversing)
         self._dac.write(self._dac_backwheel_channel, abs(limited_speed) * self._backwheel_power_scale_factor)

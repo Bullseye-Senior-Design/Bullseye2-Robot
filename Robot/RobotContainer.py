@@ -54,9 +54,7 @@ class RobotContainer:
         self.bms = BMS()
         self.comm_thread = PiCommThread(bms=self.bms)
         self.comm_thread.start()
-        
-        AlignIMUToWorldCmd(self.imu, self.uwb).schedule()  # Align IMU to UWB at startup
-    
+            
         # Start subsystems
         self.uwb.start(uwb_tag_data=Constants.uwb_tag_data, anchors_pos=None)
         self.back_Wheel_encoder.start()
@@ -66,7 +64,11 @@ class RobotContainer:
         )
         
         logger.info("Scheduling MotorMovementExampleCmd for testing")
-        #self.path_following.default_command(FollowPathCmd(self.drive_train, self.path_following))
+    
+    def start_robot(self):
+        logger.info("Running robot initialization")
+        AlignIMUToWorldCmd(self.imu, self.uwb).schedule()  # Align IMU to UWB at startup
+        
                     
     def begin_data_log(self):
         logger.info("Starting data logging")
@@ -101,6 +103,10 @@ class RobotContainer:
                             lambda: self.comm_thread.get_controller_data().left_y, 
                             lambda: self.comm_thread.get_controller_data().right_x)
         )
+    
+    def disabled_init(self):
+        logger.info("Robot disabled, stopping all movement")
+        StopMovementCmd(self.drive_train).schedule()
 
     def shutdown(self):
         self.clutches.close()
