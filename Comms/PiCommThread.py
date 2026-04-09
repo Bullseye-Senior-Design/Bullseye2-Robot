@@ -332,6 +332,16 @@ class PiCommThread:
         """Get current controller data (thread-safe)"""
         with self._data_lock:
             return self.comm_data.controller_data
+        
+    def get_kfx_data(self):
+        """Get current KFX button state data (thread-safe)"""
+        with self._data_lock:
+            return self.kfx.get_button_data()
+        
+    def reset_kfx_button_data(self):
+        """Reset KFX button assignments to defaults"""
+        with self._data_lock:
+            self.kfx.reset_button_data()
 
     def close(self):
         """Gracefully shutdown the CommandBrain"""

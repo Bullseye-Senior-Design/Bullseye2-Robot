@@ -2,6 +2,7 @@ from Debug import Debug
 from Robot.Robot import Robot
 from structure.RobotState import RobotState
 from Robot.subsystems.sensors.UWB import UWB
+from Comms.PiCommThread import PiCommThread
 
 import time
 import logging
@@ -22,6 +23,7 @@ def main():
     robot = Robot()
     robot_state = RobotState()
 
+    pi_comm_thread = PiCommThread()
 
     robot.robot_init()
     robot_state.enable_teleop()
@@ -58,8 +60,8 @@ def main():
             # Disabled check
             if robot_state.should_init_disable():
                 robot.disabled_init()
-            
-            
+
+            pi_comm_thread.reset_kfx_button_data()  # Reset KFX button states after processing each loop
             
             # Add a small delay to prevent high CPU usage
             time.sleep(0.01)

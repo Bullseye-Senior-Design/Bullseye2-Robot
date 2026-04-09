@@ -33,6 +33,7 @@ from Comms.Models.DataPacket import DataPacket
 from Comms.Models.StateData import State, StateData
 
 logger = logging.getLogger(f"{__name__}.KFXController")
+logger.setLevel(logging.DEBUG)  # Set to INFO for high-level events; use DEBUG for more detail
 
 # ── Hardware constants ────────────────────────────────────────────────────────
 KFX_PORT = "/dev/ttyAMA0"   # UART on GPIO pins 14 (TX) / 15 (RX) – Pi 5
@@ -259,30 +260,69 @@ class KFXController:
         Buttons 3-8 – AUTONOMOUS with the route_id from config,
                       or silently ignored if the button is unassigned.
         """
+
+        logger.debug(f"Dispatching KFX button {button} with current config: {self._config}")
+
         if button == 1:
-            # ── STOP ─────────────────────────────────────────────────────────
-            logger.info("KFX dispatch: Button 1 → DISABLED (stop)")
-            self._apply_state(State.DISABLED, path_id=None, path_speed=None)
-
+            self.kfx_button_data.btn_1 = True
         elif button == 2:
-            # ── START ROUTE ───────────────────────────────────────────────────
-            logger.info("KFX dispatch: Button 2 → Start")
-            #TODO: Logic for start Route
+            self.kfx_button_data.btn_2 = True
+        elif button == 3:
+            self.kfx_button_data.btn_3 = True
+        elif button == 4:
+            self.kfx_button_data.btn_4 = True
+        elif button == 5:
+            self.kfx_button_data.btn_5 = True
+        elif button == 6:
+            self.kfx_button_data.btn_6 = True
+        elif button == 7:
+            self.kfx_button_data.btn_7 = True
+        elif button == 8:
+            self.kfx_button_data.btn_8 = True
 
-        else:
-            # ── CONFIGURED ROUTE ──────────────────────────────────────────────
-            btn_str = str(button)
-            with self._config_lock:
-                route_id = self._config.get(btn_str)
+        
+            
+        # if button == 1:
+        #     # ── STOP ─────────────────────────────────────────────────────────
+        #     logger.info("KFX dispatch: Button 1 → DISABLED (stop)")
+        #     self._apply_state(State.DISABLED, path_id=None, path_speed=None)
 
-            if route_id is None:
-                logger.info("KFX dispatch: Button %d is unassigned – ignored", button)
-                return
+        # elif button == 2:
+        #     # ── START ROUTE ───────────────────────────────────────────────────
+        #     logger.info("KFX dispatch: Button 2 → Start")
+        #     #TODO: Logic for start Route
 
-            logger.info("KFX dispatch: Button %d → AUTONOMOUS route_id=%d", button, route_id)
-            self._apply_state(State.AUTONOMOUS,
-                              path_id=route_id,
-                              path_speed=KFX_DEFAULT_SPEED)
+        # else:
+        #     # ── CONFIGURED ROUTE ──────────────────────────────────────────────
+        #     btn_str = str(button)
+        #     with self._config_lock:
+        #         route_id = self._config.get(btn_str)
+
+        #     if route_id is None:
+        #         logger.info("KFX dispatch: Button %d is unassigned – ignored", button)
+        #         return
+
+        #     logger.info("KFX dispatch: Button %d → AUTONOMOUS route_id=%d", button, route_id)
+        #     self._apply_state(State.AUTONOMOUS,
+        #                       path_id=route_id,
+        #                       path_speed=KFX_DEFAULT_SPEED)
+
+    def get_button_data(self) -> KFXButtonData:
+        """Returns the latest button data."""
+        return self.kfx_button_data
+    
+    def reset_button_data(self):
+        """Resets all button states to False."""
+        self.kfx_button_data = KFXButtonData(
+            btn_1=False,
+            btn_2=False,
+            btn_3=False,
+            btn_4=False,
+            btn_5=False,
+            btn_6=False,
+            btn_7=False,
+            btn_8=False
+        )
 
     def _apply_state(self, state: State,
                      path_id: int | None,
