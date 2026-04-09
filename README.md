@@ -57,3 +57,8 @@ To monitor the terminal output run:
 ```bash
 sudo journalctl -u bullseye_boot.service -f
 ```
+
+To restart the service run:
+```bash
+sudo systemctl restart bullseye_boot.service
+```
