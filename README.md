@@ -41,12 +41,19 @@ User=bullseye
 [Install]
 WantedBy=multi-user.target
 ```
+
 Then reload the sevice and enable it on boot
 ```bash
 sudo systemctl daemon-reload
 sudo systemctl enable bullseye_boot.service
 ```
-To test if the service is operational run:
+
+To see if the service is operational run:
 ```bash
 sudo systemctl status bullseye_boot.service
+```
+
+To monitor the terminal output run:
+```bash
+sudo journalctl -u bullseye_boot.service -f
 ```
