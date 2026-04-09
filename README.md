@@ -46,7 +46,7 @@ Then reload the sevice and enable it on boot
 sudo systemctl daemon-reload
 sudo systemctl enable bullseye_boot.service
 ```
-To test the service is operational run:
+To test if the service is operational run:
 ```bash
 sudo systemctl status bullseye_boot.service
 ```
