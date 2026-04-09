@@ -18,15 +18,16 @@ import numpy as np
 logger = logging.getLogger(f"{__name__}.PathFollowing")
 logger.setLevel(logging.INFO)
 
+@dataclass
+class DataPoint:
+    x: float
+    y: float
+    yaw: float
 
 class PathCreation(Subsystem):
     PATH_FIELDNAMES = ['x', 'y', 'yaw']
 
-    @dataclass
-    class DataPoint:
-        x: float
-        y: float
-        yaw: float
+
 
     def __init__(self):
         super().__init__()
@@ -36,7 +37,7 @@ class PathCreation(Subsystem):
     def start_path_creation(self):
         logger.info("Path creation started")
         
-        self._path = []
+        self._path : list[DataPoint] = []
 
     def stop_path_creation(self):
         logger.info("Path creation stopped")
@@ -66,7 +67,7 @@ class PathCreation(Subsystem):
 
     def add_path_point(self):
         if self.kf.is_initialized:
-            currentPos = self.DataPoint(x=0.0, y=0.0, yaw=0.0)
+            currentPos = DataPoint(x=0.0, y=0.0, yaw=0.0)
             state = self.kf.get_state()
             currentPos.x = float(state.pos[0])  # x position in meters
             currentPos.y = float(state.pos[1])  # y position in meters
@@ -80,9 +81,12 @@ class PathCreation(Subsystem):
         num_samples=100,
         savgol_window=11,
         savgol_polyorder=3,
+        unwrap_yaw=True,
+        wrap_yaw_to_pi=True,
+        yaw_min_motion_distance=1e-3,
     ):
         """Read px/py/yaw from input_csv, smooth with Savitzky-Golay,
-        fit a B-spline, compute yaw from path direction, write smoothed path to output_csv.
+        fit a B-spline, compute yaw in radians from path direction, write smoothed path to output_csv.
         Returns the smoothed list of points.
         """
         points = self._path
@@ -107,9 +111,16 @@ class PathCreation(Subsystem):
             spline_input = self.smooth_savgol(spline_input, window_length=window_length, polyorder=savgol_polyorder)
 
         smoothed = self.fit_bspline(spline_input, smoothing=smoothing, num_samples=num_samples)
+        smoothed = [DataPoint(x=float(row[0]), y=float(row[1]), yaw=float(row[2])) for row in smoothed]
         
         # Compute yaw from the smoothed path direction
-        smoothed = self.compute_yaw_from_path(smoothed)
+        # Compute yaw from the smoothed path direction
+        smoothed = self.compute_yaw_from_path(
+            smoothed,
+            unwrap=unwrap_yaw,
+            wrap_to_pi=wrap_yaw_to_pi,
+            min_motion_distance=yaw_min_motion_distance,
+        )
         
         self._path = smoothed
         logger.info(f"Input points: {len(points)}; Smoothed points: {len(smoothed)}")
@@ -129,50 +140,80 @@ class PathCreation(Subsystem):
         x_smooth = savgol_filter(x, window_length, polyorder)
         y_smooth = savgol_filter(y, window_length, polyorder)
 
-        return [self.DataPoint(x=float(x_val), y=float(y_val), yaw=point.yaw)
+        return [DataPoint(x=float(x_val), y=float(y_val), yaw=point.yaw)
                 for x_val, y_val, point in zip(x_smooth, y_smooth, points)]
 
-    def fit_bspline(self, points: list[DataPoint], smoothing=0.5, num_samples=100):
+    def fit_bspline(self, points, smoothing=0.5, num_samples=100):
         """
-        points: list of DataPoint objects
+        points: list of (x, y) tuples
         smoothing: The smoothing factor 's'. 
                 0 = Interpolation (hits every point, noisy). 
                 Higher = Smoother curve (loosely fits points).
         """
-        x = np.array([point.x for point in points], dtype=float)
-        y = np.array([point.y for point in points], dtype=float)
+        points = np.array(points, dtype=float)
 
-        # 1. Parameterize the curve based on the index (or distance)
-        # We use a parameter 't' to handle loops and vertical lines correctly
-        t = np.arange(len(points))
+        # 1. Parameterize by cumulative arc length so spacing reflects true travel distance.
+        deltas = np.diff(points, axis=0)
+        seg_len = np.sqrt(np.sum(deltas**2, axis=1))
+        t = np.concatenate(([0.0], np.cumsum(seg_len)))
 
-        # 2. Fit splines for x and y independently against t
-        # k=3 implies a Cubic spline
-        tck_x = splrep(t, x, s=smoothing, k=3) 
-        tck_y = splrep(t, y, s=smoothing, k=3)
+        # Remove duplicate-distance samples; splrep expects a strictly increasing parameter.
+        keep = np.concatenate(([True], np.diff(t) > 1e-9))
+        t_fit = t[keep]
+        points_fit = points[keep]
 
-        # 3. Generate new smooth points
-        t_new = np.linspace(t.min(), t.max(), num_samples)
-        x_smooth = splev(t_new, tck_x)
-        y_smooth = splev(t_new, tck_y)
+        if len(points_fit) < 2:
+            return [tuple(points[0])] * num_samples
 
-        return [self.DataPoint(x=float(x_val), y=float(y_val), yaw=0.0) for x_val, y_val in zip(x_smooth, y_smooth)]
+        k = min(3, len(points_fit) - 1)
+
+        # 2. Fit splines for each dimension independently against arc-length t.
+        tcks = [splrep(t_fit, points_fit[:, i], s=smoothing, k=k) for i in range(points_fit.shape[1])]
+
+        # 3. Generate new smooth points.
+        t_new = np.linspace(t_fit.min(), t_fit.max(), num_samples)
+        smoothed_columns = [splev(t_new, tck) for tck in tcks]
+
+        return [tuple(row) for row in zip(*smoothed_columns)]
     
-    def compute_yaw_from_path(self, points: list[DataPoint]):
-        """Compute yaw from path direction and update each DataPoint in-place.
-        Yaw is computed as atan2(dy, dx) in radians.
+    def compute_yaw_from_path(self, points, unwrap=True, wrap_to_pi=True, min_motion_distance=1e-3) -> list[DataPoint]:
+        """Compute yaw as the direction of travel (angle) at each point.
+        Returns list of (x, y, yaw) tuples where yaw is atan2(dy, dx).
         """
-        if not points:
-            return points
+        points = np.array(points, dtype=float)
+        x = points[:, 0]
+        y = points[:, 1]
 
+        if len(points) == 0:
+            return []
         if len(points) == 1:
-            points[0].yaw = 0.0
-            return points
+            return [DataPoint(x=float(x[0]), y=float(y[0]), yaw=0.0)]
+        
+        # Compute angle between consecutive points
+        dx = np.diff(x)
+        dy = np.diff(y)
+        yaw = np.arctan2(dy, dx)
+        motion = np.hypot(dx, dy)
 
-        for i in range(len(points) - 1):
-            dx = points[i + 1].x - points[i].x
-            dy = points[i + 1].y - points[i].y
-            points[i].yaw = float(np.arctan2(dy, dx))
+        if unwrap:
+            yaw = np.unwrap(yaw)
 
-        points[-1].yaw = points[-2].yaw
-        return points
+        # Ignore startup and intermittent tiny-motion samples that produce unstable headings.
+        valid = motion >= min_motion_distance
+        if np.any(valid):
+            first_valid = int(np.argmax(valid))
+            yaw[:first_valid] = yaw[first_valid]
+
+            for i in range(first_valid + 1, len(yaw)):
+                if not valid[i]:
+                    yaw[i] = yaw[i - 1]
+        else:
+            yaw[:] = 0.0
+        
+        # Pad the last point (repeat final yaw since there's no "next" point)
+        yaw = np.append(yaw, yaw[-1])
+
+        if wrap_to_pi:
+            yaw = (yaw + np.pi) % (2 * np.pi) - np.pi
+        
+        return [DataPoint(x=float(x_val), y=float(y_val), yaw=float(yaw_val)) for x_val, y_val, yaw_val in zip(x, y, yaw)]
