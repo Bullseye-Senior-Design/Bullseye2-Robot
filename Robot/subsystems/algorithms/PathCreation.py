@@ -152,7 +152,7 @@ class PathCreation(Subsystem):
 
         return
     
-    def group_nearby_points(self, points : list[DataPoint], distance_threshold=0.10):
+    def group_nearby_points(self, points : list[DataPoint], distance_threshold=0.10) -> list[DataPoint]:
         """Collapse consecutive points that stay within distance_threshold meters.
 
         The representative point for each cluster is the running centroid of the
@@ -180,7 +180,7 @@ class PathCreation(Subsystem):
                 cluster_center = cluster_sum
 
         grouped.append(tuple(cluster_center))
-        return grouped
+        return [DataPoint(x=float(x), y=float(y), yaw=0.0) for x, y in grouped]
     
     def smooth_savgol(self, points: list[DataPoint], window_length: int = 11, polyorder: int = 3) -> list[DataPoint]:
         """
