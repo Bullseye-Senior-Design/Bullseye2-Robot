@@ -36,7 +36,7 @@ WorkingDirectory=/home/bullseye/Desktop/Bullseye2-Robot
 StandardOutput=inherit
 StandardError=inherit
 Restart=always
-User=pi
+User=bullseye
 
 [Install]
 WantedBy=multi-user.target
