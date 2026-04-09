@@ -70,18 +70,13 @@ class Constants:
     status_led_green = 13
     status_led_red = 19
 
-    # Controller/BMS Serial
+    # XBee Constants
     serial_baud_rate = 19200
-    controller_serial_port = "/dev/ttyUSB0"
     pi_serial_port = "/dev/ttyAMA1"
-    bms_serial_port = "/dev/ttyUSB0"
-
-    # Controller input handling
-    controller_deadzone = 0.15
-    controller_update_rate = 0.05 
 
     #BMS Constants
     bms_update_interval = 0.05 # seconds between reads
+    bms_serial_port = "/dev/ttyUSB0"
 
     # Path creation constants
     path_creation_update_interval = 0.1  # seconds between path point captures
