@@ -109,7 +109,7 @@ class PathCreation(Subsystem):
             spline_input = self.smooth_savgol(spline_input, window_length=window_length, polyorder=savgol_polyorder)
 
         smoothed = self.fit_bspline(spline_input, smoothing=smoothing, num_samples=num_samples)
-        smoothed = [DataPoint(x=float(row[0]), y=float(row[1]), yaw=float(row[2])) for row in smoothed]
+        smoothed = [DataPoint(x=float(row[0]), y=float(row[1]), yaw=0.0) for row in smoothed]
         
         # Compute yaw from the smoothed path direction
         # Compute yaw from the smoothed path direction
