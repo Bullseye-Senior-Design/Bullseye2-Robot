@@ -60,6 +60,9 @@ class IMU:
         self.buffer = bytearray()
         self.last_update_time = 0.0
 
+        if self.connect():
+            self.start()
+
     def connect(self) -> bool:
         """Open the serial port."""
         try:
@@ -126,6 +129,7 @@ class IMU:
                 yaw   = struct.unpack('<h', data[4:6])[0] / 32768.0 * 180.0
                 with self._lock:
                     self.angle = (roll, pitch, yaw)
+                    logger.debug(f"IMU Euler angles updated: Roll={roll:.2f}°, Pitch={pitch:.2f}°, Yaw={yaw:.2f}°")
                     self.last_update_time = time.time()
 
             elif pkt_type == 0x54:  # Magnetometer
