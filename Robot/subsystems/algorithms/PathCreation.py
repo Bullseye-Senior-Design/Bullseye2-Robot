@@ -40,10 +40,11 @@ class PathCreation(Subsystem):
         logger.info("Path creation stopped")
         if len(self._path) > 0:
             self.simplify_path()
+            return self.current_path_number
         else:
             logger.error("No path points were recorded, nothing to save.")
+            return None
         
-
     def save_path_to_csv(self):
         if not self._path:
             return
@@ -65,6 +66,7 @@ class PathCreation(Subsystem):
                     pass
             if numbers:
                 next_number = max(numbers) + 1
+                self.current_path_number = next_number
         
         filename = f"{next_number}.csv"
         file_path = self.logs_dir / filename
