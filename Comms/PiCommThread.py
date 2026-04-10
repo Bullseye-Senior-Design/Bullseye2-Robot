@@ -205,11 +205,7 @@ class PiCommThread:
             elif button == 7:
                 # Example: Button 7 triggers return to home
                 self._handle_state_change(State.RETURN_TO_HOME)
-
-                
-
              
-
     def _receive_controller_commands(self):
         """
         Continuously receive commands from ControllerMessager over serial.
