@@ -189,7 +189,7 @@ class IMU:
 
                 self.state_estimator.update_imu_attitude(q_meas=self.get_quaternion())
 
-                time.sleep(1.0 / self.update_rate)  # Low CPU usage
+                time.sleep(1.0 / (self.update_rate * 2))  # Low CPU usage
 
             except Exception as e:
                 if self.running:
