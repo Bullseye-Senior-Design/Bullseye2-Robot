@@ -22,6 +22,7 @@ import logging
 from Comms.Models.DataPacket import DataPacket
 from Comms.Models.ControllerData import ControllerData
 from Comms.Models.BatteryData import BatteryData
+from Comms.Models.PathCreated import PathCreated
 from Comms.Models.StateData import State, StateData
 from Comms.KFX import KFXController
 from Robot.Constants import Constants
@@ -313,6 +314,15 @@ class PiCommThread:
                     logger.debug(f"Sent battery data — SOC: {current_soc:.1f}%")
             except Exception as e:
                 logger.error(f"Error sending battery data: {e}")
+
+    def send_new_path_data(self, path_id: int):
+        """Send new path data to the controller."""
+        path_data = PathCreated(id=path_id)
+        payload = path_data.model_dump_json()
+        data_packet = DataPacket(type="path_created", json_data=payload).model_dump_json()
+        if self.pi_ser and self.pi_ser.is_open:
+            self.pi_ser.write((data_packet + "\n").encode())
+            logger.info(f"Sent new path data to controller: path_id={path_id}")
 
     def _handle_state_change(self, new_state):
         """
