@@ -13,7 +13,18 @@ logger = logging.getLogger(f"{__name__}.IMU")
 logger.setLevel(logging.INFO)  # Set to INFO for high-level events, DEBUG for detailed parsing info
 
 class IMU:
-    def __init__(self):
+    _instance = None
+
+    # When a new instance is created, sets it to the same global instance
+    def __new__(cls):
+        # If the instance is None, create a new instance
+        # Otherwise, return already created instance
+        if cls._instance is None:
+            cls._instance = super().__new__(cls)
+            cls._instance._start()
+        return cls._instance
+
+    def _start(self):
         """
         Initialize the IMU.
         """
