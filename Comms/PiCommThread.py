@@ -322,6 +322,7 @@ class PiCommThread:
         data_packet = DataPacket(type="path_created", json_data=payload).model_dump_json()
         if self.pi_ser and self.pi_ser.is_open:
             self.pi_ser.write((data_packet + "\n").encode())
+            logger.info(f"Sent new path data to controller: path_id={path_id}")
 
     def _handle_state_change(self, new_state):
         """
