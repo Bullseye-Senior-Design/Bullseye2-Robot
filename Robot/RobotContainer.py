@@ -34,7 +34,7 @@ from Comms.PiCommThread import PiCommThread
 from Robot.Commands.ParkingCmd import ParkingCmd
 from Robot.Commands.DriveHomeCmd import DriveHomeCmd
 
-logger = logging.getLogger(f"{__name__}.DriveTrain")
+logger = logging.getLogger(f"{__name__}.RobotContainer")
 logger.setLevel(logging.INFO)  # Set to DEBUG for detailed output
 
 class RobotContainer:
@@ -65,7 +65,6 @@ class RobotContainer:
         #     CreatePathCmd(self.path_creation, lambda: self.comm_thread.get_controller_data().btn_B)
         # )
         
-        logger.info("Scheduling MotorMovementExampleCmd for testing")
     
     def start_robot(self):
         logger.info("Running robot initialization")

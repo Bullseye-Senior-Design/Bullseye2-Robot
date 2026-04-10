@@ -44,6 +44,7 @@ class PathCreation(Subsystem):
         else:
             logger.error("No path points were recorded, nothing to save.")
             return None
+
         
     def save_path_to_csv(self):
         if not self._path:

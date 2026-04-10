@@ -96,12 +96,13 @@ class FrontWheelEncoder:
             inv  = (rx[4] << 8) | rx[5]
 
             # Print raw bytes for debugging
-            logger.debug("Raw RX: %s", " ".join(f"{b:02X}" for b in rx))
+            #logger.debug("Raw RX: %s", " ".join(f"{b:02X}" for b in rx))
 
-            logger.debug(f"Data   : 0x{data:04X}   ~Data : 0x{inv:04X}   XOR = 0x{data ^ inv:04X}")
+            #logger.debug(f"Data   : 0x{data:04X}   ~Data : 0x{inv:04X}   XOR = 0x{data ^ inv:04X}")
 
             if (data ^ inv) == 0xFFFF:
                 angle = ( ((data & 0xFFFC) >> 2) * 2.0 * math.pi) / self._max_position
+                logger.debug(f"Unadjusted Degrees: {math.degrees(angle):.2f}")
 
                 angle -= self.frontwheel_zero_offset  # Apply zero offset correction
                 angle = angle * self.steering_mechanics_adjustment_factor # yolo
