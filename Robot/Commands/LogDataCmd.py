@@ -143,9 +143,9 @@ class LogDataCmd(Command):
         # 3) IMU orientation
         imu = IMU()
         # IMU may be running in its own thread; get_euler returns (heading, roll, pitch)
-        heading, roll, pitch = imu.get_euler()
+        roll, pitch, heading = imu.get_angle()
         # get raw sensor measurements (accel, gyro, mag)
-        accel = imu.get_accel()
+        accel = imu.get_acc()
         gyro = imu.get_gyro()
         mag = imu.get_mag()
 

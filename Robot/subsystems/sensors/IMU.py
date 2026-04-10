@@ -31,6 +31,7 @@ class IMU:
         self.acc: Tuple[float, float, float] = (0.0, 0.0, 0.0)      # g
         self.gyro: Tuple[float, float, float] = (0.0, 0.0, 0.0)    # °/s
         self.angle: Tuple[float, float, float] = (0.0, 0.0, 0.0)   # Roll, Pitch, Yaw in °
+        self.mag: Tuple[float, float, float] = (0.0, 0.0, 0.0)     # Magnetometer raw units
         self.quaternion: Tuple[float, float, float, float] = (0.0, 0.0, 0.0, 1.0)  # qx, qy, qz, qw
         self.calibration_status: Dict[str, int] = {
             'acc_x': 0,   # 0-3, higher = better calibration
@@ -116,6 +117,14 @@ class IMU:
                     self.angle = (roll, pitch, yaw)
                     self.last_update_time = time.time()
 
+            elif pkt_type == 0x54:  # Magnetometer
+                mx = float(struct.unpack('<h', data[0:2])[0])
+                my = float(struct.unpack('<h', data[2:4])[0])
+                mz = float(struct.unpack('<h', data[4:6])[0])
+                with self._lock:
+                    self.mag = (mx, my, mz)
+                    self.last_update_time = time.time()
+
             elif pkt_type == 0x59:  # Quaternion
                 # WitMotion sends q0, q1, q2, q3 scaled by 32768.
                 # q0 is scalar (w). Convert to estimator order [qx, qy, qz, qw].
@@ -186,6 +195,7 @@ class IMU:
                 'acc': self.acc,
                 'gyro': self.gyro,
                 'angle': self.angle,   # Roll, Pitch, Yaw
+                'mag': self.mag,
                 'quaternion': self.quaternion,
                 'calibration': self.calibration_status,
                 'timestamp': self.last_update_time
@@ -255,6 +265,11 @@ class IMU:
         """Returns (roll, pitch, yaw) in degrees"""
         with self._lock:
             return self.angle
+
+    def get_mag(self) -> Tuple[float, float, float]:
+        """Returns magnetometer tuple (mx, my, mz) in raw IMU units."""
+        with self._lock:
+            return self.mag
 
     def get_quaternion(self) -> Tuple[float, float, float, float]:
         """Returns quaternion as (qx, qy, qz, qw)."""
