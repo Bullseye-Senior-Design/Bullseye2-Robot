@@ -1,435 +1,276 @@
-# SPDX-FileCopyrightText: 2021 ladyada for Adafruit Industries
-# SPDX-License-Identifier: MIT
-import threading
-import board
-import digitalio
-import busio
-
-import adafruit_bno055
-import math
-import numpy as np
 import logging
-from collections import deque
+
+import serial
 import time
-from typing import Optional, Tuple
+import struct
+import threading
+from typing import Optional, Tuple, Dict
+from Robot.Constants import Constants
 from Robot.subsystems.algorithms.KalmanStateEstimator import KalmanStateEstimator
-from Robot.MathUtil import MathUtil
 
 logger = logging.getLogger(f"{__name__}.IMU")
-logger.setLevel(logging.INFO)  # Set to DEBUG for detailed output
+logger.setLevel(logging.INFO)  # Set to INFO for high-level events, DEBUG for detailed parsing info
 
-# implement a simple low-pass IIR filter for smoothing IMU data
-# cutoff frequency fc_hz, sampling frequency fs_hz
-class _LowPassIIR:
-    def __init__(self, fc_hz: float, fs_hz: float, y0: float = 0.0):
-        dt = 1.0 / fs_hz
-        RC = 1.0 / (2.0 * math.pi * fc_hz)
-        self.alpha = dt / (RC + dt)
-        self.y = float(y0)
-    def update(self, x: float) -> float:
-        # differential equation implementation: (y[n] = y[n−1] + α (x[n] − y[n−1]))
-        self.y += self.alpha * (x - self.y)
-        return self.y
+class IMU:
+    def __init__(self):
+        """
+        Initialize the IMU.
+        """
+        self.port = Constants.imu_serial_port
+        self.baudrate = Constants.imu_baud_rate
+        self.timeout = Constants.imu_timeout
+        self.update_rate = Constants.imu_update_rate
 
-class IMU():
-    _instance = None
-    sensor: Optional[adafruit_bno055.BNO055_I2C]
+        self.ser: Optional[serial.Serial] = None
+        self.running = False
+        self.thread: Optional[threading.Thread] = None
 
-    # When a new instance is created, sets it to the same global instance
-    def __new__(cls):
-        # If the instance is None, create a new instance
-        # Otherwise, return already created instance
-        if cls._instance is None:
-            cls._instance = super().__new__(cls)
-            cls._instance._start()
-        return cls._instance
+        # Latest sensor data (thread-safe with lock)
+        self._lock = threading.Lock()
+        self.acc: Tuple[float, float, float] = (0.0, 0.0, 0.0)      # g
+        self.gyro: Tuple[float, float, float] = (0.0, 0.0, 0.0)    # °/s
+        self.angle: Tuple[float, float, float] = (0.0, 0.0, 0.0)   # Roll, Pitch, Yaw in °
+        self.quaternion: Tuple[float, float, float, float] = (0.0, 0.0, 0.0, 1.0)  # qx, qy, qz, qw
+        self.calibration_status: Dict[str, int] = {
+            'acc_x': 0,   # 0-3, higher = better calibration
+            'acc_y': 0,
+            'acc_z': 0,
+            'gyro_x': 0,
+            'gyro_y': 0,
+            'gyro_z': 0
+        }
 
-    def _start(self):
-        # Initialize sensor data with default values
-        self.sensor = None
-        self.acceleration = (0.0, 0.0, 0.0)
-        self.gyro = (0.0, 0.0, 0.0)
-        self.magnetic = (0.0, 0.0, 0.0)
-        self.quat = (0.0, 0.0, 0.0, 1.0)
-        
-        try:
-            i2c = board.I2C() # uses board.SCL and board.SDA
-            self.sensor = adafruit_bno055.BNO055_I2C(i2c)
-            logger.info("IMU sensor initialized successfully")
-        except Exception as e:
-            logger.error(f"Failed to initialize IMU sensor: {e}")
-            logger.warning("IMU will return zero values for all readings")
-            # Continue with sensor = None
-
-        self.interval = 0.01  # update interval in seconds
-        self.mag_interval = self.interval * 5
-        # Filters (tune fc as needed)
-        fs_hz = 1.0 / self.interval # interval in herts
-        self._accel_lpf = [_LowPassIIR(fc_hz=8.0,  fs_hz=fs_hz) for _ in range(3)]
-        # Outlier rejection/clamping for accelerometer (m/s^2)
-        # If a single-sample delta from the filter state is larger than
-        # _accel_outlier_threshold it will be clamped to that threshold
-        # before being fed to the low-pass filter. Also, samples with
-        # magnitude > _accel_max_magnitude or NaN/Inf are ignored/clamped.
-        self._accel_outlier_threshold = 5.0
-        self._accel_max_magnitude = 50.0
-        # Simple median-window filter parameters (per-axis)
-        # We'll use a small sliding window median to suppress spikes.
-        self._accel_median_window_size = 3
-        # per-axis ring buffers for median filter
-        self._accel_windows = [deque(maxlen=self._accel_median_window_size) for _ in range(3)]
-        # debug flag to print when a raw value differs strongly from the median
-        self._accel_median_debug = False
-        
-        # timestamp of last magnetic sample
-        self._last_mag_time = 0.0
-
-        # Protect concurrent access from update thread and callers
-        self._lock = threading.RLock()
         self.state_estimator = KalmanStateEstimator()
 
-        # yaw offset to apply to sensor attitude (radians). This rotates the
-        # sensor-reported orientation into the chosen world frame.
-        self._yaw_offset_rad = 0.0
-        # cached estimator-order quaternion (aligned) for quick access
-        self._quat_est_cached = (0.0, 0.0, 0.0, 1.0)
-        self._is_offset_set = False
+        self.set_output_rate(self.update_rate, save=False)  # Set update rate without saving to flash
 
-        # Set calibration offsets only if sensor initialized successfully
-        if self.sensor is not None:
-            try:
-                self.sensor.offsets_accelerometer = (-26, 0, -50)
-                self.sensor.offsets_gyroscope = (-1, -4, -1)
-                self.sensor.offsets_magnetometer = (-839, -601, -413)
-                
-                logger.info("IMU offset values: {}, {}, {}".format(
-                    self.sensor.offsets_accelerometer,
-                    self.sensor.offsets_gyroscope,
-                    self.sensor.offsets_magnetometer))
-            except Exception as e:
-                logger.error(f"Failed to set IMU calibration offsets: {e}")
+        self.buffer = bytearray()
+        self.last_update_time = 0.0
 
-        # Print any library-provided calibration info (if available)
-        # self.print_library_calibration()
-
-        # Start continuous update loop immediately (calibration runs in parallel)
-        if self.sensor is not None:
-            self.begin()
-
-    def get_gyro(self) -> tuple:
-        with self._lock:
-            return tuple(self.gyro)
-    
-    def get_accel(self) -> tuple:
-        with self._lock:
-            return tuple(self.acceleration)
-    
-    def get_mag(self) -> tuple:
-        # units are microteslas
-        with self._lock:
-            return tuple(self.magnetic)
-
-    def get_quat(self) -> tuple:
-        with self._lock:
-            return tuple(self.quat)
-    
-    def is_available(self) -> bool:
-        """Check if IMU sensor is available and initialized.
-        
-        Returns:
-            bool: True if sensor is initialized and working, False otherwise
-        """
-        return self.sensor is not None
-    
-    def set_yaw_offset(self, yaw_offset_deg: float) -> None:
-        """Set a yaw offset (degrees). The offset is stored and applied to
-        the quaternion sent to the estimator and available via
-        `get_aligned_quat()`.
-        """
-        yaw_deg = float(yaw_offset_deg)
-        with self._lock:
-            self._yaw_offset_rad = math.radians(yaw_deg)
-            self._is_offset_set = True
-
-    def get_aligned_quat(self) -> tuple:
-        """Return the last quaternion adjusted by the configured yaw offset.
-
-        Returned ordering is estimator ordering [qx,qy,qz,qw]. If no quaternion
-        has been read yet this returns a unit quaternion.
-        """
-        with self._lock:
-            raw = self.quat
-            if not raw or len(raw) != 4:
-                return (0.0, 0.0, 0.0, 1.0)
-            try:
-                q_sensor = np.asarray(raw, dtype=float)
-                q_est = MathUtil.quat_sensor_to_estimator(q_sensor)
-            except Exception:
-                q_est = np.array([0.0, 0.0, 0.0, 1.0], dtype=float)
-            # apply yaw offset if present
-            if self._is_offset_set and abs(self._yaw_offset_rad) > 1e-12:
-                q_yaw = MathUtil.euler_to_quat(np.array([0.0, 0.0, self._yaw_offset_rad]))
-                q_est = MathUtil.quat_mul(q_yaw, q_est)
-                q_est = MathUtil.quat_normalize(q_est)
-            return tuple(q_est)
-        
-    
-    def get_euler(self) -> tuple:
-        """Return the current (yaw, roll, pitch) in degrees, adjusted by yaw offset.
-        """
-        # Use MathUtil helpers: convert sensor quaternion ordering to estimator
-        # ordering, apply yaw offset if set, then convert to Euler using
-        # MathUtil.quat_to_euler which returns (roll, pitch, yaw) in radians.
-        with self._lock:
-            raw = tuple(self.quat)
-            yaw_off = float(self._yaw_offset_rad)
-
-        # validate
-        if not raw or len(raw) != 4:
-            return (0.0, 0.0, 0.0)
-
-        q_sensor = np.asarray(raw, dtype=float)
-        q_est = MathUtil.quat_sensor_to_estimator(q_sensor)
-
-        # apply yaw offset if configured
-        if self._is_offset_set and abs(yaw_off) > 1e-12:
-            q_yaw = MathUtil.euler_to_quat(np.array([0.0, 0.0, yaw_off]))
-            q_est = MathUtil.quat_mul(q_yaw, q_est)
-            q_est = MathUtil.quat_normalize(q_est)
-
-        # MathUtil.quat_to_euler returns [roll, pitch, yaw] in radians
-        rpy = MathUtil.quat_to_euler(q_est)
-
-        roll = float(rpy[0])
-        pitch = float(rpy[1])
-        yaw = float(rpy[2])
-
-        deg = math.degrees
-        # return in (heading, roll, pitch) degrees to match previous API
-        return (deg(yaw), deg(roll), deg(pitch))
-
-    def mag_interval_elapsed(self) -> bool:
-        """Return True when it's time to sample the magnetometer.
-
-        Does NOT update the timestamp; caller should update _last_mag_time
-        after a successful read/assignment.
-        """
-        return (time.time() - self._last_mag_time) >= self.mag_interval
-    
-    def begin(self):
-        def _update_loop():
-            while True:
-                try:
-                    self.update()
-                except Exception as e:
-                    logger.error(f"IMU update failed: {e}")
-        
-        threading.Thread(target=_update_loop, daemon=True).start()
-        
-
-    def print_library_calibration(self) -> None:
-        """Read and print calibration information from the underlying sensor library (if present).
-
-        This tries several common attributes/methods found on Adafruit BNO055 wrappers and
-        prints whatever calibration/status/offset information is available. It is safe
-        to call even if the sensor object doesn't expose these fields.
-        """
-        if self.sensor is None:
-            logger.warning("Cannot print calibration - IMU sensor not initialized")
-            return
-            
-        def begin():
-            while not self.sensor.calibrated:
-                self.sensor.calibration_status
-                sys, gyro, accel, mag = self.sensor.calibration_status
-                print(f"Calibration Status: System={sys}, Gyro={gyro}, Accel={accel}, Mag={mag}")
-                time.sleep(0.1)
-            
-            accel_off = self.sensor.offsets_accelerometer
-            gyro_off = self.sensor.offsets_gyroscope
-            mag_off = self.sensor.offsets_magnetometer
-            print("IMU: Library Calibration Offsets:")
-            print("  Accelerometer offsets:", accel_off)
-            print("  Gyroscope offsets:", gyro_off) 
-            print("  Magnetometer offsets:", mag_off)
-        
-        
-        threading.Thread(target=begin, daemon=True).start()
-
-    def _apply_median_window(self, raw_vals: list) -> list:
-        """Apply per-axis sliding-window median filter to raw_vals.
-
-        This updates the per-axis ring buffers stored in ``self._accel_windows``.
-        Behavior matches the previous inline implementation:
-          - append the new sample to the axis window
-          - while the window isn't full, return the raw sample
-          - once full, replace the sample with the median of the window
-          - optionally print a debug message when the raw value differs
-            from the median by more than 1e-2
-
-        Returns a new list with possibly-replaced values.
-        """
-        out = [0.0, 0.0, 0.0]
-        for i in range(3):
-            val = float(raw_vals[i])
-            win = self._accel_windows[i]
-            win.append(val)
-            # if window not yet full, use the raw sample
-            if len(win) < self._accel_median_window_size:
-                out[i] = val
-                continue
-            # compute median from window and use it as the filtered sample
-            med = float(np.median(np.asarray(list(win), dtype=float)))
-            if self._accel_median_debug and abs(val - med) > 1e-2:
-                print(f"IMU median replace axis={i} raw={val:.4f} med={med:.4f}")
-            out[i] = med
-        return out
-
-    def _rotate_vector_by_yaw(self, vec: Tuple[float, float, float], yaw_rad: float) -> Tuple[float, float, float]:
-        """Rotate a 3-vector by a yaw angle (radians) about Z axis.
-
-        Uses MathUtil to build a yaw quaternion and converts to a rotation
-        matrix. Expects and returns tuples in estimator/sensor axis order as
-        appropriate (consistent with how vectors are used elsewhere).
-        """
+    def connect(self) -> bool:
+        """Open the serial port."""
         try:
-            v = np.asarray(vec, dtype=float)
-            q_yaw = MathUtil.euler_to_quat(np.array([0.0, 0.0, float(yaw_rad)]))
-            R = MathUtil.quat_to_rotmat(q_yaw)
-            res = R.dot(v)
-            return (float(res[0]), float(res[1]), float(res[2]))
-        except Exception:
-            # if anything goes wrong, return original vector
-            return (float(vec[0]), float(vec[1]), float(vec[2]))
-
-
-    def update(self):
-        # continuous update loop; keep reads outside lock and assign under lock
-        accel: Optional[Tuple[float, float, float]] = None
-        gyro: Optional[Tuple[float, float, float]] = None
-        magnetic: Optional[Tuple[float, float, float]] = None
-        quat: Optional[Tuple[float, float, float, float]] = None
-        
-        # Skip update if sensor not initialized
-        if self.sensor is None:
-            time.sleep(self.interval)
-            return
-        
-        try:
-            accel_val = self.sensor.acceleration
-            gyro_val = self.sensor.gyro
-            mag_val = None
-            if(self.mag_interval_elapsed()):
-                try:
-                    mag_val = self.sensor.magnetic
-                except Exception as e:
-                    logger.debug(f"IMU Readings - Mag: {e}")
-            quat_val = self.sensor.quaternion
+            self.ser = serial.Serial(self.port, self.baudrate, timeout=self.timeout)
+            logger.info(f"IMU connected on {self.port} at {self.baudrate} baud")
+            return True
         except Exception as e:
-            logger.error(f"Failed to read IMU sensor data: {e}")
-            time.sleep(self.interval)
+            logger.error(f"Failed to open {self.port}: {e}")
+            logger.info("Check with: ls /dev/tty* and make sure no other program is using the port.")
+            return False
+
+    def start(self):
+        """Start background reading thread."""
+        if self.running:
             return
-        logger.debug(f"IMU Readings - Accel: {accel_val}, Gyro: {gyro_val}, Mag: {mag_val}, Quat: {quat_val}")
+        if not self.ser or not self.ser.is_open:
+            if not self.connect():
+                return
 
-        # Use the pre-read values if available
-        if all(v is not None for v in accel_val):
-            accel = accel_val # type: ignore
-        if all(v is not None for v in gyro_val):
-            gyro = gyro_val # type: ignore
-        if mag_val is not None and all(v is not None for v in mag_val):
-            magnetic = mag_val # type: ignore
-        if all(v is not None for v in quat_val):
-            quat = quat_val # type: ignore
+        self.running = True
+        self.thread = threading.Thread(target=self._reader_loop, daemon=True)
+        self.thread.start()
 
-        # Apply low-pass filter (if samples present)
-        if accel is not None:
-            # Protect against NaN/Inf, huge spikes, and clamp single-sample
-            # deltas relative to the current LPF state so large outliers
-            # don't pass through the filter in one step.
-            raw_vals = [float(accel[i]) for i in range(3)]
-            filtered = [0.0, 0.0, 0.0]
-            # Simple sliding-window median filter (extracted to helper)
-            raw_vals = self._apply_median_window(raw_vals)
-            # quick magnitude check
-            try:
-                mag = math.sqrt(raw_vals[0]*raw_vals[0] + raw_vals[1]*raw_vals[1] + raw_vals[2]*raw_vals[2])
-            except Exception:
-                mag = float('inf')
+    def close(self):
+        """Stop the reading thread and close port."""
+        self.running = False
+        if self.thread and self.thread.is_alive():
+            self.thread.join(timeout=1.0)
+        if self.ser and self.ser.is_open:
+            self.ser.close()
+        logger.info("IMU stopped and port closed.")
 
-            for i in range(3):
-                lpf = self._accel_lpf[i]
-                prev = lpf.y
-                val = raw_vals[i]
+    def _parse_packet(self, packet: bytes):
+        """Parse one 11-byte WitMotion packet."""
+        if len(packet) != 11 or packet[0] != 0x55:
+            return
 
-                # NaN/Inf protection
-                if not math.isfinite(val):
-                    # replace with previous filtered value
-                    val = prev
+        pkt_type = packet[1]
+        data = packet[2:10]
+        checksum = sum(packet[0:10]) & 0xFF
+        if checksum != packet[10]:
+            return  # Invalid checksum
 
-                # If the whole vector is absurdly large, clamp to previous
-                if mag > float(self._accel_max_magnitude):
-                    val = prev
-                else:
-                    # clamp single-axis delta to avoid single-sample spikes
-                    delta = val - prev
-                    max_delta = float(self._accel_outlier_threshold)
-                    if abs(delta) > max_delta:
-                        val = prev + math.copysign(max_delta, delta)
-
-                # update LPF with the protected/clamped value
-                filtered[i] = lpf.update(val)
-
-            accel = (filtered[0], filtered[1], filtered[2])
-            # apply yaw offset to accelerometer if configured
-            if self._is_offset_set and abs(self._yaw_offset_rad) > 1e-12:
+        try:
+            if pkt_type == 0x51:  # Acceleration (±16g)
+                ax = struct.unpack('<h', data[0:2])[0] / 32768.0 * 16.0
+                ay = struct.unpack('<h', data[2:4])[0] / 32768.0 * 16.0
+                az = struct.unpack('<h', data[4:6])[0] / 32768.0 * 16.0
                 with self._lock:
-                    yaw = float(self._yaw_offset_rad)
-                accel = self._rotate_vector_by_yaw(accel, yaw)
+                    self.acc = (ax, ay, az)
+                    self.last_update_time = time.time()
 
-        if quat is not None:
-            quat_arr = np.asarray(quat, dtype=float)
-            # convert sensor quaternion (w, x, y, z) to estimator order [qx,qy,qz,qw]
-            q_est = MathUtil.quat_sensor_to_estimator(quat_arr)
-            # apply configured yaw offset before sending to estimator
-            with self._lock:
-                yaw_off = float(self._yaw_offset_rad)
-            if self._is_offset_set:
-                q_yaw = MathUtil.euler_to_quat(np.array([0.0, 0.0, yaw_off]))
-                q_est = MathUtil.quat_mul(q_yaw, q_est)
-                q_est = MathUtil.quat_normalize(q_est)
-                # update attitude in KalmanStateEstimator
-                self.state_estimator.update_imu_attitude(q_meas=q_est)
+            elif pkt_type == 0x52:  # Gyroscope (±2000°/s)
+                gx = struct.unpack('<h', data[0:2])[0] / 32768.0 * 2000.0
+                gy = struct.unpack('<h', data[2:4])[0] / 32768.0 * 2000.0
+                gz = struct.unpack('<h', data[4:6])[0] / 32768.0 * 2000.0
+                with self._lock:
+                    self.gyro = (gx, gy, gz)
+                    self.last_update_time = time.time()
 
+            elif pkt_type == 0x53:  # Euler angles (Roll, Pitch, Yaw)
+                roll  = struct.unpack('<h', data[0:2])[0] / 32768.0 * 180.0
+                pitch = struct.unpack('<h', data[2:4])[0] / 32768.0 * 180.0
+                yaw   = struct.unpack('<h', data[4:6])[0] / 32768.0 * 180.0
+                with self._lock:
+                    self.angle = (roll, pitch, yaw)
+                    self.last_update_time = time.time()
+
+            elif pkt_type == 0x59:  # Quaternion
+                # WitMotion sends q0, q1, q2, q3 scaled by 32768.
+                # q0 is scalar (w). Convert to estimator order [qx, qy, qz, qw].
+                qw = struct.unpack('<h', data[0:2])[0] / 32768.0
+                qx = struct.unpack('<h', data[2:4])[0] / 32768.0
+                qy = struct.unpack('<h', data[4:6])[0] / 32768.0
+                qz = struct.unpack('<h', data[6:8])[0] / 32768.0
+                with self._lock:
+                    self.quaternion = (qx, qy, qz, qw)
+                    self.last_update_time = time.time()
+
+            elif pkt_type == 0x5A:  # Calibration status
+                # Bytes 0-1: Reserved/Status
+                # Byte 2: Acc calib (bits 0-1: X, bits 2-3: Y, bits 4-5: Z)
+                # Byte 3: Gyro calib (bits 0-1: X, bits 2-3: Y, bits 4-5: Z)
+                acc_calib_byte = data[2]
+                gyro_calib_byte = data[3]
+                
+                with self._lock:
+                    self.calibration_status = {
+                        'acc_x': (acc_calib_byte >> 0) & 0x3,
+                        'acc_y': (acc_calib_byte >> 2) & 0x3,
+                        'acc_z': (acc_calib_byte >> 4) & 0x3,
+                        'gyro_x': (gyro_calib_byte >> 0) & 0x3,
+                        'gyro_y': (gyro_calib_byte >> 2) & 0x3,
+                        'gyro_z': (gyro_calib_byte >> 4) & 0x3
+                    }
+                    self.last_update_time = time.time()
+
+            # Add more types here later (0x54 Mag, 0x59 Quaternion, 0x56 Baro, etc.)
+
+        except Exception:
+            pass  # Ignore bad packets
+
+    def _reader_loop(self):
+        """Background thread that continuously reads and parses data."""
+        while self.running and self.ser and self.ser.is_open:
+            try:
+                if self.ser.in_waiting > 0:
+                    raw = self.ser.read(self.ser.in_waiting)
+                    self.buffer.extend(raw)
+
+                # Process any complete 11-byte packets
+                while len(self.buffer) >= 11:
+                    if self.buffer[0] == 0x55:
+                        pkt = self.buffer[:11]
+                        self._parse_packet(pkt)
+                        del self.buffer[:11]
+                    else:
+                        del self.buffer[0]  # Remove garbage
+
+                self.state_estimator.update_imu_attitude(q_meas=self.get_quaternion())
+
+                time.sleep(1.0 / self.update_rate)  # Low CPU usage
+
+            except Exception as e:
+                if self.running:
+                    logger.error(f"IMU read error: {e}")
+                break
+
+    def get_data(self) -> Dict:
+        """
+        Return the latest sensor data as a dictionary.
+        Safe to call from the main thread.
+        """
         with self._lock:
-            if accel is not None:
-                self.acceleration = tuple(accel)
-            if gyro is not None:
-                # apply yaw offset to gyroscope vector if configured
-                if self._is_offset_set and abs(self._yaw_offset_rad) > 1e-12:
-                    gyro = self._rotate_vector_by_yaw(gyro, float(self._yaw_offset_rad))
-                self.gyro = tuple(gyro)
+            return {
+                'acc': self.acc,
+                'gyro': self.gyro,
+                'angle': self.angle,   # Roll, Pitch, Yaw
+                'quaternion': self.quaternion,
+                'calibration': self.calibration_status,
+                'timestamp': self.last_update_time
+            }
+        
+    def send_command(self, cmd: bytes):
+        """Send raw configuration command to the IMU."""
+        if self.ser and self.ser.is_open:
+            self.ser.write(cmd)
+            self.ser.flush()
+            time.sleep(0.05)  # Small delay for module to process
+            logger.debug(f"Sent command: {' '.join(f'{b:02X}' for b in cmd)}")
 
-            if magnetic is not None:
-                # apply yaw offset to magnetometer vector if configured
-                if self._is_offset_set and abs(self._yaw_offset_rad) > 1e-12:
-                    magnetic = self._rotate_vector_by_yaw(magnetic, float(self._yaw_offset_rad))
-                self.magnetic = tuple(magnetic)
-                # update last-mag timestamp only when we actually stored a magnetic sample
-                self._last_mag_time = time.time()
-            if quat is not None:
-                self.quat = tuple(quat)
-                # also keep a cached estimator-order aligned quaternion for quick access
-                q_sensor = np.asarray(quat, dtype=float)
-                q_est_cached = MathUtil.quat_sensor_to_estimator(q_sensor)
-                if self._is_offset_set:
-                    q_yaw = MathUtil.euler_to_quat(np.array([0.0, 0.0, self._yaw_offset_rad]))
-                    q_est_cached = MathUtil.quat_mul(q_yaw, q_est_cached)
-                    q_est_cached = MathUtil.quat_normalize(q_est_cached)
-                    self._quat_est_cached = tuple(q_est_cached)
+    def set_output_rate(self, rate_hz: int = 100, save: bool = True):
+        """
+        Set output rate.
+        rate_hz: 100 for 100Hz (common values: 10, 20, 50, 100, 200)
+        save: True = make persistent (requires re-power after)
+        """
+        # Map Hz to rate byte (from Wit protocol)
+        rate_map = {
+            0.1: 0x01, 0.5: 0x02, 1: 0x03, 2: 0x04, 5: 0x05,
+            10: 0x06, 20: 0x07, 50: 0x08, 100: 0x09,
+            125: 0x0A, 200: 0x0B
+        }
+        
+        rate_byte = rate_map.get(rate_hz)
+        if rate_byte is None:
+            logger.error(f"Unsupported rate {rate_hz} Hz. Use 10, 20, 50, 100, or 200.")
+            return False
 
+        # Unlock (often required before config)
+        self.send_command(b'\xFF\xAA\x69\x88\xB5')
 
-        # avoid busy loop
-        time.sleep(self.interval)
-                     
-    def end(self):
-        pass
+        # Set rate: 0xFF 0xAA 0x03 RATE 0x00
+        cmd = bytes([0xFF, 0xAA, 0x03, rate_byte, 0x00])
+        self.send_command(cmd)
+
+        if save:
+            # Save to flash: 0xFF 0xAA 0x00 0x00 0x00
+            self.send_command(b'\xFF\xAA\x00\x00\x00')
+            logger.debug(f"Output rate set to {rate_hz} Hz and saved. Re-power the IMU for changes to take effect.")
+        else:
+            logger.debug(f"Output rate set to {rate_hz} Hz (temporary).")
+
+        return True
+
+    def get_acc(self) -> Tuple[float, float, float]:
+        with self._lock:
+            return self.acc
+
+    def get_gyro(self) -> Tuple[float, float, float]:
+        with self._lock:
+            return self.gyro
+
+    def get_angle(self) -> Tuple[float, float, float]:
+        """Returns (roll, pitch, yaw) in degrees"""
+        with self._lock:
+            return self.angle
+
+    def get_quaternion(self) -> Tuple[float, float, float, float]:
+        """Returns quaternion as (qx, qy, qz, qw)."""
+        with self._lock:
+            return self.quaternion
+
+    def get_calibration_status(self) -> Dict[str, int]:
+        """
+        Return the calibration status for each axis.
+        Values: 0-3 (0 = not calibrated, 3 = fully calibrated)
+        Returns: {
+            'acc_x': 0-3, 'acc_y': 0-3, 'acc_z': 0-3,
+            'gyro_x': 0-3, 'gyro_y': 0-3, 'gyro_z': 0-3
+        }
+        """
+        with self._lock:
+            return self.calibration_status.copy()
+
+    def request_calibration_status(self):
+        """
+        Request calibration status from the IMU.
+        Response is asynchronously parsed and stored in self.calibration_status.
+        """
+        # Command to read calibration status: 0xFF 0xAA 0x01 0x01 0x01
+        self.send_command(b'\xFF\xAA\x01\x01\x01')
+
+    def is_alive(self) -> bool:
+        """Check if data is being received recently (within last 2 seconds)"""
+        with self._lock:
+            return (time.time() - self.last_update_time) < 2.0

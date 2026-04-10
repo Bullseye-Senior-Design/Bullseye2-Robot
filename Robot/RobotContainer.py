@@ -124,3 +124,4 @@ class RobotContainer:
         self.bms.close()
         self.pcb_leds.close()
         self.comm_thread.close()
+        self.imu.close()

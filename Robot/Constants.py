@@ -67,8 +67,15 @@ class Constants:
     uwb_tag_data = [ UWBTagInfo(port="/dev/ttyACM0", id=0, offset=(0.0, -91.44 / 100, 0.0)), # back left tag in Meters
                      UWBTagInfo(port="/dev/ttyACM1", id=1, offset=(0.0, 22.86 / 100, 0.0)) ] # front right tag
 
+    # Status LED Constants
     status_led_green = 13
     status_led_red = 19
+
+    # IMU Constants
+    imu_serial_port = "/dev/ttyAMA2"
+    imu_baud_rate = 9600
+    imu_timeout = 0.5  # seconds
+    imu_update_rate = 100  # hz
 
     # XBee Constants
     serial_baud_rate = 19200
