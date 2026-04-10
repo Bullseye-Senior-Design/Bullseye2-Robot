@@ -1,4 +1,5 @@
 import logging
+import math
 
 import serial
 import time
@@ -189,6 +190,16 @@ class IMU:
                 'calibration': self.calibration_status,
                 'timestamp': self.last_update_time
             }
+        
+    def set_yaw_offset(self, offset_rad: float):
+        """Set a yaw offset (in radians) to align IMU yaw with world frame."""
+        offset_deg = math.degrees(offset_rad)
+        # Command to set yaw offset: 0xFF 0xAA 0x02 OFFSET_L OFFSET_H 0x00
+        # OFFSET is a signed 16-bit integer representing degrees * 100 (for 0.01° resolution)
+        offset_int = int(offset_deg * 100) & 0xFFFF
+        cmd = bytes([0xFF, 0xAA, 0x02, offset_int & 0xFF, (offset_int >> 8) & 0xFF, 0x00])
+        self.send_command(cmd)
+        logger.info(f"Set IMU yaw offset to {offset_deg:.2f} degrees ({offset_rad:.3f} radians)")
         
     def send_command(self, cmd: bytes):
         """Send raw configuration command to the IMU."""

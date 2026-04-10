@@ -108,10 +108,9 @@ class AlignIMUToWorldCmd(Command):
             self._start_time = time.time()  # reset start time to avoid premature timeout
             return
         
-        # Get IMU yaw in radians (IMU.get_euler returns degrees: (yaw, roll, pitch))
+        # Get IMU yaw in radians (IMU.get_angle returns degrees: (yaw, roll, pitch))
         imu = self._imu
-        imu_euler = imu.get_euler()
-        imu_yaw_deg = float(imu_euler[0])
+        imu_yaw_deg = imu.get_angle()[2]
         imu_yaw_rad = math.radians(imu_yaw_deg)
 
         logger.debug(f"AlignIMUToWorldCmd: UWB yaw = {math.degrees(uwb_yaw):.3f} deg")
