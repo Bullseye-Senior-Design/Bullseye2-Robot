@@ -41,7 +41,7 @@ class Robot:
         pass
 
     def autonomous_init(self):
-        pass
+        self.robot_container.start_path_following()
 
     def autonomous_periodic(self):
         pass
