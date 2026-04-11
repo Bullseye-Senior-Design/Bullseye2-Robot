@@ -19,7 +19,7 @@ from Robot.subsystems.algorithms.KalmanStateEstimator import KalmanStateEstimato
 from Robot.subsystems.algorithms.PathFollowing import PathFollowing
 
 # CSV utilities
-from Robot.Commands.log_data.csvlib import CSVFileManager, write_csv_or_fallback
+from Robot.Commands.helpers.csvlib import CSVFileManager, write_csv_or_fallback
 
 class LogDataCmd(Command):
     # CSV field names

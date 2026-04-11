@@ -7,8 +7,9 @@ from Robot.subsystems.DriveTrain import DriveTrain
 import logging
 from Robot.Constants import Constants
 from pathlib import Path
-from Robot.Commands.log_data.csvlib import CSVFileManager
-from Robot.Commands.log_data.csvlib import write_csv_or_fallback
+from Robot.Commands.helpers.csvlib import CSVFileManager
+from Robot.Commands.helpers.csvlib import write_csv_or_fallback
+from Comms.PiCommThread import PiCommThread
 
 
 logger = logging.getLogger(f"{__name__}.FollowPathCmd")
@@ -36,6 +37,8 @@ class FollowPathCmd(Command):
         self.path_following = path_following
         self.add_requirement(drive_train)
         self.add_requirement(path_following)
+        
+        self.path_speed, self.path_id = PiCommThread().get_path_data()
         
         self._last_update_time = 0.0
         

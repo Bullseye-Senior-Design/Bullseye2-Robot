@@ -43,9 +43,9 @@ class ZeroIMUCmd(Command):
             return
 
         try:
-            euler = self._imu.get_euler()
+            euler = self._imu.get_angle()
         except Exception as e:
-            print(f"ZeroIMUCmd: IMU.get_euler() exception: {e}")
+            print(f"ZeroIMUCmd: IMU.get_angle() exception: {e}")
             return
 
         if not euler or len(euler) < 1:

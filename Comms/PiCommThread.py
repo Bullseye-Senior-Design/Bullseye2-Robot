@@ -17,6 +17,7 @@ import time
 import threading
 import json
 import sys
+from typing import Optional
 import logging
 
 from Comms.Models.DataPacket import DataPacket
@@ -320,7 +321,7 @@ class PiCommThread:
             self.pi_ser.write((data_packet + "\n").encode())
             logger.info(f"Sent new path data to controller: path_id={path_id}")
 
-    def _handle_state_change(self, new_state):
+    def _handle_state_change(self, new_state : State):
         """
         Handle robot state changes and execute mode-specific logic
 
@@ -378,6 +379,13 @@ class PiCommThread:
         """
         with self._data_lock:
             return self.comm_data
+    
+    def get_path_data(self) -> tuple[Optional[float], Optional[int]]:
+        """Get current path data (thread-safe)
+        Returns:
+            tuple: (path_speed, path_id)"""
+        with self._data_lock:
+            return self.comm_data.state_data.path_speed, self.comm_data.state_data.path_id
         
     def get_battery_data(self):
         """Get current battery data (thread-safe)"""
