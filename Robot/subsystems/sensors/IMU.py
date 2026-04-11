@@ -55,7 +55,7 @@ class IMU:
 
         self.state_estimator = KalmanStateEstimator()
 
-        self.set_output_rate(self.update_rate, save=False)  # Set update rate without saving to flash
+        # self.set_output_rate(self.update_rate, save=False)  # Set update rate without saving to flash
 
         self.buffer = bytearray()
         self.last_update_time = 0.0

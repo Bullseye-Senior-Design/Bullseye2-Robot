@@ -73,7 +73,7 @@ class Constants:
 
     # IMU Constants
     imu_serial_port = "/dev/ttyUSB1"
-    imu_baud_rate = 9600
+    imu_baud_rate = 115200
     imu_timeout = 0.5  # seconds
     imu_update_rate = 100  # hz
 
