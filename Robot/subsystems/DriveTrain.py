@@ -204,6 +204,15 @@ class DriveTrain(Subsystem):
         self._dac.write(self._dac_backwheel_channel, 0.0)
         self._dac.write(self._dac_frontwheel_channel, 0.5)
     
+    def reset_pid(self):
+        """Reset the front wheel PID controller.
+        
+        Clears integral and derivative terms to reset controller state.
+        Useful when starting new maneuvers or recovering from disturbances.
+        """
+        self.front_wheel_pid.reset()
+        logger.info("Front wheel PID controller reset")
+    
     def close(self):
         if not self.shutdown:
             try:
