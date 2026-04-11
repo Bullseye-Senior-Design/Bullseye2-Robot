@@ -1,18 +1,15 @@
 import logging
-import csv
 import math
-from pathlib import Path
 
 from dataclasses import dataclass
-import threading
 
 from Robot.Constants import Constants
 from Robot.subsystems.algorithms.KalmanStateEstimator import KalmanStateEstimator
 from structure.Subsystem import Subsystem
 from scipy.interpolate import splrep, splev
 from scipy.signal import savgol_filter
-from scipy.interpolate import CubicSpline
 import numpy as np
+from Robot.Commands.helpers.sqllib import SQLiteFileManager
 
 logger = logging.getLogger(f"{__name__}.PathFollowing")
 logger.setLevel(logging.INFO)
@@ -46,40 +43,28 @@ class PathCreation(Subsystem):
             return None
 
         
-    def save_path_to_csv(self):
+    def save_path_to_db(self):
         if not self._path:
             return
         
         self.logs_dir.mkdir(parents=True, exist_ok=True)
 
-        # Find the next sequential number by checking existing .csv files
-        next_number = 0
-        if self.logs_dir.exists():
-            existing_files = list(self.logs_dir.glob('*.csv'))
-            numbers = []
-            for f in existing_files:
-                try:
-                    # Try to parse filename as a number
-                    num = int(f.stem)
-                    numbers.append(num)
-                except ValueError:
-                    # Skip files that aren't purely numeric
-                    pass
-            if numbers:
-                next_number = max(numbers) + 1
-                self.current_path_number = next_number
-        
-        filename = f"{next_number}.csv"
-        file_path = self.logs_dir / filename
+        db_manager = SQLiteFileManager()
+        try:
+            next_number, table_key = db_manager.next_numeric_table_key(self.logs_dir)
+            self.current_path_number = next_number
+            db_manager.setup_file(table_key, self.PATH_FIELDNAMES)
+            rows = [{'x': point.x, 'y': point.y, 'yaw': point.yaw} for point in self._path]
+            db_manager.write_rows(table_key, rows)
+        finally:
+            db_manager.close_all()
 
-        with file_path.open('w', newline='') as csvfile:
-            writer = csv.DictWriter(csvfile, fieldnames=self.PATH_FIELDNAMES)
-            writer.writeheader()
-            for point in self._path:
-                writer.writerow({'x': point.x, 'y': point.y, 'yaw': point.yaw})
+        self._saved_file_path = self.logs_dir / "robot_data.db"
+        logger.info(f"Saved {len(self._path)} path points to SQLite table key {table_key}")
 
-        self._saved_file_path = file_path
-        logger.info(f"Saved {len(self._path)} path points to {file_path}")
+    # Backward-compatible name for existing callers.
+    def save_path_to_csv(self):
+        self.save_path_to_db()
 
     def add_path_point(self):
         if self.kf.is_initialized:
@@ -102,8 +87,8 @@ class PathCreation(Subsystem):
         wrap_yaw_to_pi: bool = True, # whether to wrap final yaw angles to [-pi, pi] after smoothing
         yaw_min_motion_distance: float = 1e-3, # minimum distance between points to consider for computing yaw (prevents unstable headings from tiny motions)
     ) -> None:
-        """Read px/py/yaw from input_csv, smooth with Savitzky-Golay,
-        fit a B-spline, compute yaw in radians from path direction, write smoothed path to output_csv.
+        """Read px/py/yaw samples, smooth with Savitzky-Golay,
+        fit a B-spline, compute yaw in radians from path direction, then persist.
         Returns the smoothed list of points.
         """
         points = self._path
@@ -122,7 +107,7 @@ class PathCreation(Subsystem):
                 f"Input points: {original_count}; Grouped points: {len(points)}; "
                 f"Smoothed points: {len(points)};"
             )
-            self.save_path_to_csv()  # Save original points
+            self.save_path_to_db()  # Save original points
             return
 
         # Apply Savitzky-Goyal smoothing before spline fit when possible
@@ -152,7 +137,7 @@ class PathCreation(Subsystem):
             f"Input points: {original_count}; Grouped points: {len(points)}; "
             f"Smoothed points: {len(points)};"
         )
-        self.save_path_to_csv()
+        self.save_path_to_db()
 
         return
     

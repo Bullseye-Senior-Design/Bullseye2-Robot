@@ -1,9 +1,7 @@
 from structure.commands.Command import Command
 
-import csv
 import os
 import time
-import json
 import numpy as np
 from types import SimpleNamespace
 from pathlib import Path
@@ -17,12 +15,13 @@ from Robot.subsystems.sensors.IMU import IMU
 from Robot.subsystems.sensors.BackWheelEncoder import BackWheelEncoder
 from Robot.subsystems.algorithms.KalmanStateEstimator import KalmanStateEstimator
 from Robot.subsystems.algorithms.PathFollowing import PathFollowing
+from Robot.Constants import Constants
 
-# CSV utilities
-from Robot.Commands.helpers.csvlib import CSVFileManager, write_csv_or_fallback
+# SQLite-backed data utilities
+from Robot.Commands.helpers.sqllib import SQLiteFileManager
 
 class LogDataCmd(Command):
-    # CSV field names
+    # Table schema field names
     UWB_FIELDNAMES = ['timestamp', 'tag_id', 'x', 'y', 'z', 'quality']
     ANCHORS_FIELDNAMES = ['timestamp', 'port', 'name', 'id', 'x', 'y', 'z', 'range']
     STATE_FIELDNAMES = ['timestamp', 'px', 'py', 'pz', 'vx', 'vy', 'vz', 'yaw', 'pitch', 'roll']
@@ -34,7 +33,7 @@ class LogDataCmd(Command):
     def __init__(self, path_following: PathFollowing):
         super().__init__()
         self.path_following = path_following
-        self.csv_manager = CSVFileManager()
+        self.db_manager = SQLiteFileManager()
     
     def _delete_old_folders(self, base_dir, max_age_days):
         """Delete folders in base_dir that are older than max_age_days.
@@ -65,37 +64,37 @@ class LogDataCmd(Command):
         
     def initialize(self):
         # Clean up old log folders (older than 2 days)
-        self._delete_old_folders(Path.cwd() / 'logs', max_age_days=2)
+        self._delete_old_folders(Constants.logs_directory, max_age_days=2)
         
         # record when logging begins and create a timestamped folder to hold all logs
         self.begin_timestamp = time.time()
         ts_str = time.strftime('%Y%m%d_%H%M%S', time.localtime(self.begin_timestamp))
 
         # create a dedicated folder under ./logs/<begin_timestamp>/
-        base_log_dir = Path.cwd() / 'logs'
+        base_log_dir = Constants.logs_directory
         self.log_dir = base_log_dir / ts_str
         self.log_dir.mkdir(parents=True, exist_ok=True)
 
         print(f"LogDataCmd initialized, logging started. Logs will be stored in: {self.log_dir}")
-        # Setup CSV files using manager
-        # file paths
-        self.uwb_file_path = str(self.log_dir / 'uwb_positions.csv')
-        self.anchors_file_path = str(self.log_dir / 'uwb_anchors.csv')
-        self.state_file_path = str(self.log_dir / 'state_estimator.csv')
-        self.imu_file_path = str(self.log_dir / 'imu_orientation.csv')
+        # Setup SQLite tables using the manager
+        # table keys
+        self.uwb_file_path = str(self.log_dir / 'uwb_positions')
+        self.anchors_file_path = str(self.log_dir / 'uwb_anchors')
+        self.state_file_path = str(self.log_dir / 'state_estimator')
+        self.imu_file_path = str(self.log_dir / 'imu_orientation')
         self.cov_file_path = str(self.log_dir / 'ekf_covariance.txt')
-        self.encoder_file_path = str(self.log_dir / 'encoder_data.csv')
-        self.control_inputs_file_path = str(self.log_dir / 'control_inputs.csv')
-        self.path_following_file_path = str(self.log_dir / 'path_following.csv')
+        self.encoder_file_path = str(self.log_dir / 'encoder_data')
+        self.control_inputs_file_path = str(self.log_dir / 'control_inputs')
+        self.path_following_file_path = str(self.log_dir / 'path_following')
 
-        # Setup CSV files with manager
-        self.csv_manager.setup_file(self.uwb_file_path, self.UWB_FIELDNAMES)
-        self.csv_manager.setup_file(self.anchors_file_path, self.ANCHORS_FIELDNAMES)
-        self.csv_manager.setup_file(self.state_file_path, self.STATE_FIELDNAMES)
-        self.csv_manager.setup_file(self.imu_file_path, self.IMU_FIELDNAMES)
-        self.csv_manager.setup_file(self.encoder_file_path, self.ENCODER_FIELDNAMES)
-        self.csv_manager.setup_file(self.control_inputs_file_path, self.CONTROL_INPUTS_FIELDNAMES)
-        self.csv_manager.setup_file(self.path_following_file_path, self.PATH_FOLLOWING_FIELDNAMES)
+        # Setup table mappings with manager
+        self.db_manager.setup_file(self.uwb_file_path, self.UWB_FIELDNAMES)
+        self.db_manager.setup_file(self.anchors_file_path, self.ANCHORS_FIELDNAMES)
+        self.db_manager.setup_file(self.state_file_path, self.STATE_FIELDNAMES)
+        self.db_manager.setup_file(self.imu_file_path, self.IMU_FIELDNAMES)
+        self.db_manager.setup_file(self.encoder_file_path, self.ENCODER_FIELDNAMES)
+        self.db_manager.setup_file(self.control_inputs_file_path, self.CONTROL_INPUTS_FIELDNAMES)
+        self.db_manager.setup_file(self.path_following_file_path, self.PATH_FOLLOWING_FIELDNAMES)
         
         # Setup covariance text file separately (not CSV)
         self._cov_fh = open(self.cov_file_path, 'a')
@@ -170,8 +169,8 @@ class LogDataCmd(Command):
             self.save_path_following_to_csv(v_cmd, delta_cmd, self.path_following_file_path, timestamp=ts)
     
     def end(self, interrupted):
-        # Close all CSV files managed by the manager
-        self.csv_manager.close_all()
+        # Close all managed SQLite connections
+        self.db_manager.close_all()
         # Close covariance file separately (not managed by manager)
         if not self._cov_fh.closed:
             self._cov_fh.close()
@@ -205,9 +204,7 @@ class LogDataCmd(Command):
             'quality': _safe_get(position, 'quality', ''),
         }
         
-        # Try to get the file handle and writer from the manager; if not available, fallback to opening the file each time
-        fh, writer, _ = self.csv_manager.files.get(str(filename), (None, None, None))
-        return write_csv_or_fallback(writer, fh, filename, self.UWB_FIELDNAMES, row)
+        return self.db_manager.write_row(str(filename), row)
     
     def save_orientation_to_csv(self, orientation, filename: str) -> bool:
         """
@@ -248,8 +245,7 @@ class LogDataCmd(Command):
             'mz': mz,
         }
         
-        fh, writer, _ = self.csv_manager.files.get(str(filename), (None, None, None)) if str(filename) in self.csv_manager.files else (None, None, None)
-        return write_csv_or_fallback(writer, fh, filename, self.IMU_FIELDNAMES, row)
+        return self.db_manager.write_row(str(filename), row)
 
     def save_uwb_anchors_to_csv(self, anchors_info, filename: str, timestamp: Optional[float] = None) -> bool:
         """Save UWB anchor info into a CSV file.
@@ -277,8 +273,7 @@ class LogDataCmd(Command):
                         'z': pos[2] if pos and len(pos) > 2 else '',
                         'range': anchor.get('range', ''),
                     }
-                    fh, writer, _ = self.csv_manager.files.get(str(filename), (None, None, None)) if str(filename) in self.csv_manager.files else (None, None, None)
-                    write_csv_or_fallback(writer, fh, filename, self.ANCHORS_FIELDNAMES, row)
+                    self.db_manager.write_row(str(filename), row)
         return True
 
     def save_state_to_csv(self, state, yaw: float, pitch: float, roll: float, filename: str, timestamp: Optional[float] = None) -> bool:
@@ -300,8 +295,7 @@ class LogDataCmd(Command):
             'roll': roll,
         }
         
-        fh, writer, _ = self.csv_manager.files.get(str(filename), (None, None, None)) if str(filename) in self.csv_manager.files else (None, None, None)
-        return write_csv_or_fallback(writer, fh, filename, self.STATE_FIELDNAMES, row)
+        return self.db_manager.write_row(str(filename), row)
 
     def save_covariance_to_txt(self, P, filename: str, timestamp: Optional[float] = None) -> bool:
         """Save covariance matrix in a readable text file.
@@ -353,8 +347,7 @@ class LogDataCmd(Command):
             'velocity': velocity,
         }
         
-        fh, writer, _ = self.csv_manager.files.get(str(filename), (None, None, None)) if str(filename) in self.csv_manager.files else (None, None, None)
-        return write_csv_or_fallback(writer, fh, filename, self.ENCODER_FIELDNAMES, row)
+        return self.db_manager.write_row(str(filename), row)
 
     def save_control_inputs_to_csv(self, velocity: float, steering_angle: float, filename: str, timestamp: Optional[float] = None) -> bool:
         """Save control inputs (velocity and steering angle) to CSV file.
@@ -378,8 +371,7 @@ class LogDataCmd(Command):
             'steering_angle_deg': steering_angle_deg,
         }
         
-        fh, writer, _ = self.csv_manager.files.get(str(filename), (None, None, None)) if str(filename) in self.csv_manager.files else (None, None, None)
-        return write_csv_or_fallback(writer, fh, filename, self.CONTROL_INPUTS_FIELDNAMES, row)
+        return self.db_manager.write_row(str(filename), row)
 
     def save_path_following_to_csv(self, motor_speed: float, steering_angle: float, filename: str, timestamp: Optional[float] = None) -> bool:
         """Save path following motor speed and steering angle to CSV file.
@@ -403,5 +395,4 @@ class LogDataCmd(Command):
             'steering_angle_deg': steering_angle_deg,
         }
         
-        fh, writer, _ = self.csv_manager.files.get(str(filename), (None, None, None)) if str(filename) in self.csv_manager.files else (None, None, None)
-        return write_csv_or_fallback(writer, fh, filename, self.PATH_FOLLOWING_FIELDNAMES, row)
+        return self.db_manager.write_row(str(filename), row)

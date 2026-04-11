@@ -2,10 +2,10 @@ from structure.commands.Command import Command
 from Robot.subsystems.DriveTrain import DriveTrain
 from Robot.subsystems.algorithms.PathFollowing import PathFollowing
 from Robot.subsystems.algorithms.KalmanStateEstimator import KalmanStateEstimator
-from pathlib import Path
 import logging
+from Robot.Constants import Constants
 
-from Robot.Commands.helpers.csvlib import read_last_csv_row
+from Robot.Commands.helpers.sqllib import SQLiteFileManager
 
 
 logger = logging.getLogger(f"{__name__}.DriveHomeCmd")
@@ -16,15 +16,15 @@ class DriveHomeCmd(Command):
         self._drive_train = drive_train
         self._path_following = path_following
         self._kalman_estimator = KalmanStateEstimator()
-        project_root = Path(__file__).resolve().parents[2]
-        self._home_position_csv = project_root / "records" / "home_position.csv"
+        self._db = SQLiteFileManager()
+        self._home_position_key = Constants.records_directory / "home_position"
         self.add_requirement(drive_train)
         self.add_requirement(path_following)
 
     def _read_home_position(self) -> list[float] | None:
-        row = read_last_csv_row(str(self._home_position_csv))
+        row = self._db.read_last_row(str(self._home_position_key))
         if row is None:
-            logger.warning(f"DriveHomeCmd: home position CSV not found or empty at {self._home_position_csv}")
+            logger.warning(f"DriveHomeCmd: home position row not found in SQLite key {self._home_position_key}")
             return None
 
         return [float(row["x"]), float(row["y"]), float(row["yaw"])]

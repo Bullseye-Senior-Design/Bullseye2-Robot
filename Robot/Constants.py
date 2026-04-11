@@ -9,6 +9,8 @@ class UWBTagInfo:
         self.offset = offset
 
 class Constants:
+
+
     # Wheel base width in meters
     wheel_base_width = 1.0414 # updated for big bullseye
     steering_angle_limit_rads = math.radians(30)  # degrees converted to radians, max steering angle for the front wheel
@@ -88,5 +90,8 @@ class Constants:
 
     # Path creation constants
     path_creation_update_interval = 0.1  # seconds between path point captures
-    path_file_directory  = Path.cwd() / 'logs' / 'paths'
+    logs_directory = Path.cwd() / "logs"
+    path_file_directory = logs_directory / "paths"
+    records_directory = Path.cwd() / "records"
+    references_directory = Path.cwd() / "references"
 

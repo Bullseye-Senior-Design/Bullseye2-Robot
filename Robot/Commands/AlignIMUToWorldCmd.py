@@ -3,8 +3,8 @@ import time
 import math
 import numpy as np
 from collections import deque
-from pathlib import Path
-from Robot.Commands.helpers.csvlib import overwrite_csv_with_row, read_last_csv_row
+from Robot.Commands.helpers.sqllib import SQLiteFileManager
+from Robot.Constants import Constants
 from Robot.subsystems.sensors.IMU import IMU
 from Robot.subsystems.sensors.UWB import UWB
 import logging
@@ -36,6 +36,7 @@ class AlignIMUToWorldCmd(Command):
         
         self._uwb = uwb
         self._imu = imu
+        self._db = SQLiteFileManager()
 
         # runtime state
         self._start_time: float | None = None
@@ -44,24 +45,19 @@ class AlignIMUToWorldCmd(Command):
         self._stable_count = 0
         self._bias = 0.0  # radians
         self.residuals_window = deque(maxlen=100)
-        self._last_csv_log_time: float | None = None
+        self._last_db_log_time: float | None = None
 
-        project_root = Path(__file__).resolve().parents[2]
-        self._yaw_offset_dir = project_root / "records"
-        self._yaw_offset_csv = self._yaw_offset_dir / "yaw_offset.csv"
+        self._yaw_offset_dir = Constants.records_directory
+        self._yaw_offset_key = self._yaw_offset_dir / "yaw_offset"
         self._yaw_offset_fieldnames = ["timestamp", "source", "yaw_offset_deg", "yaw_offset_rad"]
 
     def _read_last_logged_yaw_offset_deg(self) -> float | None:
-        try:
-            row = read_last_csv_row(str(self._yaw_offset_csv))
-            if row is None:
-                return None
-            return float(row["yaw_offset_deg"])
-        except Exception as exc:
-            logger.warning(f"AlignIMUToWorldCmd: failed to read saved yaw offset from CSV: {exc}")
+        row = self._db.read_last_row(str(self._yaw_offset_key))
+        if row is None:
             return None
+        return float(row["yaw_offset_deg"])
     
-    def _record_yaw_offset_csv(self, timestamp: float, source: str):
+    def _record_yaw_offset_db(self, timestamp: float, source: str):
         self._yaw_offset_dir.mkdir(parents=True, exist_ok=True)
         row = {
             "timestamp": timestamp,
@@ -70,18 +66,18 @@ class AlignIMUToWorldCmd(Command):
             "yaw_offset_rad": self._bias,
         }
 
-        ok = overwrite_csv_with_row(
-            filename=str(self._yaw_offset_csv),
+        ok = self._db.overwrite_with_row(
+            filepath=str(self._yaw_offset_key),
             fieldnames=self._yaw_offset_fieldnames,
             row=row,
         )
         if not ok:
-            logger.warning("AlignIMUToWorldCmd: failed to write yaw offset CSV row")
+            logger.warning("AlignIMUToWorldCmd: failed to write yaw offset row to SQLite")
 
     def initialize(self):
         self._start_time = time.time()
         self._last_time = self._start_time
-        self._last_csv_log_time = self._start_time
+        self._last_db_log_time = self._start_time
         self._samples = 0
         self._stable_count = 0
         imu = self._imu
@@ -90,7 +86,7 @@ class AlignIMUToWorldCmd(Command):
         if saved_offset_deg is not None:
             self._bias = math.radians(saved_offset_deg)
             imu.set_yaw_offset(saved_offset_deg)
-            logger.info(f"AlignIMUToWorldCmd: restored yaw offset from CSV: {saved_offset_deg:.3f} deg")
+            logger.info(f"AlignIMUToWorldCmd: restored yaw offset from SQLite: {saved_offset_deg:.3f} deg")
         else:
             self._bias = 0.0
         self.residuals_window.clear()
@@ -125,9 +121,9 @@ class AlignIMUToWorldCmd(Command):
         logger.debug(f"AlignIMUToWorldCmd: applying yaw offset {math.degrees(self._bias):.3f} deg")
         imu.set_yaw_offset(math.degrees(self._bias))
 
-        if self._last_csv_log_time is None or (now - self._last_csv_log_time) >= 30.0:
-            self._record_yaw_offset_csv(now, "execute")
-            self._last_csv_log_time = now
+        if self._last_db_log_time is None or (now - self._last_db_log_time) >= 30.0:
+            self._record_yaw_offset_db(now, "execute")
+            self._last_db_log_time = now
 
         # bookkeeping
         self._samples += 1
@@ -139,7 +135,7 @@ class AlignIMUToWorldCmd(Command):
         self._last_time = now
 
     def end(self, interrupted):
-        self._record_yaw_offset_csv(time.time(), "end")
+        self._record_yaw_offset_db(time.time(), "end")
 
         if interrupted:
             logger.info("AlignIMUToWorldCmd interrupted; leaving current IMU yaw offset in place")

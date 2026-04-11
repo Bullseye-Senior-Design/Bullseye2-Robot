@@ -6,9 +6,7 @@ from Robot.subsystems.algorithms.KalmanStateEstimator import KalmanStateEstimato
 from Robot.subsystems.DriveTrain import DriveTrain
 import logging
 from Robot.Constants import Constants
-from pathlib import Path
-from Robot.Commands.helpers.csvlib import CSVFileManager
-from Robot.Commands.helpers.csvlib import write_csv_or_fallback
+from Robot.Commands.helpers.sqllib import SQLiteFileManager
 from Comms.PiCommThread import PiCommThread
 
 
@@ -69,7 +67,7 @@ class FollowPathCmd(Command):
         logger.info(f"Path Following - Start Position: x={start_pos[0]:.3f}m, y={start_pos[1]:.3f}m, yaw={np.degrees(start_pos[2]):.1f}°")
         logger.info(f"Path Following - Target Position: x={target_pos[0]:.3f}m, y={target_pos[1]:.3f}m, yaw={np.degrees(target_pos[2]):.1f}°")
         
-        # Save reference path to CSV
+        # Save reference path to SQLite
         self._save_reference_path()
         
         self.path_following.start_path_following()
@@ -80,25 +78,21 @@ class FollowPathCmd(Command):
 
     def execute(self):
         """Poll navigation system and send motor commands."""
-                
-        try:
-            # Get current commands from navigator
-            v_cmd, delta_cmd = self.path_following.get_current_commands()
-            
-            # Convert to motor commands
-            # v_cmd is in m/s, delta_cmd is in radians
-            # Convert velocity to percentage (assuming 1 m/s = 100%)
-            speed_percent = int((v_cmd / Constants.rear_motor_top_speed) * 100.0)
-            # Convert steering angle from radians to degrees
-            angle_deg = int(np.degrees(delta_cmd))
-            
-            logger.debug(f"FollowPathCmd: v_cmd={v_cmd:.2f} m/s, delta_cmd={delta_cmd:.2f} rad -> speed={speed_percent}%, angle={angle_deg} deg")
-            
-            # Send to motors via DriveTrain subsystem
-            self.drive_train.set_speed_angle(speed_percent, angle_deg)
-            
-        except Exception as e:
-            logger.info(f"FollowPathCmd: Error in execute: {e}")
+
+        # Get current commands from navigator
+        v_cmd, delta_cmd = self.path_following.get_current_commands()
+
+        # Convert to motor commands
+        # v_cmd is in m/s, delta_cmd is in radians
+        # Convert velocity to percentage (assuming 1 m/s = 100%)
+        speed_percent = int((v_cmd / Constants.rear_motor_top_speed) * 100.0)
+        # Convert steering angle from radians to degrees
+        angle_deg = int(np.degrees(delta_cmd))
+
+        logger.debug(f"FollowPathCmd: v_cmd={v_cmd:.2f} m/s, delta_cmd={delta_cmd:.2f} rad -> speed={speed_percent}%, angle={angle_deg} deg")
+
+        # Send to motors via DriveTrain subsystem
+        self.drive_train.set_speed_angle(speed_percent, angle_deg)
 
     def end(self, interrupted):
         """Stop path following and clean up."""
@@ -114,35 +108,31 @@ class FollowPathCmd(Command):
             print("FollowPathCmd: completed")
     
     def _save_reference_path(self):
-        """Save the reference path to a CSV file in the references folder."""
+        """Save the reference path to SQLite in the references folder."""
         # Create references folder if it doesn't exist
-        references_dir = Path.cwd() / 'references'
+        references_dir = Constants.references_directory
         references_dir.mkdir(parents=True, exist_ok=True)
         
-        # Generate timestamped filename
+        # Generate timestamped table key
         ts_str = time.strftime('%Y%m%d_%H%M%S', time.localtime())
-        reference_file = references_dir / f'reference_{ts_str}.csv'
+        reference_file = references_dir / f'reference_{ts_str}'
         
-        # Setup CSV manager and write path data
-        try:
-            csv_manager = CSVFileManager()
-            fieldnames = ['x', 'y', 'yaw']
-            csv_manager.setup_file(str(reference_file), fieldnames)
-            
-            # Write each row of the path
-            for row_data in self.path_matrix:
-                row = {
-                    'x': row_data[0],
-                    'y': row_data[1],
-                    'yaw': row_data[2],
-                }
-                fh, writer, _ = csv_manager.files.get(str(reference_file), (None, None, None))
-                write_csv_or_fallback(writer, fh, str(reference_file), fieldnames, row)
-            
-            csv_manager.close_all()
-            logger.info(f"Reference path saved to: {reference_file}")
-        except Exception as e:
-            logger.error(f"Failed to save reference path: {e}")
+        # Setup manager and write path data
+        db_manager = SQLiteFileManager()
+        fieldnames = ['x', 'y', 'yaw']
+        db_manager.setup_file(str(reference_file), fieldnames)
+
+        rows = [
+            {
+                'x': row_data[0],
+                'y': row_data[1],
+                'yaw': row_data[2],
+            }
+            for row_data in self.path_matrix
+        ]
+        db_manager.write_rows(str(reference_file), rows)
+        db_manager.close_all()
+        logger.info(f"Reference path saved to SQLite key: {reference_file}")
 
     def is_finished(self):
         """Command runs until cancelled."""

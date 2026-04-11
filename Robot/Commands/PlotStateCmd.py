@@ -73,13 +73,7 @@ class PlotStateCmd(Command):
             self._running = False
             return
 
-        try:
-            self.root = tk.Tk()
-        except Exception as e:  # pragma: no cover - depends on environment
-            print(f"PlotStateCmd: failed to create Tk root: {e}")
-            self.root = None
-            self._running = False
-            return
+        self.root = tk.Tk()
 
         self.root.wm_title("EKF Position Plot")
 
@@ -162,22 +156,11 @@ class PlotStateCmd(Command):
         # Only plot EKF data if the filter has been initialized
         if self.estimator.is_initialized:
             # get current position from EKF
-            try:
-                pos = self.estimator.pos  # numpy array [x,y,z]
-            except Exception as e:
-                # If estimator fails for any reason, just skip this update
-                print(f"PlotStateCmd: failed to read estimator: {e}")
-                return
+            pos = self.estimator.pos  # numpy array [x,y,z]
 
             # safe conversion (in case of None or invalid values)
-            try:
-                x = float(pos[0])
-            except Exception:
-                x = np.nan
-            try:
-                y = float(pos[1])
-            except Exception:
-                y = np.nan
+            x = float(pos[0])
+            y = float(pos[1])
 
             self.xs.append(x)
             self.ys.append(y)
@@ -202,11 +185,8 @@ class PlotStateCmd(Command):
             self.canvas.draw_idle()
             # optionally do a single draw() if you need synchronous update
             self.canvas.draw()
-            try:
-                self.root.update_idletasks()
-                self.root.update()
-            except Exception:
-                self._running = False
+            self.root.update_idletasks()
+            self.root.update()
             self._last_plot_time = now
 
         # update top-down yaw view (do this after drawing to avoid flicker)
@@ -222,12 +202,8 @@ class PlotStateCmd(Command):
                 p.set_transform(trans)
 
             # update yaw text in degrees
-            try:
-                if self.yaw_text is not None:
-                    self.yaw_text.set_text(f"Yaw: {yaw:.1f}\N{DEGREE SIGN}")
-            except Exception:
-                if self.yaw_text is not None:
-                    self.yaw_text.set_text("Yaw: --\N{DEGREE SIGN}")
+            if self.yaw_text is not None:
+                self.yaw_text.set_text(f"Yaw: {yaw:.1f}\N{DEGREE SIGN}")
 
         # ADDED: update UWB dot positions from the UWB subsystem
         uwb_positions = self.uwb.get_positions()  # iterable of positions (objects or sequences)
@@ -267,10 +243,7 @@ class PlotStateCmd(Command):
         # close window and cleanup
         self._running = False
         if self.root is not None:
-            try:
-                self.root.destroy()
-            except Exception:
-                pass
+            self.root.destroy()
             self.root = None
 
     def is_finished(self) -> bool:
