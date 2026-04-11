@@ -81,7 +81,7 @@ class DriveTrain(Subsystem):
             logger.debug("Front encoder reading failed, defaulting to 0 degrees")
             return 0  # Default to straight if encoder fails
         
-        current_angle = max(min(current_angle, self.soft_limit), -self.soft_limit)  # Apply soft limits
+        #current_angle = max(min(current_angle, self.soft_limit), -self.soft_limit)  # Apply soft limits
         
         self.front_wheel_pid.setpoint = target_angle
         pid_speed = self.front_wheel_pid(current_angle)
