@@ -55,7 +55,7 @@ class DriveTrain(Subsystem):
             # Pitch PID controller
             # TODO Fine-tune PID parameters for better performance
             self.front_wheel_pid = PID(
-                1.2, 0.4, 0.0, 
+                1.1, 0.1, 0.0, 
                 setpoint=0,
                 error_map=MathUtil.wrap_to_pi  # Wrap error to [-pi, pi]
             )
