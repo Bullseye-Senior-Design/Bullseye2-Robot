@@ -19,14 +19,12 @@ logging.basicConfig(
 )
 
 def main():
-    
     robot = Robot()
     robot_state = RobotState()
 
     pi_comm_thread = PiCommThread()
 
     robot.robot_init()
-    robot_state.enable_teleop()
     try: 
         while True:        
             # Run periodic functions

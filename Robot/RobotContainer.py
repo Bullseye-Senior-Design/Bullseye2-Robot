@@ -84,6 +84,10 @@ class RobotContainer:
             ParkingCmd(self.drive_train, self.parking_controller)
         )
         return_home_cmd.schedule()
+        
+    def start_path_following(self):
+        logger.info("Starting path following mode")
+        FollowPathCmd(self.drive_train, self.path_following).schedule()
 
     def start_teleop(self):
         logger.info("Starting teleop control")
