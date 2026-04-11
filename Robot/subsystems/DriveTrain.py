@@ -81,7 +81,7 @@ class DriveTrain(Subsystem):
             logger.debug("Front encoder reading failed, defaulting to 0 degrees")
             return 0  # Default to straight if encoder fails
         
-        current_angle = max(min(current_angle, self.soft_limit), -self.soft_limit)  # Apply soft limits
+        #current_angle = max(min(current_angle, self.soft_limit), -self.soft_limit)  # Apply soft limits
         
         self.front_wheel_pid.setpoint = target_angle
         pid_speed = self.front_wheel_pid(current_angle)
@@ -203,6 +203,15 @@ class DriveTrain(Subsystem):
         self._speed = 0.0
         self._dac.write(self._dac_backwheel_channel, 0.0)
         self._dac.write(self._dac_frontwheel_channel, 0.5)
+    
+    def reset_pid(self):
+        """Reset the front wheel PID controller.
+        
+        Clears integral and derivative terms to reset controller state.
+        Useful when starting new maneuvers or recovering from disturbances.
+        """
+        self.front_wheel_pid.reset()
+        logger.info("Front wheel PID controller reset")
     
     def close(self):
         if not self.shutdown:

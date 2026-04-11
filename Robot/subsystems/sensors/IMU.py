@@ -10,7 +10,7 @@ from Robot.Constants import Constants
 from Robot.subsystems.algorithms.KalmanStateEstimator import KalmanStateEstimator
 
 logger = logging.getLogger(f"{__name__}.IMU")
-logger.setLevel(logging.DEBUG)  # Set to INFO for high-level events, DEBUG for detailed parsing info
+logger.setLevel(logging.INFO)  # Set to INFO for high-level events, DEBUG for detailed parsing info
 
 class IMU:
     _instance = None
@@ -55,7 +55,7 @@ class IMU:
 
         self.state_estimator = KalmanStateEstimator()
 
-        self.set_output_rate(self.update_rate, save=False)  # Set update rate without saving to flash
+        # self.set_output_rate(self.update_rate, save=False)  # Set update rate without saving to flash
 
         self.buffer = bytearray()
         self.last_update_time = 0.0
