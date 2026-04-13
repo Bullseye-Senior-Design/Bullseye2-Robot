@@ -9,6 +9,7 @@ from helpers.dbConstants import HOME_POSITION_TABLE
 from helpers.sqllib import SQLiteFileManager
 
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)  # Set to DEBUG for detailed output
 
 
 @dataclass
