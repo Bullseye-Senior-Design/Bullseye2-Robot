@@ -17,6 +17,7 @@ import time
 import threading
 import json
 import sys
+import math
 from typing import Optional
 import logging
 
@@ -36,12 +37,6 @@ from Comms.KFX import KFXController
 from Robot.Constants import Constants
 from Robot.subsystems.algorithms.KalmanStateEstimator import KalmanStateEstimator
 from structure.RobotState import RobotState
-from helpers.ArenaBoundaryHelper import ArenaBoundaryManager
-from helpers.HomePositionHelper import HomePositionManager
-
-import math
-
-from Robot.Constants import Constants
 
 # Reverse of the sender's _FIELD_MAP — short key -> full ControllerData field name
 _FIELD_UNMAP = {
@@ -306,11 +301,9 @@ class PiCommThread:
 
         elif packet.type == "set_boundary":
             # Steam Deck is sending the 4 arena corner coordinates.
+            # TODO: apply boundary to localization/path-following system.
             boundary = BoundaryData.model_validate_json(packet.json_data)
             logger.info(f"Boundary received: {boundary.corners}")
-            
-            corners_as_tuples = [(corner.x, corner.y) for corner in boundary.corners]
-            ArenaBoundaryManager().set_arena_boundary(corners_as_tuples)
             self._send_boundary_ack()
 
         elif packet.type == "request_pos":
@@ -319,15 +312,14 @@ class PiCommThread:
 
         elif packet.type == "set_home":
             # Steam Deck is commanding the robot to update its home position.
+            # TODO: persist home position in the robot's own storage.
             pos = PosData.model_validate_json(packet.json_data)
-            
-            HomePositionManager().set_home_position(pos.x, pos.y, pos.yaw)
-            
             logger.info(f"Home position set: x={pos.x}, y={pos.y}, yaw={pos.yaw}")
             self._send_home_ack()
 
         elif packet.type == "record_home_check":
             # Steam Deck is asking whether the robot is currently at home.
+            # TODO: implement actual position-vs-home comparison.
             self._send_record_home_check_result()
 
         elif packet.type == "request_battery":
@@ -388,6 +380,9 @@ class PiCommThread:
         Uses the KalmanStateEstimator's current state estimate to get x, y, yaw.
         """
         x, y, yaw = self.kalman_estimator.get_robot_pose()
+        x = math.trunc(x * 100) / 100
+        y = math.trunc(y * 100) / 100
+        yaw = math.trunc(yaw * 100) / 100
         pos = PosData(x=x, y=y, yaw=yaw)
         packet = DataPacket(type="pos_data", json_data=pos.model_dump_json())
         self._send(packet)
@@ -402,23 +397,9 @@ class PiCommThread:
     def _send_record_home_check_result(self):
         """
         Respond to record_home_check with whether the robot is at home.
+        TODO: replace placeholder True with real position comparison.
         """
-        current_pos = self.kalman_estimator.get_robot_pose()
-        home_pos = HomePositionManager().get_home_position()
-        
-        if home_pos is None:
-            logger.warning("No home position set; cannot perform home check")
-            result = HomeCheckResult(ok=False)
-            
-        at_home = False
-            
-        if current_pos and home_pos:
-            distance = ((current_pos[0] - home_pos.x) ** 2 + (current_pos[1] - home_pos.y) ** 2) ** 0.5
-            yaw_diff = abs((current_pos[2] - home_pos.yaw + math.pi) % (2 * math.pi) - math.pi)
-            threshold = Constants.distance_to_home_threshold
-            at_home = (distance < threshold) and (yaw_diff < Constants.difference_in_heading_to_home_threshold)
-        
-        result = HomeCheckResult(ok=at_home)
+        result = HomeCheckResult(ok=True)   # TODO: compare current pos to stored home
         packet = DataPacket(type="record_home_check_result",
                             json_data=result.model_dump_json())
         self._send(packet)
