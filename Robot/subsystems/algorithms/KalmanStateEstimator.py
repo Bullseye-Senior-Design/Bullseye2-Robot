@@ -129,6 +129,14 @@ class KalmanStateEstimator:
                 vel=tuple(self.x[3:6]),
                 quat=tuple(self.x[6:10]),
             )
+        
+    def get_robot_pose(self) -> Tuple[float, float, float]:
+        """Returns the current robot pose as (x, y, yaw) in world frame."""
+        with self._lock:
+            x, y, z = self.x[0:3]
+            q = self.x[6:10]
+            yaw = MathUtil.quat_to_euler(q)[2]  # Extract yaw angle
+            return x, y, yaw
     
     # --- Control input setters (called by sensors before predict) ---
     def set_rear_wheel_velocity(self, v: float):

@@ -34,6 +34,7 @@ from Comms.Models.PingAckData import PingAckData
 from Comms.Models.KFXSpeedData import KFXSpeedData
 from Comms.KFX import KFXController
 from Robot.Constants import Constants
+from Robot.subsystems.algorithms.KalmanStateEstimator import KalmanStateEstimator
 from structure.RobotState import RobotState
 
 # Reverse of the sender's _FIELD_MAP — short key -> full ControllerData field name
@@ -101,9 +102,6 @@ class CommData:
         # KFX run speed (0.0–1.0); updated by 'kfx_speed' packets from Steam Deck
         self.kfx_speed: float = 0.5
 
-        # KFX run speed (0.0–1.0); updated by kfx_speed packet from Steam Deck
-        self.kfx_speed: float = 0.5
-
         # Last received command
         self.last_command = "None"
 
@@ -129,9 +127,11 @@ class PiCommThread:
         Initialize PiCommThread with references to subsystems
 
         Args:
+            kalmanStateEstimator: Instance of KalmanStateEstimator
             bms: BMS subsystem instance
         """
         self.bms = bms
+        self.kalman_estimator = KalmanStateEstimator()
         self.comm_data = CommData()
         self.robot_state = RobotState()  # Additional state tracking if needed
 
@@ -379,7 +379,8 @@ class PiCommThread:
         Respond to request_pos with current robot position and heading.
         TODO: replace placeholder zeros with real estimator values.
         """
-        pos = PosData(x=0.0, y=0.0, yaw=0.0)   # TODO: fill from state estimator
+        x, y, yaw = self.kalman_estimator.get_robot_pose()
+        pos = PosData(x=x, y=y, yaw=yaw)
         packet = DataPacket(type="pos_data", json_data=pos.model_dump_json())
         self._send(packet)
         logger.info(f"Sent pos_data: {pos}")
