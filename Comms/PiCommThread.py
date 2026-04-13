@@ -307,7 +307,6 @@ class PiCommThread:
 
         elif packet.type == "request_pos":
             # Steam Deck is asking for the robot's current x, y, yaw.
-            # TODO: fill in actual position from the state estimator.
             self._send_pos_data()
 
         elif packet.type == "set_home":
@@ -377,7 +376,7 @@ class PiCommThread:
     def _send_pos_data(self):
         """
         Respond to request_pos with current robot position and heading.
-        TODO: replace placeholder zeros with real estimator values.
+        Uses the KalmanStateEstimator's current state estimate to get x, y, yaw.
         """
         x, y, yaw = self.kalman_estimator.get_robot_pose()
         pos = PosData(x=x, y=y, yaw=yaw)
