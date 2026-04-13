@@ -5,6 +5,7 @@ from pathlib import Path
 from dataclasses import dataclass
 from typing import Optional
 
+from helpers.dbConstants import ARENA_BOUNDARY_TABLE
 from helpers.sqllib import SQLiteFileManager
 
 logger = logging.getLogger(__name__)
@@ -35,9 +36,6 @@ class ArenaBoundary:
 class ArenaBoundaryManager:
     """Manages arena boundary storage and retrieval using SQLite."""
     
-    FIELDNAMES = ['x1', 'y1', 'x2', 'y2', 'x3', 'y3', 'x4', 'y4']
-    TABLE_NAME = 'arena_boundary'
-    
     def __init__(self, db_dir: Path):
         """
         Initialize the ArenaBoundaryManager.
@@ -47,7 +45,6 @@ class ArenaBoundaryManager:
         """
         self.db_dir = Path(db_dir)
         self.db_dir.mkdir(parents=True, exist_ok=True)
-        self.table_key = str(self.db_dir / self.TABLE_NAME)
     
     def set_arena_boundary(self, corners: list[tuple[float, float]]) -> bool:
         """
@@ -65,17 +62,17 @@ class ArenaBoundaryManager:
         
         db_manager = SQLiteFileManager()
         try:
-            boundary_data = {
-                'x1': str(corners[0][0]),
-                'y1': str(corners[0][1]),
-                'x2': str(corners[1][0]),
-                'y2': str(corners[1][1]),
-                'x3': str(corners[2][0]),
-                'y3': str(corners[2][1]),
-                'x4': str(corners[3][0]),
-                'y4': str(corners[3][1])
-            }
-            success = db_manager.overwrite_with_row(self.table_key, self.FIELDNAMES, boundary_data)
+            boundary_data = ARENA_BOUNDARY_TABLE.build_row(
+                x1=corners[0][0],
+                y1=corners[0][1],
+                x2=corners[1][0],
+                y2=corners[1][1],
+                x3=corners[2][0],
+                y3=corners[2][1],
+                x4=corners[3][0],
+                y4=corners[3][1],
+            )
+            success = db_manager.overwrite_with_row(ARENA_BOUNDARY_TABLE, boundary_data)
             
             if success:
                 logger.info(f"Arena boundary set with corners: {corners}")
@@ -115,7 +112,7 @@ class ArenaBoundaryManager:
         """
         db_manager = SQLiteFileManager()
         try:
-            row = db_manager.read_last_row(self.table_key)
+            row = db_manager.read_last_row(ARENA_BOUNDARY_TABLE)
             
             if row is None:
                 logger.warning("No arena boundary set")

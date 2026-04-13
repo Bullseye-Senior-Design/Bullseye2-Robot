@@ -215,6 +215,25 @@ class _HomePositionTable(Table):
 		return HomePositionRow(x=x, y=y, yaw=yaw)
 
 
+class _ArenaBoundaryTable(Table):
+	def __init__(self, name: str = "arena_boundary"):
+		super().__init__(name, ["x1", "y1", "x2", "y2", "x3", "y3", "x4", "y4"])
+
+	@classmethod
+	def build_row(
+		cls,
+		x1: SQLiteScalar,
+		y1: SQLiteScalar,
+		x2: SQLiteScalar,
+		y2: SQLiteScalar,
+		x3: SQLiteScalar,
+		y3: SQLiteScalar,
+		x4: SQLiteScalar,
+		y4: SQLiteScalar,
+	) -> ArenaBoundaryRow:
+		return ArenaBoundaryRow(x1=x1, y1=y1, x2=x2, y2=y2, x3=x3, y3=y3, x4=x4, y4=y4)
+
+
 class _PathPointsTable(Table):
 	def __init__(self, name: str = "path_points"):
 		super().__init__(name, ["x", "y", "yaw"])
@@ -233,6 +252,7 @@ CONTROL_INPUTS_TABLE = _ControlInputsTable()
 PATH_FOLLOWING_TABLE = _PathFollowingTable()
 YAW_OFFSET_TABLE = _YawOffsetTable()
 HOME_POSITION_TABLE = _HomePositionTable()
+ARENA_BOUNDARY_TABLE = _ArenaBoundaryTable()
 PATH_POINTS_TABLE = _PathPointsTable()
 
 
@@ -316,6 +336,17 @@ class HomePositionRow(TypedDict):
 	x: SQLiteScalar
 	y: SQLiteScalar
 	yaw: SQLiteScalar
+
+
+class ArenaBoundaryRow(TypedDict):
+	x1: SQLiteScalar
+	y1: SQLiteScalar
+	x2: SQLiteScalar
+	y2: SQLiteScalar
+	x3: SQLiteScalar
+	y3: SQLiteScalar
+	x4: SQLiteScalar
+	y4: SQLiteScalar
 
 
 class PathPointRow(TypedDict):

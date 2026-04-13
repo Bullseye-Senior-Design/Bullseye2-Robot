@@ -5,6 +5,7 @@ from pathlib import Path
 from dataclasses import dataclass
 from typing import Optional
 
+from helpers.dbConstants import HOME_POSITION_TABLE
 from helpers.sqllib import SQLiteFileManager
 
 logger = logging.getLogger(__name__)
@@ -21,9 +22,6 @@ class HomePosition:
 class HomePositionManager:
     """Manages robot home position storage and retrieval using SQLite."""
     
-    FIELDNAMES = ['x', 'y', 'yaw']
-    TABLE_NAME = 'home_position'
-    
     def __init__(self, db_dir: Path):
         """
         Initialize the HomePositionManager.
@@ -33,7 +31,6 @@ class HomePositionManager:
         """
         self.db_dir = Path(db_dir)
         self.db_dir.mkdir(parents=True, exist_ok=True)
-        self.table_key = str(self.db_dir / self.TABLE_NAME)
     
     def set_home_position(self, x: float, y: float, yaw: float) -> bool:
         """
@@ -49,12 +46,8 @@ class HomePositionManager:
         """
         db_manager = SQLiteFileManager()
         try:
-            home_data = {
-                'x': str(x),
-                'y': str(y),
-                'yaw': str(yaw)
-            }
-            success = db_manager.overwrite_with_row(self.table_key, self.FIELDNAMES, home_data)
+            home_data = HOME_POSITION_TABLE.build_row(x=x, y=y, yaw=yaw)
+            success = db_manager.overwrite_with_row(HOME_POSITION_TABLE, home_data)
             
             if success:
                 logger.info(f"Home position set to ({x}, {y}, {yaw})")
@@ -77,7 +70,7 @@ class HomePositionManager:
         """
         db_manager = SQLiteFileManager()
         try:
-            row = db_manager.read_last_row(self.table_key)
+            row = db_manager.read_last_row(HOME_POSITION_TABLE)
             
             if row is None:
                 logger.warning("No home position set")
