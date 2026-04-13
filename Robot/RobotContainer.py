@@ -33,6 +33,7 @@ from Robot.Commands.TestingFollowPathCmd import TestingFollowPathCmd
 from Comms.PiCommThread import PiCommThread
 from Robot.Commands.ParkingCmd import ParkingCmd
 from Robot.Commands.DriveHomeCmd import DriveHomeCmd
+from Robot.Commands.FollowPathCmd import FollowPathCmd
 
 logger = logging.getLogger(f"{__name__}.RobotContainer")
 logger.setLevel(logging.INFO)  # Set to DEBUG for detailed output
@@ -87,7 +88,8 @@ class RobotContainer:
         
     def start_path_following(self):
         logger.info("Starting path following mode")
-        TestingFollowPathCmd(self.drive_train, self.path_following).schedule()
+        # TestingFollowPathCmd(self.drive_train, self.path_following).schedule()
+        FollowPathCmd(self.drive_train, self.path_following).schedule()
 
     def start_teleop(self):
         logger.info("Starting teleop control")
@@ -105,7 +107,7 @@ class RobotContainer:
                             lambda: self.comm_thread.get_controller_data().left_y, 
                             lambda: self.comm_thread.get_controller_data().right_x)
         )
-
+    
     def start_path_creation(self):
         logger.info("Starting path creation mode")
 

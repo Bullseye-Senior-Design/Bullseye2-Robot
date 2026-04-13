@@ -78,8 +78,8 @@ def main():
             # Add a small delay to prevent high CPU usage
             time.sleep(0.01)
     
-    except KeyboardInterrupt:
-        print("Shutting down robot...")
+    except Exception as e:
+        print(f"An error occurred: {e}")
         robot.shutdown()
         
 

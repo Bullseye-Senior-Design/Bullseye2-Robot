@@ -35,7 +35,7 @@ class Robot:
         pass
 
     def return_to_home_init(self):
-        pass
+        self.robot_container.start_parking()
 
     def return_to_home_periodic(self):
         pass

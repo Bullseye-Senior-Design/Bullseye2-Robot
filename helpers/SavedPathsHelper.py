@@ -56,60 +56,6 @@ class SavedPathsHelper:
         finally:
             self.db_manager.close_all()
 
-    def get_all_saved_paths(self) -> List[int]:
-        """Get all saved path IDs from the database.
-        
-        Returns:
-            List of numeric path IDs
-        """
-        try:
-            path_ids = []
-            self.db_manager.setup_file(PathPointsTable())
-            
-            # Query the database for all numeric table keys
-            all_tables = self.db_manager.get_all_table_names()
-            for table_name in all_tables:
-                try:
-                    # Try to convert to int - valid path IDs are numeric
-                    path_id = int(table_name)
-                    path_ids.append(path_id)
-                except (ValueError, TypeError):
-                    # Skip non-numeric table names
-                    pass
-            
-            path_ids.sort()
-            logger.info(f"Found {len(path_ids)} saved paths: {path_ids}")
-            return path_ids
-            
-        except Exception as e:
-            logger.error(f"Error retrieving saved paths: {e}")
-            return []
-        finally:
-            self.db_manager.close_all()
-
-    def delete_path(self, path_id: int) -> bool:
-        """Delete a saved path from the database.
-        
-        Args:
-            path_id: The numeric ID of the path to delete
-            
-        Returns:
-            True if deletion was successful, False otherwise
-        """
-        try:
-            path_table = PathPointsTable(name=str(path_id))
-            self.db_manager.setup_file(path_table)
-            
-            self.db_manager.delete_table(path_table)
-            logger.info(f"Successfully deleted path {path_id}")
-            return True
-            
-        except Exception as e:
-            logger.error(f"Error deleting path {path_id}: {e}")
-            return False
-        finally:
-            self.db_manager.close_all()
-
     def get_path_metadata(self, path_id: int) -> Optional[dict]:
         """Get metadata about a saved path (point count, bounds, etc.).
         

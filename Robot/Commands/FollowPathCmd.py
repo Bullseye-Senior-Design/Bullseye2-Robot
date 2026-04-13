@@ -49,17 +49,22 @@ class FollowPathCmd(Command):
 
         
         # Load the path data
-        self.path_data = self.path_helper.load_path_by_id(self.path_id)
-        if self.path_data is None:
+        raw_path_data = self.path_helper.load_path_by_id(self.path_id)
+
+        if raw_path_data is None:
             logger.warning(f"Failed to load path {self.path_id}, using empty path")
-            self.path_data = []
+            self.path_data = np.empty((0, 3), dtype=float)
         else:
+            self.path_data = np.array(raw_path_data, dtype=float)
             logger.info(f"Loaded path {self.path_id} with {len(self.path_data)} points")
         
         self._last_update_time = 0.0
         
     def initialize(self):
         """Start path following."""
+        self.path_following.set_path(self.path_data)
+        self.path_following.set_nominal_speed(self.path_speed)
+        
         self.path_following.start_path_following()
         self._last_update_time = time.time()
         logger.info("FollowPathCmd: Path following initialized")
