@@ -65,8 +65,6 @@ class LogDataCmd(Command):
                     shutil.rmtree(folder)
         
     def initialize(self):
-        # Clean up old log folders (older than 2 days)
-        self._delete_old_folders(Constants.logs_directory, max_age_days=2)
         
         # record when logging begins and create a timestamped folder to hold all logs
         self.begin_timestamp = time.time()

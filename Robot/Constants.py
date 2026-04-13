@@ -88,10 +88,15 @@ class Constants:
     bms_update_interval = 0.05 # seconds between reads
     bms_serial_port = "/dev/ttyUSB0"
 
-    # Path creation constants
+    # Path Creation Constants
     path_creation_update_interval = 0.1  # seconds between path point captures
+    # Log creation constants (mostly usless now)
     logs_directory = Path.cwd() / "logs" # not important
     path_file_directory = logs_directory / "paths"
     records_directory = Path.cwd() / "records"
     references_directory = Path.cwd() / "references" # not important
+    
+    # Home Position Constants
+    distance_to_home_threshold = 0.3  # meters, how close we need to be to consider ourselves "at home"
+    difference_in_heading_to_home_threshold = math.radians(15)  # radians, how close our heading needs to be to consider ourselves "at home"
 
