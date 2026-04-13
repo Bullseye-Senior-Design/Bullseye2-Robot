@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Any, Iterable, Mapping
 
 from helpers.dbConstants import (
-    _PathPointsTable,
+    PathPointsTable,
     PATH_POINTS_TABLE,
     Table,
 )
@@ -263,7 +263,7 @@ class SQLiteFileManager:
             return 0, str(Path(directory) / "0")
 
     def load_path_points_by_id(self, directory: str | Path, path_id: int) -> list[dict[str, str]]:
-        table = _PathPointsTable(name=str(path_id))
+        table = PathPointsTable(name=str(path_id))
         return self.read_rows(table)
 
     def close_all(self):
