@@ -22,16 +22,6 @@ class HomePosition:
 class HomePositionManager:
     """Manages robot home position storage and retrieval using SQLite."""
     
-    def __init__(self, db_dir: Path):
-        """
-        Initialize the HomePositionManager.
-        
-        Args:
-            db_dir: Directory where robot_data.db will be stored
-        """
-        self.db_dir = Path(db_dir)
-        self.db_dir.mkdir(parents=True, exist_ok=True)
-    
     def set_home_position(self, x: float, y: float, yaw: float) -> bool:
         """
         Set the robot's home position. Overwrites any previous home position.

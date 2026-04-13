@@ -36,16 +36,6 @@ class ArenaBoundary:
 class ArenaBoundaryManager:
     """Manages arena boundary storage and retrieval using SQLite."""
     
-    def __init__(self, db_dir: Path):
-        """
-        Initialize the ArenaBoundaryManager.
-        
-        Args:
-            db_dir: Directory where robot_data.db will be stored
-        """
-        self.db_dir = Path(db_dir)
-        self.db_dir.mkdir(parents=True, exist_ok=True)
-    
     def set_arena_boundary(self, corners: list[tuple[float, float]]) -> bool:
         """
         Set the arena boundary. Overwrites any previous boundary.

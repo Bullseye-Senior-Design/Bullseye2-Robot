@@ -15,7 +15,7 @@ class RecordHomeCmd(Command):
         self._db = SQLiteFileManager()
         self._home_position_key = HOME_POSITION_TABLE
         self._write_succeeded = False
-        
+    
     def initialize(self):
         current_state = self._kalman_estimator.get_state()
         row = HOME_POSITION_TABLE.build_row(
