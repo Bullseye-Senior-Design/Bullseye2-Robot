@@ -137,7 +137,7 @@ class SQLiteFileManager:
     """Manager for multiple SQLite tables with automatic setup and cleanup."""
 
     def __init__(self):
-        self.files: dict[str, tuple[sqlite3.Connection, Table]] = {}
+        self.files: dict[str, tuple[sqlite3.Connection, Table, str]] = {}
 
     def setup_file(
         self,
@@ -147,13 +147,13 @@ class SQLiteFileManager:
         try:
             key = table.name
             if key in self.files and replace_existing:
-                old_conn, _ = self.files.pop(key)
+                old_conn, _, _ = self.files.pop(key)
                 old_conn.close()
 
             if key not in self.files:
                 conn, table_name, _ = _setup_table(table, replace_existing=replace_existing)
-                self.files[key] = (conn, table)
-            return self.files[key][0], self.files[key][1].name
+                self.files[key] = (conn, table, table_name)
+            return self.files[key][0], self.files[key][2]
         except Exception as e:
             print(f"Error setting up SQLite table for {table.name}: {e}")
             raise
@@ -164,8 +164,8 @@ class SQLiteFileManager:
             print(f"Table {table.name} not managed. Call setup_file() first.")
             return False
         try:
-            conn, managed_table = self.files[key]
-            return _insert_row(conn, managed_table.name, managed_table.columns, row)
+            conn, managed_table, table_name = self.files[key]
+            return _insert_row(conn, table_name, managed_table.columns, row)
         except Exception as e:
             print(f"Error writing SQLite row for {table.name}: {e}")
             return False
@@ -176,8 +176,8 @@ class SQLiteFileManager:
             print(f"Table {table.name} not managed. Call setup_file() first.")
             return False
         try:
-            conn, managed_table = self.files[key]
-            return _insert_rows(conn, managed_table.name, managed_table.columns, rows)
+            conn, managed_table, table_name = self.files[key]
+            return _insert_rows(conn, table_name, managed_table.columns, rows)
         except Exception as e:
             print(f"Error bulk-writing SQLite rows for {table.name}: {e}")
             return False
@@ -267,7 +267,7 @@ class SQLiteFileManager:
         return self.read_rows(table)
 
     def close_all(self):
-        for table_name, (conn, _) in self.files.items():
+        for table_name, (conn, _, _) in self.files.items():
             try:
                 conn.close()
             except Exception as e:
@@ -278,7 +278,7 @@ class SQLiteFileManager:
         key = table.name
         if key not in self.files:
             return False
-        conn, _ = self.files.pop(key)
+        conn, _, _ = self.files.pop(key)
         try:
             conn.close()
             return True
