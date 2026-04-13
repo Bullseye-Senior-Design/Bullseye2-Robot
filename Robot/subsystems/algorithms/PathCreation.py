@@ -10,7 +10,7 @@ from structure.Subsystem import Subsystem
 from scipy.interpolate import splrep, splev
 from scipy.signal import savgol_filter
 import numpy as np
-from helpers.dbConstants import PATH_POINTS_TABLE, PathPointsTable
+from helpers.dbConstants import PathPointsTable
 from helpers.sqllib import ROBOT_DATA_DB_FILENAME, SQLiteFileManager
 
 logger = logging.getLogger(f"{__name__}.PathFollowing")
@@ -61,7 +61,7 @@ class PathCreation(Subsystem):
             db_manager.close_all()
 
         self._saved_file_path = Path.cwd() / ROBOT_DATA_DB_FILENAME
-        logger.info(f"Saved {len(self._path)} path points to SQLite table key {table_key}")
+        logger.info(f"Saved {len(self._path)} path points to SQLite table {table_key}")
 
     # Backward-compatible name for existing callers.
     def save_path_to_csv(self):
@@ -74,7 +74,7 @@ class PathCreation(Subsystem):
             currentPos.x = float(state.pos[0])  # x position in meters
             currentPos.y = float(state.pos[1])  # y position in meters
             euler = self.kf.euler  # numpy array [roll, pitch, yaw] in radians
-            currentPos.yaw = math.degrees(euler[2])
+            currentPos.yaw = float(euler[2])
             self._path.append(currentPos)
 
     def simplify_path(
@@ -134,9 +134,10 @@ class PathCreation(Subsystem):
         )
         
         self._path = smoothed
+        smoothed_count = len(smoothed)
         logger.info(
             f"Input points: {original_count}; Grouped points: {len(points)}; "
-            f"Smoothed points: {len(points)};"
+            f"Smoothed points: {smoothed_count};"
         )
         self.save_path_to_db()
 
