@@ -234,7 +234,7 @@ class _ArenaBoundaryTable(Table):
 		return ArenaBoundaryRow(x1=x1, y1=y1, x2=x2, y2=y2, x3=x3, y3=y3, x4=x4, y4=y4)
 
 
-class _PathPointsTable(Table):
+class PathPointsTable(Table):
 	def __init__(self, name: str = "path_points"):
 		super().__init__(name, ["x", "y", "yaw"])
 
@@ -253,7 +253,7 @@ PATH_FOLLOWING_TABLE = _PathFollowingTable()
 YAW_OFFSET_TABLE = _YawOffsetTable()
 HOME_POSITION_TABLE = _HomePositionTable()
 ARENA_BOUNDARY_TABLE = _ArenaBoundaryTable()
-PATH_POINTS_TABLE = _PathPointsTable()
+PATH_POINTS_TABLE = PathPointsTable()
 
 
 class IMUOrientationRow(TypedDict):

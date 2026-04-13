@@ -10,7 +10,7 @@ from structure.Subsystem import Subsystem
 from scipy.interpolate import splrep, splev
 from scipy.signal import savgol_filter
 import numpy as np
-from helpers.dbConstants import PATH_POINTS_TABLE, _PathPointsTable
+from helpers.dbConstants import PATH_POINTS_TABLE, PathPointsTable
 from helpers.sqllib import ROBOT_DATA_DB_FILENAME, SQLiteFileManager
 
 logger = logging.getLogger(f"{__name__}.PathFollowing")
@@ -53,7 +53,7 @@ class PathCreation(Subsystem):
         try:
             next_number, table_key = db_manager.next_numeric_table_key(self.logs_dir)
             self.current_path_number = next_number
-            path_table = _PathPointsTable(name=str(next_number))
+            path_table = PathPointsTable(name=str(next_number))
             db_manager.setup_file(path_table)
             rows = [path_table.build_row(point.x, point.y, point.yaw) for point in self._path]
             db_manager.write_rows(path_table, rows)
