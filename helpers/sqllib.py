@@ -7,7 +7,15 @@ from __future__ import annotations
 
 import sqlite3
 from pathlib import Path
-from typing import Any, Dict, Iterable
+from typing import Any, Iterable, Mapping
+
+from helpers.dbConstants import (
+    _PathPointsTable,
+    PATH_POINTS_TABLE,
+    Table,
+)
+
+ROBOT_DATA_DB_FILENAME = "robot_data.db"
 
 
 def _sanitize_identifier(name: str) -> str:
@@ -23,16 +31,23 @@ def _table_name_from_key(filepath: str) -> str:
     return _sanitize_identifier(Path(filepath).stem)
 
 
+def _table_from_key(filepath: str, columns: list[str] | None = None) -> Table:
+    return Table(name=_table_name_from_key(filepath), columns=list(columns or []))
+
+
+def _database_path() -> Path:
+    return Path.cwd() / ROBOT_DATA_DB_FILENAME
+
+
 def _db_path_from_key(filepath: str) -> Path:
-    key_path = Path(filepath)
-    return key_path.parent / "robot_data.db"
+    return _database_path()
 
 
 def _list_numeric_table_ids(directory: str | Path, include_legacy_csv: bool = True) -> list[int]:
     base_dir = Path(directory)
     ids: list[int] = []
 
-    db_path = base_dir / "robot_data.db"
+    db_path = _database_path()
     if db_path.exists():
         conn = sqlite3.connect(str(db_path))
         try:
@@ -63,32 +78,39 @@ def _next_numeric_table_key(directory: str | Path, include_legacy_csv: bool = Tr
     return next_id, str(base_dir / f"{next_id}")
 
 
-def _ensure_table(conn: sqlite3.Connection, table_name: str, fieldnames: list[str]) -> None:
-    cols = [f'"{_sanitize_identifier(field)}" TEXT' for field in fieldnames]
+def _ensure_table(conn: sqlite3.Connection, table_name: str, columns: list[str]) -> None:
+    cols = [f'"{_sanitize_identifier(field)}" TEXT' for field in columns]
     sql = f'CREATE TABLE IF NOT EXISTS "{table_name}" ({", ".join(cols)})'
     conn.execute(sql)
     conn.commit()
 
 
-def _setup_table(filepath: str, fieldnames: list[str]) -> tuple[sqlite3.Connection, str, bool]:
-    db_path = _db_path_from_key(filepath)
+def _setup_table(
+    table: Table,
+    replace_existing: bool = False,
+) -> tuple[sqlite3.Connection, str, bool]:
+    db_path = _db_path_from_key(table.name)
     db_path.parent.mkdir(parents=True, exist_ok=True)
-    table_name = _table_name_from_key(filepath)
+    table_name = _sanitize_identifier(table.name)
 
     conn = sqlite3.connect(str(db_path))
     exists = conn.execute(
         "SELECT 1 FROM sqlite_master WHERE type='table' AND name=?",
         (table_name,),
     ).fetchone()
-    _ensure_table(conn, table_name, fieldnames)
+    if replace_existing and exists:
+        conn.execute(f'DROP TABLE IF EXISTS "{table_name}"')
+        conn.commit()
+        exists = None
+    _ensure_table(conn, table_name, table.columns)
     return conn, table_name, exists is None
 
 
-def _insert_row(conn: sqlite3.Connection, table_name: str, fieldnames: list[str], row: Dict[str, Any]) -> bool:
-    columns = [f'"{_sanitize_identifier(field)}"' for field in fieldnames]
-    placeholders = ", ".join("?" for _ in fieldnames)
-    values = [row.get(field, "") for field in fieldnames]
-    sql = f'INSERT INTO "{table_name}" ({", ".join(columns)}) VALUES ({placeholders})'
+def _insert_row(conn: sqlite3.Connection, table_name: str, columns: list[str], row: Mapping[str, Any]) -> bool:
+    sanitized_columns = [f'"{_sanitize_identifier(field)}"' for field in columns]
+    placeholders = ", ".join("?" for _ in columns)
+    values = [row.get(field, "") for field in columns]
+    sql = f'INSERT INTO "{table_name}" ({", ".join(sanitized_columns)}) VALUES ({placeholders})'
     conn.execute(sql, values)
     conn.commit()
     return True
@@ -97,13 +119,13 @@ def _insert_row(conn: sqlite3.Connection, table_name: str, fieldnames: list[str]
 def _insert_rows(
     conn: sqlite3.Connection,
     table_name: str,
-    fieldnames: list[str],
-    rows: Iterable[Dict[str, Any]],
+    columns: list[str],
+    rows: Iterable[Mapping[str, Any]],
 ) -> bool:
-    columns = [f'"{_sanitize_identifier(field)}"' for field in fieldnames]
-    placeholders = ", ".join("?" for _ in fieldnames)
-    sql = f'INSERT INTO "{table_name}" ({", ".join(columns)}) VALUES ({placeholders})'
-    values = [[row.get(field, "") for field in fieldnames] for row in rows]
+    sanitized_columns = [f'"{_sanitize_identifier(field)}"' for field in columns]
+    placeholders = ", ".join("?" for _ in columns)
+    sql = f'INSERT INTO "{table_name}" ({", ".join(sanitized_columns)}) VALUES ({placeholders})'
+    values = [[row.get(field, "") for field in columns] for row in rows]
     if not values:
         return True
     conn.executemany(sql, values)
@@ -115,60 +137,71 @@ class SQLiteFileManager:
     """Manager for multiple SQLite tables with automatic setup and cleanup."""
 
     def __init__(self):
-        self.files: dict[str, tuple[sqlite3.Connection, str, list[str]]] = {}
+        self.files: dict[str, tuple[sqlite3.Connection, Table]] = {}
 
-    def setup_file(self, filepath: str, fieldnames: list[str]) -> tuple[sqlite3.Connection, str]:
+    def setup_file(
+        self,
+        table: Table,
+        replace_existing: bool = False,
+    ) -> tuple[sqlite3.Connection, str]:
         try:
-            if filepath not in self.files:
-                conn, table_name, _ = _setup_table(filepath, list(fieldnames))
-                self.files[filepath] = (conn, table_name, list(fieldnames))
-            return self.files[filepath][0], self.files[filepath][1]
+            key = table.name
+            if key in self.files and replace_existing:
+                old_conn, _ = self.files.pop(key)
+                old_conn.close()
+
+            if key not in self.files:
+                conn, table_name, _ = _setup_table(table, replace_existing=replace_existing)
+                self.files[key] = (conn, table)
+            return self.files[key][0], self.files[key][1].name
         except Exception as e:
-            print(f"Error setting up SQLite table for {filepath}: {e}")
+            print(f"Error setting up SQLite table for {table.name}: {e}")
             raise
 
-    def write_row(self, filepath: str, row: Dict[str, Any]) -> bool:
-        if filepath not in self.files:
-            print(f"File key {filepath} not managed. Call setup_file() first.")
+    def write_row(self, table: Table, row: Mapping[str, Any]) -> bool:
+        key = table.name
+        if key not in self.files:
+            print(f"Table {table.name} not managed. Call setup_file() first.")
             return False
         try:
-            conn, table_name, fieldnames = self.files[filepath]
-            return _insert_row(conn, table_name, fieldnames, row)
+            conn, managed_table = self.files[key]
+            return _insert_row(conn, managed_table.name, managed_table.columns, row)
         except Exception as e:
-            print(f"Error writing SQLite row for {filepath}: {e}")
+            print(f"Error writing SQLite row for {table.name}: {e}")
             return False
 
-    def write_rows(self, filepath: str, rows: Iterable[Dict[str, Any]]) -> bool:
-        if filepath not in self.files:
-            print(f"File key {filepath} not managed. Call setup_file() first.")
+    def write_rows(self, table: Table, rows: Iterable[Mapping[str, Any]]) -> bool:
+        key = table.name
+        if key not in self.files:
+            print(f"Table {table.name} not managed. Call setup_file() first.")
             return False
         try:
-            conn, table_name, fieldnames = self.files[filepath]
-            return _insert_rows(conn, table_name, fieldnames, rows)
+            conn, managed_table = self.files[key]
+            return _insert_rows(conn, managed_table.name, managed_table.columns, rows)
         except Exception as e:
-            print(f"Error bulk-writing SQLite rows for {filepath}: {e}")
+            print(f"Error bulk-writing SQLite rows for {table.name}: {e}")
             return False
 
-    def overwrite_with_row(self, filepath: str, fieldnames: list[str], row: Dict[str, Any]) -> bool:
+    def overwrite_with_row(self, table: Table, row: Mapping[str, Any]) -> bool:
         try:
-            conn, table_name, _ = _setup_table(filepath, list(fieldnames))
+            conn, table_name, _ = _setup_table(table)
             try:
                 conn.execute(f'DELETE FROM "{table_name}"')
                 conn.commit()
-                return _insert_row(conn, table_name, list(fieldnames), row)
+                return _insert_row(conn, table_name, table.columns, row)
             finally:
                 conn.close()
         except Exception as e:
-            print(f"Error overwriting SQLite table for {filepath}: {e}")
+            print(f"Error overwriting SQLite table for {table.name}: {e}")
             return False
 
-    def read_last_row(self, filepath: str) -> dict[str, str] | None:
+    def read_last_row(self, table: Table) -> dict[str, str] | None:
         try:
-            db_path = _db_path_from_key(filepath)
+            db_path = _db_path_from_key(table.name)
             if not db_path.exists():
                 return None
 
-            table_name = _table_name_from_key(filepath)
+            table_name = _sanitize_identifier(table.name)
             conn = sqlite3.connect(str(db_path))
             conn.row_factory = sqlite3.Row
             try:
@@ -188,16 +221,16 @@ class SQLiteFileManager:
             finally:
                 conn.close()
         except Exception as e:
-            print(f"Error reading last SQLite row from {filepath}: {e}")
+            print(f"Error reading last SQLite row from {table.name}: {e}")
             return None
 
-    def read_rows(self, filepath: str, limit: int | None = None) -> list[dict[str, str]]:
+    def read_rows(self, table: Table, limit: int | None = None) -> list[dict[str, str]]:
         try:
-            db_path = _db_path_from_key(filepath)
+            db_path = _db_path_from_key(table.name)
             if not db_path.exists():
                 return []
 
-            table_name = _table_name_from_key(filepath)
+            table_name = _sanitize_identifier(table.name)
             conn = sqlite3.connect(str(db_path))
             conn.row_factory = sqlite3.Row
             try:
@@ -219,7 +252,7 @@ class SQLiteFileManager:
             finally:
                 conn.close()
         except Exception as e:
-            print(f"Error reading SQLite rows from {filepath}: {e}")
+            print(f"Error reading SQLite rows from {table.name}: {e}")
             return []
 
     def next_numeric_table_key(self, directory: str | Path, include_legacy_csv: bool = True) -> tuple[int, str]:
@@ -230,24 +263,25 @@ class SQLiteFileManager:
             return 0, str(Path(directory) / "0")
 
     def load_path_points_by_id(self, directory: str | Path, path_id: int) -> list[dict[str, str]]:
-        table_key = str(Path(directory) / str(path_id))
-        return self.read_rows(table_key)
+        table = _PathPointsTable(name=str(path_id))
+        return self.read_rows(table)
 
     def close_all(self):
-        for filepath, (conn, _, _) in self.files.items():
+        for table_name, (conn, _) in self.files.items():
             try:
                 conn.close()
             except Exception as e:
-                print(f"Warning: Failed to close managed db for {filepath}: {e}")
+                print(f"Warning: Failed to close managed db for {table_name}: {e}")
         self.files.clear()
 
-    def close_file(self, filepath: str) -> bool:
-        if filepath not in self.files:
+    def close_file(self, table: Table) -> bool:
+        key = table.name
+        if key not in self.files:
             return False
-        conn, _, _ = self.files.pop(filepath)
+        conn, _ = self.files.pop(key)
         try:
             conn.close()
             return True
         except Exception as e:
-            print(f"Error closing SQLite connection for {filepath}: {e}")
+            print(f"Error closing SQLite connection for {table.name}: {e}")
             return False

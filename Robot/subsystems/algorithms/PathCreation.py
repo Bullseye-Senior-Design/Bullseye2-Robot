@@ -1,5 +1,6 @@
 import logging
 import math
+from pathlib import Path
 
 from dataclasses import dataclass
 
@@ -9,7 +10,8 @@ from structure.Subsystem import Subsystem
 from scipy.interpolate import splrep, splev
 from scipy.signal import savgol_filter
 import numpy as np
-from helpers.sqllib import SQLiteFileManager
+from helpers.dbConstants import PATH_POINTS_TABLE, _PathPointsTable
+from helpers.sqllib import ROBOT_DATA_DB_FILENAME, SQLiteFileManager
 
 logger = logging.getLogger(f"{__name__}.PathFollowing")
 logger.setLevel(logging.INFO)
@@ -21,8 +23,6 @@ class DataPoint:
     yaw: float
 
 class PathCreation(Subsystem):
-    PATH_FIELDNAMES = ['x', 'y', 'yaw']
-
     def __init__(self):
         super().__init__()
         self.kf = KalmanStateEstimator()
@@ -53,13 +53,14 @@ class PathCreation(Subsystem):
         try:
             next_number, table_key = db_manager.next_numeric_table_key(self.logs_dir)
             self.current_path_number = next_number
-            db_manager.setup_file(table_key, self.PATH_FIELDNAMES)
-            rows = [{'x': point.x, 'y': point.y, 'yaw': point.yaw} for point in self._path]
-            db_manager.write_rows(table_key, rows)
+            path_table = _PathPointsTable(name=str(next_number))
+            db_manager.setup_file(path_table)
+            rows = [path_table.build_row(point.x, point.y, point.yaw) for point in self._path]
+            db_manager.write_rows(path_table, rows)
         finally:
             db_manager.close_all()
 
-        self._saved_file_path = self.logs_dir / "robot_data.db"
+        self._saved_file_path = Path.cwd() / ROBOT_DATA_DB_FILENAME
         logger.info(f"Saved {len(self._path)} path points to SQLite table key {table_key}")
 
     # Backward-compatible name for existing callers.

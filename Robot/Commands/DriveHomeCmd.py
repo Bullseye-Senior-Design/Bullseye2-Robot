@@ -3,8 +3,8 @@ from Robot.subsystems.DriveTrain import DriveTrain
 from Robot.subsystems.algorithms.PathFollowing import PathFollowing
 from Robot.subsystems.algorithms.KalmanStateEstimator import KalmanStateEstimator
 import logging
-from Robot.Constants import Constants
 
+from helpers.dbConstants import HOME_POSITION_TABLE
 from helpers.sqllib import SQLiteFileManager
 
 
@@ -17,12 +17,12 @@ class DriveHomeCmd(Command):
         self._path_following = path_following
         self._kalman_estimator = KalmanStateEstimator()
         self._db = SQLiteFileManager()
-        self._home_position_key = Constants.records_directory / "home_position"
+        self._home_position_key = HOME_POSITION_TABLE
         self.add_requirement(drive_train)
         self.add_requirement(path_following)
 
     def _read_home_position(self) -> list[float] | None:
-        row = self._db.read_last_row(str(self._home_position_key))
+        row = self._db.read_last_row(self._home_position_key)
         if row is None:
             logger.warning(f"DriveHomeCmd: home position row not found in SQLite key {self._home_position_key}")
             return None

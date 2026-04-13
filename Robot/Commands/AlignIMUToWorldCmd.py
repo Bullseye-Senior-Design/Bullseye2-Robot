@@ -3,8 +3,8 @@ import time
 import math
 import numpy as np
 from collections import deque
+from helpers.dbConstants import YAW_OFFSET_TABLE
 from helpers.sqllib import SQLiteFileManager
-from Robot.Constants import Constants
 from Robot.subsystems.sensors.IMU import IMU
 from Robot.subsystems.sensors.UWB import UWB
 import logging
@@ -47,28 +47,19 @@ class AlignIMUToWorldCmd(Command):
         self.residuals_window = deque(maxlen=100)
         self._last_db_log_time: float | None = None
 
-        self._yaw_offset_dir = Constants.records_directory
-        self._yaw_offset_key = self._yaw_offset_dir / "yaw_offset"
-        self._yaw_offset_fieldnames = ["timestamp", "source", "yaw_offset_deg", "yaw_offset_rad"]
+        self._yaw_offset_table = YAW_OFFSET_TABLE
 
     def _read_last_logged_yaw_offset_deg(self) -> float | None:
-        row = self._db.read_last_row(str(self._yaw_offset_key))
+        row = self._db.read_last_row(self._yaw_offset_table)
         if row is None:
             return None
         return float(row["yaw_offset_deg"])
     
     def _record_yaw_offset_db(self, timestamp: float, source: str):
-        self._yaw_offset_dir.mkdir(parents=True, exist_ok=True)
-        row = {
-            "timestamp": timestamp,
-            "source": source,
-            "yaw_offset_deg": math.degrees(self._bias),
-            "yaw_offset_rad": self._bias,
-        }
+        row = YAW_OFFSET_TABLE.build_row(timestamp, source, math.degrees(self._bias), self._bias)
 
         ok = self._db.overwrite_with_row(
-            filepath=str(self._yaw_offset_key),
-            fieldnames=self._yaw_offset_fieldnames,
+            table=self._yaw_offset_table,
             row=row,
         )
         if not ok:

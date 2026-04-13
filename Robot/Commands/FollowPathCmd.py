@@ -6,6 +6,7 @@ from Robot.subsystems.algorithms.KalmanStateEstimator import KalmanStateEstimato
 from Robot.subsystems.DriveTrain import DriveTrain
 import logging
 from Robot.Constants import Constants
+from helpers.dbConstants import PATH_POINTS_TABLE
 from helpers.sqllib import SQLiteFileManager
 from Comms.PiCommThread import PiCommThread
 
@@ -115,24 +116,16 @@ class FollowPathCmd(Command):
         
         # Generate timestamped table key
         ts_str = time.strftime('%Y%m%d_%H%M%S', time.localtime())
-        reference_file = references_dir / f'reference_{ts_str}'
         
         # Setup manager and write path data
         db_manager = SQLiteFileManager()
-        fieldnames = ['x', 'y', 'yaw']
-        db_manager.setup_file(str(reference_file), fieldnames)
+        reference_table = PATH_POINTS_TABLE
+        db_manager.setup_file(reference_table, replace_existing=True)
 
-        rows = [
-            {
-                'x': row_data[0],
-                'y': row_data[1],
-                'yaw': row_data[2],
-            }
-            for row_data in self.path_matrix
-        ]
-        db_manager.write_rows(str(reference_file), rows)
+        rows = [reference_table.build_row(row_data[0], row_data[1], row_data[2]) for row_data in self.path_matrix]
+        db_manager.write_rows(reference_table, rows)
         db_manager.close_all()
-        logger.info(f"Reference path saved to SQLite key: {reference_file}")
+        logger.info(f"Reference path saved to SQLite key: {PATH_POINTS_TABLE.name}")
 
     def is_finished(self):
         """Command runs until cancelled."""

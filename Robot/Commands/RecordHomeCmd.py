@@ -1,8 +1,8 @@
 from structure.commands.Command import Command
 import logging
 
+from helpers.dbConstants import HOME_POSITION_TABLE
 from helpers.sqllib import SQLiteFileManager
-from Robot.Constants import Constants
 from Robot.subsystems.algorithms.KalmanStateEstimator import KalmanStateEstimator
 
 
@@ -13,20 +13,18 @@ class RecordHomeCmd(Command):
         super().__init__()
         self._kalman_estimator = KalmanStateEstimator()
         self._db = SQLiteFileManager()
-        self._home_position_key = Constants.records_directory / "home_position"
-        self._fieldnames = ["x", "y", "yaw"]
+        self._home_position_key = HOME_POSITION_TABLE
         self._write_succeeded = False
         
     def initialize(self):
         current_state = self._kalman_estimator.get_state()
-        row = {
-            "x": float(current_state.pos[0]),
-            "y": float(current_state.pos[1]),
-            "yaw": float(self._kalman_estimator.euler[2]),
-        }
+        row = HOME_POSITION_TABLE.build_row(
+            float(current_state.pos[0]),
+            float(current_state.pos[1]),
+            float(self._kalman_estimator.euler[2]),
+        )
         self._write_succeeded = self._db.overwrite_with_row(
-            filepath=str(self._home_position_key),
-            fieldnames=self._fieldnames,
+            table=self._home_position_key,
             row=row,
         )
         if not self._write_succeeded:
