@@ -5,7 +5,7 @@ from Robot.subsystems.algorithms.KalmanStateEstimator import KalmanStateEstimato
 import logging
 from Robot.Constants import Constants
 
-from Robot.Commands.helpers.sqllib import SQLiteFileManager
+from helpers.sqllib import SQLiteFileManager
 
 logger = logging.getLogger(f"{__name__}.ParkingCmd")
 

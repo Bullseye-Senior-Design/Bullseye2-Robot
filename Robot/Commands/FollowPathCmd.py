@@ -6,7 +6,7 @@ from Robot.subsystems.algorithms.KalmanStateEstimator import KalmanStateEstimato
 from Robot.subsystems.DriveTrain import DriveTrain
 import logging
 from Robot.Constants import Constants
-from Robot.Commands.helpers.sqllib import SQLiteFileManager
+from helpers.sqllib import SQLiteFileManager
 from Comms.PiCommThread import PiCommThread
 
 
