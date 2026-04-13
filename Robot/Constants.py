@@ -97,6 +97,6 @@ class Constants:
     references_directory = Path.cwd() / "references" # not important
     
     # Home Position Constants
-    distance_to_home_threshold = 0.3  # meters, how close we need to be to consider ourselves "at home"
+    distance_to_home_threshold = 1.5  # meters, how close we need to be to consider ourselves "at home"
     difference_in_heading_to_home_threshold = math.radians(15)  # radians, how close our heading needs to be to consider ourselves "at home"
 
