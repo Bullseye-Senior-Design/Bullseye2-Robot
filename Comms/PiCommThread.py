@@ -30,6 +30,8 @@ from Comms.Models.BoundaryData import BoundaryData
 from Comms.Models.PosData import PosData
 from Comms.Models.HomeCheckResult import HomeCheckResult
 from Comms.Models.KFXSpeedData import KFXSpeedData
+from Comms.Models.PingAckData import PingAckData
+from Comms.Models.KFXSpeedData import KFXSpeedData
 from Comms.KFX import KFXController
 from Robot.Constants import Constants
 from structure.RobotState import RobotState
@@ -97,6 +99,9 @@ class CommData:
         )
 
         # KFX run speed (0.0–1.0); updated by 'kfx_speed' packets from Steam Deck
+        self.kfx_speed: float = 0.5
+
+        # KFX run speed (0.0–1.0); updated by kfx_speed packet from Steam Deck
         self.kfx_speed: float = 0.5
 
         # Last received command
