@@ -1,4 +1,4 @@
-from Robot.Commands import FollowPathCmd
+from Robot.Commands.TestingFollowPathCmd import TestingFollowPathCmd
 from structure.commands.Command import Command
 from Robot.subsystems.sensors.IMU import IMU
 import numpy as np
@@ -78,7 +78,7 @@ class ZeroIMUCmd(Command):
         if interrupted and not self._applied:
             print("ZeroIMUCmd: interrupted before applying yaw offset")
         if self.schedule_followup:
-            FollowPathCmd(self.drive_train, self.path_following).schedule()
+            TestingFollowPathCmd(self.drive_train, self.path_following).schedule()
 
     def is_finished(self):
         return self._applied

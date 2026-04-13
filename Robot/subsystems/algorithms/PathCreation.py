@@ -12,6 +12,7 @@ from scipy.signal import savgol_filter
 import numpy as np
 from helpers.dbConstants import PathPointsTable
 from helpers.sqllib import ROBOT_DATA_DB_FILENAME, SQLiteFileManager
+from helpers.SavedPathsHelper import SavedPathsHelper
 
 logger = logging.getLogger(f"{__name__}.PathFollowing")
 logger.setLevel(logging.INFO)
@@ -27,6 +28,7 @@ class PathCreation(Subsystem):
         super().__init__()
         self.kf = KalmanStateEstimator()
         self.logs_dir = Constants.path_file_directory
+        self.path_helper = SavedPathsHelper()
 
     def start_path_creation(self):
         logger.info("Path creation started")
@@ -69,6 +71,50 @@ class PathCreation(Subsystem):
     # Backward-compatible name for existing callers.
     def save_path_to_csv(self):
         self.save_path_to_db()
+
+    def get_all_saved_paths(self):
+        """Get all saved path IDs from the database.
+        
+        Returns:
+            List of numeric path IDs
+        """
+        return self.path_helper.get_all_saved_paths()
+
+    def load_saved_path(self, path_id: int):
+        """Load a saved path from database by its ID.
+        
+        Args:
+            path_id: The numeric ID of the path to load
+            
+        Returns:
+            List of DataPoint objects, or empty list if not found
+        """
+        path_data = self.path_helper.load_path_by_id(path_id)
+        if path_data is None:
+            return []
+        return [DataPoint(x=x, y=y, yaw=yaw) for x, y, yaw in path_data]
+
+    def get_path_metadata(self, path_id: int):
+        """Get metadata about a saved path.
+        
+        Args:
+            path_id: The numeric ID of the path
+            
+        Returns:
+            Dictionary with metadata (point_count, bounds, etc.) or None if not found
+        """
+        return self.path_helper.get_path_metadata(path_id)
+
+    def get_path_distance(self, path_id: int):
+        """Calculate total distance for a saved path.
+        
+        Args:
+            path_id: The numeric ID of the path
+            
+        Returns:
+            Total distance in meters, or None if error
+        """
+        return self.path_helper.get_total_path_distance(path_id)
 
     def add_path_point(self):
         if self.kf.is_initialized:

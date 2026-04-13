@@ -29,7 +29,7 @@ from Robot.Commands.PlotStateCmd import PlotStateCmd
 from Robot.Commands.MotorMovementExampleCmd import MotorMovementExampleCmd
 from Robot.Commands.AlignIMUToWorldCmd import AlignIMUToWorldCmd
 from Robot.Commands.ZeroIMUCmd import ZeroIMUCmd
-from Robot.Commands.FollowPathCmd import FollowPathCmd
+from Robot.Commands.TestingFollowPathCmd import TestingFollowPathCmd
 from Comms.PiCommThread import PiCommThread
 from Robot.Commands.ParkingCmd import ParkingCmd
 from Robot.Commands.DriveHomeCmd import DriveHomeCmd
@@ -87,7 +87,7 @@ class RobotContainer:
         
     def start_path_following(self):
         logger.info("Starting path following mode")
-        FollowPathCmd(self.drive_train, self.path_following).schedule()
+        TestingFollowPathCmd(self.drive_train, self.path_following).schedule()
 
     def start_teleop(self):
         logger.info("Starting teleop control")
