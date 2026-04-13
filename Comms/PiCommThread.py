@@ -25,6 +25,8 @@ from Comms.Models.ControllerData import ControllerData
 from Comms.Models.BatteryData import BatteryData
 from Comms.Models.PathCreated import PathCreated
 from Comms.Models.StateData import State, StateData
+from Comms.Models.PingAckData import PingAckData
+from Comms.Models.KFXSpeedData import KFXSpeedData
 from Comms.KFX import KFXController
 from Robot.Constants import Constants
 from structure.RobotState import RobotState
@@ -90,6 +92,9 @@ class CommData:
             path_speed=0.0,
             path_id=0
         )
+
+        # KFX run speed (0.0–1.0); updated by kfx_speed packet from Steam Deck
+        self.kfx_speed: float = 0.5
 
         # Last received command
         self.last_command = "None"
@@ -278,6 +283,42 @@ class PiCommThread:
             new_config = json.loads(packet.json_data)
             self.kfx.update_config(new_config)
             logger.info(f"KFX config received and forwarded: {new_config}")
+
+        elif packet.type == "ping":
+            self._send_ping_ack(serial_port)
+
+        elif packet.type == "request_battery":
+            self._send_battery_now(serial_port)
+
+        elif packet.type == "kfx_speed":
+            speed_data = KFXSpeedData.model_validate_json(packet.json_data)
+            self.comm_data.kfx_speed = speed_data.speed
+            logger.info(f"KFX speed updated: {speed_data.speed:.2f}")
+            ack = DataPacket(type="kfx_speed_ack", json_data="{}").model_dump_json()
+            if serial_port and serial_port.is_open:
+                serial_port.write((ack + "\n").encode())
+
+    def _send_ping_ack(self, serial_port):
+        """Respond to a ping from the Steam Deck with current SoC."""
+        soc = self.comm_data.battery_data.state_of_charge
+        payload = PingAckData(state_of_charge=soc).model_dump_json()
+        ack = DataPacket(type="ping_ack", json_data=payload).model_dump_json()
+        if serial_port and serial_port.is_open:
+            serial_port.write((ack + "\n").encode())
+            logger.debug(f"Sent ping_ack — SOC: {soc:.1f}%")
+
+    def _send_battery_now(self, serial_port):
+        """Immediately send fresh battery data in response to a request_battery packet."""
+        try:
+            if self.bms:
+                self.comm_data.battery_data = self.bms.get_battery_data()
+            payload = self.comm_data.battery_data.model_dump_json()
+            pkt = DataPacket(type="battery", json_data=payload).model_dump_json()
+            if serial_port and serial_port.is_open:
+                serial_port.write((pkt + "\n").encode())
+                logger.debug("Sent battery data on request")
+        except Exception as e:
+            logger.error(f"Error sending battery on request: {e}")
 
     def _send_battery_data(self):
         """
