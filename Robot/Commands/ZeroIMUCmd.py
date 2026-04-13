@@ -42,19 +42,12 @@ class ZeroIMUCmd(Command):
         if self._applied:
             return
 
-        try:
-            euler = self._imu.get_angle()
-        except Exception as e:
-            print(f"ZeroIMUCmd: IMU.get_angle() exception: {e}")
-            return
+        euler = self._imu.get_angle()
 
         if not euler or len(euler) < 1:
             return
 
-        try:
-            heading_deg = float(euler[0])
-        except Exception:
-            return
+        heading_deg = float(euler[0])
 
         # store sample
         self._samples.append(heading_deg)

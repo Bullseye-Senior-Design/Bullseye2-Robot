@@ -8,6 +8,9 @@ records/
 sim_log/
 references/
 
+# ignore SQLite database files
+*.db
+
 # C extensions
 *.so
 
