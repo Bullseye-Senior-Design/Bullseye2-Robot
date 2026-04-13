@@ -18,7 +18,7 @@ from Robot.subsystems.algorithms.PathFollowing import PathFollowing
 from Robot.Constants import Constants
 
 # SQLite-backed data utilities
-from Robot.Commands.helpers.sqllib import SQLiteFileManager
+from helpers.sqllib import SQLiteFileManager
 
 class LogDataCmd(Command):
     # Table schema field names

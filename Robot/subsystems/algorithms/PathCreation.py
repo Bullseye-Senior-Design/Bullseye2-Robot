@@ -9,7 +9,7 @@ from structure.Subsystem import Subsystem
 from scipy.interpolate import splrep, splev
 from scipy.signal import savgol_filter
 import numpy as np
-from Robot.Commands.helpers.sqllib import SQLiteFileManager
+from helpers.sqllib import SQLiteFileManager
 
 logger = logging.getLogger(f"{__name__}.PathFollowing")
 logger.setLevel(logging.INFO)

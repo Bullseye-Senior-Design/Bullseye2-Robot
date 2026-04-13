@@ -1,7 +1,7 @@
 from structure.commands.Command import Command
 import logging
 
-from Robot.Commands.helpers.sqllib import SQLiteFileManager
+from helpers.sqllib import SQLiteFileManager
 from Robot.Constants import Constants
 from Robot.subsystems.algorithms.KalmanStateEstimator import KalmanStateEstimator
 
