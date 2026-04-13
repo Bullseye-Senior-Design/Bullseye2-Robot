@@ -90,8 +90,8 @@ class Constants:
 
     # Path creation constants
     path_creation_update_interval = 0.1  # seconds between path point captures
-    logs_directory = Path.cwd() / "logs"
+    logs_directory = Path.cwd() / "logs" # not important
     path_file_directory = logs_directory / "paths"
     records_directory = Path.cwd() / "records"
-    references_directory = Path.cwd() / "references"
+    references_directory = Path.cwd() / "references" # not important
 
