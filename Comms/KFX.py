@@ -65,9 +65,7 @@ _DEFAULT_CONFIG: dict[str, int | None] = {
     "6": None, "7": None, "8": None,
 }
 
-# Path speed used when the KFX triggers a route or return-home.
-# TODO: Make this configurable from the Steam Deck once the speed-per-route
-#       feature is designed. For now all KFX-triggered routes run at 50%.
+# Fallback speed used when comm_data.kfx_speed has not been set yet.
 KFX_DEFAULT_SPEED = 0.5
 
 
@@ -323,7 +321,14 @@ class KFXController:
         Mirrors the logic in PiCommThread._handle_state_change so both
         code paths (Steam Deck commands and KFX button presses) produce
         identical system behaviour.
+
+        If path_speed is None and the state is AUTONOMOUS or RETURN_TO_HOME,
+        the speed set by the last 'kfx_speed' packet from the Steam Deck is
+        used (falling back to KFX_DEFAULT_SPEED if never set).
         """
+        if path_speed is None and state in (State.AUTONOMOUS, State.RETURN_TO_HOME):
+            path_speed = getattr(self.comm_data, "kfx_speed", KFX_DEFAULT_SPEED)
+
         new_state_data = StateData(
             state=state,
             path_id=path_id,

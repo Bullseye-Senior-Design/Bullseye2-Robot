@@ -25,6 +25,13 @@ from Comms.Models.ControllerData import ControllerData
 from Comms.Models.BatteryData import BatteryData
 from Comms.Models.PathCreated import PathCreated
 from Comms.Models.StateData import State, StateData
+from Comms.Models.PingAckData import PingAckData
+from Comms.Models.BoundaryData import BoundaryData
+from Comms.Models.PosData import PosData
+from Comms.Models.HomeCheckResult import HomeCheckResult
+from Comms.Models.KFXSpeedData import KFXSpeedData
+from Comms.Models.PingAckData import PingAckData
+from Comms.Models.KFXSpeedData import KFXSpeedData
 from Comms.KFX import KFXController
 from Robot.Constants import Constants
 from structure.RobotState import RobotState
@@ -90,6 +97,12 @@ class CommData:
             path_speed=0.0,
             path_id=0
         )
+
+        # KFX run speed (0.0–1.0); updated by 'kfx_speed' packets from Steam Deck
+        self.kfx_speed: float = 0.5
+
+        # KFX run speed (0.0–1.0); updated by kfx_speed packet from Steam Deck
+        self.kfx_speed: float = 0.5
 
         # Last received command
         self.last_command = "None"
@@ -278,6 +291,133 @@ class PiCommThread:
             new_config = json.loads(packet.json_data)
             self.kfx.update_config(new_config)
             logger.info(f"KFX config received and forwarded: {new_config}")
+
+        elif packet.type == "ping":
+            # Steam Deck is checking for a connection.
+            # Respond with ping_ack including current SoC so the Deck can
+            # update its battery display on first connect.
+            self._send_ping_ack()
+
+        elif packet.type == "set_boundary":
+            # Steam Deck is sending the 4 arena corner coordinates.
+            # TODO: apply boundary to localization/path-following system.
+            boundary = BoundaryData.model_validate_json(packet.json_data)
+            logger.info(f"Boundary received: {boundary.corners}")
+            self._send_boundary_ack()
+
+        elif packet.type == "request_pos":
+            # Steam Deck is asking for the robot's current x, y, yaw.
+            # TODO: fill in actual position from the state estimator.
+            self._send_pos_data()
+
+        elif packet.type == "set_home":
+            # Steam Deck is commanding the robot to update its home position.
+            # TODO: persist home position in the robot's own storage.
+            pos = PosData.model_validate_json(packet.json_data)
+            logger.info(f"Home position set: x={pos.x}, y={pos.y}, yaw={pos.yaw}")
+            self._send_home_ack()
+
+        elif packet.type == "record_home_check":
+            # Steam Deck is asking whether the robot is currently at home.
+            # TODO: implement actual position-vs-home comparison.
+            self._send_record_home_check_result()
+
+        elif packet.type == "request_battery":
+            # Steam Deck is explicitly requesting current battery telemetry.
+            # Respond immediately with the latest cached BMS data.
+            self._send_battery_now()
+
+        elif packet.type == "kfx_speed":
+            # Steam Deck is setting the KFX run speed.
+            speed_data = KFXSpeedData.model_validate_json(packet.json_data)
+            self.comm_data.kfx_speed = speed_data.speed
+            logger.info(f"KFX speed updated to {speed_data.speed:.2f}")
+            self._send_kfx_speed_ack()
+
+        elif packet.type == "record_start":
+            # Steam Deck is starting a path recording session.
+            logger.info("record_start received — beginning path recording")
+            self._handle_state_change(State.RECORD_PATH)
+
+        elif packet.type == "record_finish":
+            # Steam Deck is finishing the path recording session.
+            # The Pi will save the path and reply with path_created.
+            logger.info("record_finish received — finishing path recording")
+            self._handle_state_change(State.DISABLED)
+
+        elif packet.type == "record_cancel":
+            # Steam Deck is cancelling an in-progress recording.
+            logger.info("record_cancel received — cancelling path recording")
+            self._handle_state_change(State.DISABLED)
+
+    def _send(self, packet: DataPacket):
+        """Write a DataPacket to the Steam Deck over serial."""
+        if self.pi_ser and self.pi_ser.is_open:
+            try:
+                self.pi_ser.write((packet.model_dump_json() + "\n").encode())
+            except Exception as e:
+                logger.error(f"Serial write failed: {e}")
+        else:
+            logger.warning(f"Cannot send {packet.type} — serial not open")
+
+    def _send_ping_ack(self):
+        """Respond to a ping with current SoC so the Deck can display it on connect."""
+        soc = self.comm_data.battery_data.state_of_charge
+        ack = PingAckData(state_of_charge=soc)
+        packet = DataPacket(type="ping_ack", json_data=ack.model_dump_json())
+        self._send(packet)
+        logger.info(f"Sent ping_ack (SoC={soc:.1f}%)")
+
+    def _send_boundary_ack(self):
+        """Acknowledge that the boundary was received and applied."""
+        packet = DataPacket(type="boundary_ack", json_data="{}")
+        self._send(packet)
+        logger.info("Sent boundary_ack")
+
+    def _send_pos_data(self):
+        """
+        Respond to request_pos with current robot position and heading.
+        TODO: replace placeholder zeros with real estimator values.
+        """
+        pos = PosData(x=0.0, y=0.0, yaw=0.0)   # TODO: fill from state estimator
+        packet = DataPacket(type="pos_data", json_data=pos.model_dump_json())
+        self._send(packet)
+        logger.info(f"Sent pos_data: {pos}")
+
+    def _send_home_ack(self):
+        """Acknowledge that the home position was received and stored."""
+        packet = DataPacket(type="home_ack", json_data="{}")
+        self._send(packet)
+        logger.info("Sent home_ack")
+
+    def _send_record_home_check_result(self):
+        """
+        Respond to record_home_check with whether the robot is at home.
+        TODO: replace placeholder True with real position comparison.
+        """
+        result = HomeCheckResult(ok=True)   # TODO: compare current pos to stored home
+        packet = DataPacket(type="record_home_check_result",
+                            json_data=result.model_dump_json())
+        self._send(packet)
+        logger.info(f"Sent record_home_check_result: ok={result.ok}")
+
+    def _send_battery_now(self):
+        """
+        Immediately send the latest battery data to the Steam Deck in response
+        to an explicit 'request_battery' packet.
+        """
+        if self.bms:
+            self.comm_data.battery_data = self.bms.get_battery_data()
+        packet = DataPacket(type="battery",
+                            json_data=self.comm_data.battery_data.model_dump_json())
+        self._send(packet)
+        logger.info(f"Sent battery data on request: SOC={self.comm_data.battery_data.state_of_charge:.1f}%")
+
+    def _send_kfx_speed_ack(self):
+        """Acknowledge that the KFX speed update was received and applied."""
+        packet = DataPacket(type="kfx_speed_ack", json_data="{}")
+        self._send(packet)
+        logger.info("Sent kfx_speed_ack")
 
     def _send_battery_data(self):
         """
