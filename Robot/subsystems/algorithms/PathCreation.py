@@ -56,6 +56,9 @@ class PathCreation(Subsystem):
             path_table = PathPointsTable(name=str(next_number))
             db_manager.setup_file(path_table)
             rows = [path_table.build_row(point.x, point.y, point.yaw) for point in self._path]
+
+            logger.debug(f"Saving path data to DB with key: {table_key} and data: {rows}")
+
             db_manager.write_rows(path_table, rows)
         finally:
             db_manager.close_all()
