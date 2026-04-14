@@ -85,6 +85,9 @@ class DriveTrain(Subsystem):
         
         self.front_wheel_pid.setpoint = target_angle
         pid_speed = self.front_wheel_pid(current_angle)
+        if pid_speed is None or math.isnan(pid_speed):
+            logger.warning("PID output is NaN, defaulting to 0")
+            pid_speed = 0.0
         pid_speed = self.apply_soft_limits(current_angle, pid_speed)
         
         logger.debug(f"PID target: {math.degrees(target_angle):.2f}°, current: {math.degrees(current_angle):.2f}°, output: {pid_speed:.2f}")

@@ -9,7 +9,7 @@ sim_log/
 references/
 
 # ignore SQLite database files
-*.db
+robot_data.db
 *.db-journal
 
 # C extensions

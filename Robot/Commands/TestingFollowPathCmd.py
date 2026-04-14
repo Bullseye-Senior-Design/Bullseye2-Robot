@@ -8,13 +8,13 @@ import logging
 from Robot.Constants import Constants
 from helpers.dbConstants import PATH_POINTS_TABLE
 from helpers.sqllib import SQLiteFileManager
-from helpers.SavedPathsHelper import SavedPathsHelper
 from Comms.PiCommThread import PiCommThread
+
 
 logger = logging.getLogger(f"{__name__}.FollowPathCmd")
 logger.setLevel(logging.INFO)  # Set to DEBUG for detailed output
 
-class FollowPathCmd(Command):
+class TestingFollowPathCmd(Command):
     """Command that uses MPCNavigator to follow a path.
 
     The command continuously polls the MPC navigation system and sends
@@ -24,14 +24,12 @@ class FollowPathCmd(Command):
     def __init__(
         self,
         drive_train: DriveTrain,
-        path_following: PathFollowing
+        path_following: PathFollowing,
     ):
-        """Initialize FollowPathCmd with a saved path.
+        """Initialize FollowPathCmd with a simple straight path.
         
         Args:
-            drive_train: DriveTrain subsystem for motor control
-            path_following: PathFollowing subsystem for navigation
-            path_id: ID of the saved path to follow. If None, retrieves from PiCommThread.
+            update_rate_hz: Rate at which to update motor commands
         """
         super().__init__()
         self.drive_train = drive_train
@@ -39,33 +37,42 @@ class FollowPathCmd(Command):
         self.add_requirement(drive_train)
         self.add_requirement(path_following)
         
-        # Load path using SavedPathsHelper
-        self.path_helper = SavedPathsHelper()
         self.path_speed, self.path_id = PiCommThread().get_path_data()
-        if self.path_id is None or self.path_speed is None:
-            logger.warning("No path data received from PiCommThread, using defaults")
-            self.path_id = 1  # Default path ID
-            self.path_speed = 0.0  # Default speed in m/s
-
-        
-        # Load the path data
-        raw_path_data = self.path_helper.load_path_by_id(self.path_id)
-
-        if raw_path_data is None:
-            logger.warning(f"Failed to load path {self.path_id}, using empty path")
-            self.path_data = np.empty((0, 3), dtype=float)
-        else:
-            self.path_data = np.array(raw_path_data, dtype=float)
-            logger.info(f"Loaded path {self.path_id} with {len(self.path_data)} points")
         
         self._last_update_time = 0.0
         
     def initialize(self):
         """Start path following."""
-        self.path_following.set_path(self.path_data)
-        self.path_following.set_nominal_speed(self.path_speed)
+        
+        # Get current position from EKF
+        state_estimator = KalmanStateEstimator()
+        current_state = state_estimator.get_state()
+        start_x, start_y = current_state.pos[0], current_state.pos[1]
+        start_yaw = state_estimator.euler[2]
+        
+        # Create a simple straight path: 0.5 meters forward from current position
+        distance = 1  # meters
+        num_points = 100
+        self.path_matrix = np.zeros((num_points, 3))
+        # Path goes forward in the direction of current yaw
+        self.path_matrix[:, 0] = start_x + np.linspace(0, distance, num_points) * np.cos(start_yaw)
+        self.path_matrix[:, 1] = start_y + np.linspace(0, distance, num_points) * np.sin(start_yaw)
+        self.path_matrix[:, 2] = start_yaw  # Keep same heading
+        
+        # Set path and start navigation
+        self.path_following.set_path(self.path_matrix)
+        
+        # Print start and target positions
+        start_pos = self.path_matrix[0]
+        target_pos = self.path_matrix[-1]
+        logger.info(f"Path Following - Start Position: x={start_pos[0]:.3f}m, y={start_pos[1]:.3f}m, yaw={np.degrees(start_pos[2]):.1f}°")
+        logger.info(f"Path Following - Target Position: x={target_pos[0]:.3f}m, y={target_pos[1]:.3f}m, yaw={np.degrees(target_pos[2]):.1f}°")
+        
+        # Save reference path to SQLite
+        self._save_reference_path()
         
         self.path_following.start_path_following()
+        
         self._last_update_time = time.time()
         logger.info("FollowPathCmd: Path following initialized")
     
@@ -100,6 +107,25 @@ class FollowPathCmd(Command):
             print("FollowPathCmd: interrupted")
         else:
             print("FollowPathCmd: completed")
+    
+    def _save_reference_path(self):
+        """Save the reference path to SQLite in the references folder."""
+        # Create references folder if it doesn't exist
+        references_dir = Constants.references_directory
+        references_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Generate timestamped table key
+        ts_str = time.strftime('%Y%m%d_%H%M%S', time.localtime())
+        
+        # Setup manager and write path data
+        db_manager = SQLiteFileManager()
+        reference_table = PATH_POINTS_TABLE
+        db_manager.setup_file(reference_table, replace_existing=True)
+
+        rows = [reference_table.build_row(row_data[0], row_data[1], row_data[2]) for row_data in self.path_matrix]
+        db_manager.write_rows(reference_table, rows)
+        db_manager.close_all()
+        logger.info(f"Reference path saved to SQLite key: {PATH_POINTS_TABLE.name}")
 
     def is_finished(self):
         """Command runs until cancelled."""
