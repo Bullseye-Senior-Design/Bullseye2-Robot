@@ -1,8 +1,10 @@
 import logging
+import json
 from pathlib import Path
 from typing import Optional, List
 
-from helpers.dbConstants import PathPointsTable
+from helpers.dbConstants import PATH_POINTS_TABLE
+from helpers.HomePositionHelper import HomePositionManager
 from helpers.sqllib import ROBOT_DATA_DB_FILENAME, SQLiteFileManager
 
 logger = logging.getLogger(f"{__name__}.SavedPathsHelper")
@@ -28,6 +30,66 @@ class SavedPathsHelper:
             self.db_path = db_path
         
         self.db_manager = SQLiteFileManager()
+        self.home_manager = HomePositionManager()
+
+    def save_path(self, path_points: List[tuple[float, float, float]]) -> Optional[int]:
+        """Save a path to the unified path_points table.
+
+        Args:
+            path_points: List of (x, y, yaw) tuples.
+
+        Returns:
+            New numeric path ID if save succeeded, otherwise None.
+        """
+        if not path_points:
+            logger.error("Cannot save an empty path")
+            return None
+
+        try:
+            self.db_manager.setup_file(PATH_POINTS_TABLE)
+            existing_rows = self.db_manager.read_rows(PATH_POINTS_TABLE)
+
+            existing_ids: list[int] = []
+            for row in existing_rows:
+                raw_id = row.get("id")
+                if raw_id is None:
+                    continue
+                try:
+                    existing_ids.append(int(raw_id))
+                except (TypeError, ValueError):
+                    continue
+
+            next_number = (max(existing_ids) + 1) if existing_ids else 0
+
+            points_json = json.dumps([
+                {"x": x, "y": y, "yaw": yaw}
+                for x, y, yaw in path_points
+            ])
+
+            home_position = self.home_manager.get_home_position()
+            home_position_json = json.dumps({
+                "x": home_position.x,
+                "y": home_position.y,
+                "yaw": home_position.yaw,
+            }) if home_position is not None else json.dumps(None)
+
+            row = PATH_POINTS_TABLE.build_row(
+                path_id=next_number,
+                points=points_json,
+                home_position=home_position_json,
+            )
+
+            if not self.db_manager.write_row(PATH_POINTS_TABLE, row):
+                logger.error("Failed to write path row to database")
+                return None
+
+            logger.info(f"Saved path {next_number} with {len(path_points)} points")
+            return next_number
+        except Exception as e:
+            logger.error(f"Error saving path: {e}")
+            return None
+        finally:
+            self.db_manager.close_all()
 
     def load_path_by_id(self, path_id: int) -> Optional[List[tuple]]:
         """Load a saved path from database by its numeric ID.
@@ -39,20 +101,82 @@ class SavedPathsHelper:
             List of (x, y, yaw) tuples representing the path, or None if not found
         """
         try:
-            path_table = PathPointsTable(name=str(path_id))
-            self.db_manager.setup_file(path_table)
-            
-            rows = self.db_manager.read_rows(path_table)
-            if rows:
-                logger.info(f"Loaded path {path_id} with {len(rows)} points")
-                return [(row['x'], row['y'], row['yaw']) for row in rows]
-            else:
-                logger.warning(f"Path {path_id} not found in database")
-                return None
+            self.db_manager.setup_file(PATH_POINTS_TABLE)
+            rows = self.db_manager.read_rows(PATH_POINTS_TABLE)
+
+            for row in rows:
+                raw_id = row.get("id")
+                if raw_id is None:
+                    continue
+                try:
+                    if int(raw_id) != int(path_id):
+                        continue
+                except (TypeError, ValueError):
+                    continue
+
+                points_raw = row.get("points", "")
+                if not points_raw:
+                    return []
+
+                try:
+                    points = json.loads(points_raw)
+                except Exception:
+                    logger.error(f"Path {path_id} contains invalid points JSON")
+                    return None
+
+                if not isinstance(points, list):
+                    logger.error(f"Path {path_id} points payload is not a list")
+                    return None
+
+                parsed_points: list[tuple[float, float, float]] = []
+                for point in points:
+                    if not isinstance(point, dict):
+                        continue
+                    try:
+                        parsed_points.append((
+                            float(point.get("x", 0.0)),
+                            float(point.get("y", 0.0)),
+                            float(point.get("yaw", 0.0)),
+                        ))
+                    except (TypeError, ValueError):
+                        continue
+
+                logger.info(f"Loaded path {path_id} with {len(parsed_points)} points")
+                return parsed_points
+
+            logger.warning(f"Path {path_id} not found in database")
+            return None
                 
         except Exception as e:
             logger.error(f"Error loading path {path_id}: {e}")
             return None
+        finally:
+            self.db_manager.close_all()
+
+    def get_all_saved_paths(self) -> List[int]:
+        """Get all saved path IDs from the database.
+
+        Returns:
+            Sorted list of numeric path IDs.
+        """
+        try:
+            self.db_manager.setup_file(PATH_POINTS_TABLE)
+            rows = self.db_manager.read_rows(PATH_POINTS_TABLE)
+
+            ids: list[int] = []
+            for row in rows:
+                raw_id = row.get("id")
+                if raw_id is None:
+                    continue
+                try:
+                    ids.append(int(raw_id))
+                except (TypeError, ValueError):
+                    continue
+
+            return sorted(set(ids))
+        except Exception as e:
+            logger.error(f"Error retrieving saved path IDs: {e}")
+            return []
         finally:
             self.db_manager.close_all()
 

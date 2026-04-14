@@ -10,8 +10,7 @@ from structure.Subsystem import Subsystem
 from scipy.interpolate import splrep, splev
 from scipy.signal import savgol_filter
 import numpy as np
-from helpers.dbConstants import PathPointsTable
-from helpers.sqllib import ROBOT_DATA_DB_FILENAME, SQLiteFileManager
+from helpers.sqllib import ROBOT_DATA_DB_FILENAME
 from helpers.SavedPathsHelper import SavedPathsHelper
 
 logger = logging.getLogger(f"{__name__}.PathFollowing")
@@ -51,26 +50,16 @@ class PathCreation(Subsystem):
         
         self.logs_dir.mkdir(parents=True, exist_ok=True)
 
-        db_manager = SQLiteFileManager()
-        try:
-            next_number, table_key = db_manager.next_numeric_table_key(self.logs_dir)
-            self.current_path_number = next_number
-            path_table = PathPointsTable(name=str(next_number))
-            db_manager.setup_file(path_table)
-            rows = [path_table.build_row(point.x, point.y, point.yaw) for point in self._path]
+        path_points = [(point.x, point.y, point.yaw) for point in self._path]
+        path_id = self.path_helper.save_path(path_points)
+        if path_id is None:
+            logger.error("Failed to save path to database")
+            return
 
-            logger.debug(f"Saving path data to DB with key: {table_key} and data: {rows}")
-
-            db_manager.write_rows(path_table, rows)
-        finally:
-            db_manager.close_all()
+        self.current_path_number = path_id
 
         self._saved_file_path = Path.cwd() / ROBOT_DATA_DB_FILENAME
-        logger.info(f"Saved {len(self._path)} path points to SQLite table {table_key}")
-
-    # Backward-compatible name for existing callers.
-    def save_path_to_csv(self):
-        self.save_path_to_db()
+        logger.info(f"Saved path {self.current_path_number} with {len(self._path)} points")
 
     def load_saved_path(self, path_id: int):
         """Load a saved path from database by its ID.
