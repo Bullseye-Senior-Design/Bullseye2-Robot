@@ -221,11 +221,11 @@ class PiCommThread:
 
             self.kfx.update_button_data(button)
 
-            if button == 8:
-                # Example: Button 8 triggers an emergency stop
+            if button == 7:
+                # Example: Button 7 triggers an emergency stop
                 self._handle_state_change(State.DISABLED)
-            elif button == 7:
-                # Example: Button 7 triggers return to home
+            elif button == 8:
+                # Example: Button 8 triggers return to home
                 self._handle_state_change(State.RETURN_TO_HOME)
              
     def _receive_controller_commands(self):
