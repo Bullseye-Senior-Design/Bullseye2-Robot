@@ -71,6 +71,7 @@ def main():
             
             # Disabled check
             if robot_state.should_init_disable():
+                pi_comm_thread.reset_controller_data()  # Reset controller data when we disable to prevent stale inputs
                 robot.disabled_init()
 
             pi_comm_thread.reset_kfx_button_data()  # Reset KFX button states after processing each loop

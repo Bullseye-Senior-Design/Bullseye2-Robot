@@ -72,14 +72,6 @@ class PathCreation(Subsystem):
     def save_path_to_csv(self):
         self.save_path_to_db()
 
-    def get_all_saved_paths(self):
-        """Get all saved path IDs from the database.
-        
-        Returns:
-            List of numeric path IDs
-        """
-        return self.path_helper.get_all_saved_paths()
-
     def load_saved_path(self, path_id: int):
         """Load a saved path from database by its ID.
         
