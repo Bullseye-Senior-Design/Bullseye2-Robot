@@ -67,10 +67,6 @@ class PathCreation(Subsystem):
         self._saved_file_path = Path.cwd() / ROBOT_DATA_DB_FILENAME
         logger.info(f"Saved {len(self._path)} path points to SQLite table {table_key}")
 
-    # Backward-compatible name for existing callers.
-    def save_path_to_csv(self):
-        self.save_path_to_db()
-
     def get_all_saved_paths(self):
         """Get all saved path IDs from the database.
         
