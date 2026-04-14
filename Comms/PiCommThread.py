@@ -245,6 +245,8 @@ class PiCommThread:
             buffer = ""  # Accumulate incoming data
 
             while self._running:
+                logger.info(self.comm_data.controller_data)
+
                 try:
                     # Read line from serial
                     if(self.pi_ser.in_waiting == 0):
