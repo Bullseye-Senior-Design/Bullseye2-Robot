@@ -9,9 +9,11 @@ import time
 import logging
 from pathlib import Path
 
-# Add the project root to the path so imports work correctly
-project_root = Path(__file__).parent
-sys.path.insert(0, str(project_root))
+# Add the workspace root to `sys.path` so `from Robot...` imports work
+# when this file is executed directly.
+workspace_root = Path(__file__).resolve().parents[2]
+if str(workspace_root) not in sys.path:
+    sys.path.insert(0, str(workspace_root))
 
 from Robot.subsystems.sensors.BackWheelEncoder import BackWheelEncoder
 
@@ -56,7 +58,7 @@ def test_back_wheel_encoder():
             right_count = encoder.get_count_right()
             total_count = encoder.get_count_total_and_reset()
             velocity = encoder.get_velocity()
-            
+        
             elapsed = time.time() - start_time
             
             print(f"[{elapsed:6.1f}s] Left: {left_count:4d} | Right: {right_count:4d} | "
