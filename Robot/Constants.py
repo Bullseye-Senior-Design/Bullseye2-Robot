@@ -49,7 +49,7 @@ class Constants:
     backwheel_forward_ssr_pin = 27
     backwheel_reverse_ssr_pin = 22
     backwheel_power_ssr_pin = 4
-    rear_motor_top_speed = 0.13
+    rear_motor_top_speed = 11.176 # 25 mph = 11.176 m/s
     backwheel_power_scale_factor = 0.5  # Scale factor for back wheel speed control
     
     # Front Wheel Constants

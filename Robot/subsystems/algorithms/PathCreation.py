@@ -61,14 +61,6 @@ class PathCreation(Subsystem):
         self._saved_file_path = Path.cwd() / ROBOT_DATA_DB_FILENAME
         logger.info(f"Saved path {self.current_path_number} with {len(self._path)} points")
 
-    def get_all_saved_paths(self):
-        """Get all saved path IDs from the database.
-        
-        Returns:
-            List of numeric path IDs
-        """
-        return self.path_helper.get_all_saved_paths()
-
     def load_saved_path(self, path_id: int):
         """Load a saved path from database by its ID.
         
