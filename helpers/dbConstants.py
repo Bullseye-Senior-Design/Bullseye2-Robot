@@ -236,11 +236,11 @@ class _ArenaBoundaryTable(Table):
 
 class PathPointsTable(Table):
 	def __init__(self, name: str = "path_points"):
-		super().__init__(name, ["x", "y", "yaw"])
+		super().__init__(name, ["id", "points", "home_position"])
 
 	@classmethod
-	def build_row(cls, x: SQLiteScalar, y: SQLiteScalar, yaw: SQLiteScalar) -> PathPointRow:
-		return PathPointRow(x=x, y=y, yaw=yaw)
+	def build_row(cls, path_id: SQLiteScalar, points: SQLiteScalar, home_position: SQLiteScalar) -> PathPointRow:
+		return PathPointRow(id=path_id, points=points, home_position=home_position)
 
 
 UWB_POSITIONS_TABLE = _UWBPositionsTable()
@@ -350,6 +350,6 @@ class ArenaBoundaryRow(TypedDict):
 
 
 class PathPointRow(TypedDict):
-	x: SQLiteScalar
-	y: SQLiteScalar
-	yaw: SQLiteScalar
+	id: SQLiteScalar
+	points: SQLiteScalar
+	home_position: SQLiteScalar
