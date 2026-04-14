@@ -6,7 +6,6 @@ Only SQLiteFileManager is public. Module-level helpers are intentionally private
 from __future__ import annotations
 
 import sqlite3
-import json
 from pathlib import Path
 from typing import Any, Iterable, Mapping
 
@@ -264,29 +263,6 @@ class SQLiteFileManager:
             return 0, str(Path(directory) / "0")
 
     def load_path_points_by_id(self, directory: str | Path, path_id: int) -> list[dict[str, str]]:
-        rows = self.read_rows(PATH_POINTS_TABLE)
-        for row in rows:
-            raw_id = row.get("id")
-            if raw_id is None:
-                continue
-            try:
-                if int(raw_id) != int(path_id):
-                    continue
-            except (TypeError, ValueError):
-                continue
-
-            raw_points = row.get("points", "")
-            if not raw_points:
-                return []
-
-            try:
-                parsed = json.loads(raw_points)
-                if isinstance(parsed, list):
-                    return parsed
-            except Exception:
-                return []
-
-        # Backward compatibility for legacy per-path table layout.
         table = PathPointsTable(name=str(path_id))
         return self.read_rows(table)
 

@@ -1,6 +1,5 @@
 import logging
 import math
-import json
 from pathlib import Path
 
 from dataclasses import dataclass
@@ -11,7 +10,7 @@ from structure.Subsystem import Subsystem
 from scipy.interpolate import splrep, splev
 from scipy.signal import savgol_filter
 import numpy as np
-from helpers.dbConstants import PATH_POINTS_TABLE
+from helpers.dbConstants import PathPointsTable
 from helpers.sqllib import ROBOT_DATA_DB_FILENAME, SQLiteFileManager
 
 logger = logging.getLogger(f"{__name__}.PathFollowing")
@@ -27,7 +26,6 @@ class PathCreation(Subsystem):
     def __init__(self):
         super().__init__()
         self.kf = KalmanStateEstimator()
-        self.home_manager = HomePositionManager()
         self.logs_dir = Constants.path_file_directory
         self.path_helper = SavedPathsHelper()
 
@@ -54,48 +52,20 @@ class PathCreation(Subsystem):
 
         db_manager = SQLiteFileManager()
         try:
-            path_table = PATH_POINTS_TABLE
-            db_manager.setup_file(path_table)
-
-            existing_rows = db_manager.read_rows(path_table)
-            existing_ids: list[int] = []
-            for row in existing_rows:
-                raw_id = row.get("id")
-                if raw_id is None:
-                    continue
-                try:
-                    existing_ids.append(int(raw_id))
-                except (TypeError, ValueError):
-                    continue
-
-            next_number = (max(existing_ids) + 1) if existing_ids else 0
+            next_number, table_key = db_manager.next_numeric_table_key(self.logs_dir)
             self.current_path_number = next_number
+            path_table = PathPointsTable(name=str(next_number))
+            db_manager.setup_file(path_table)
+            rows = [path_table.build_row(point.x, point.y, point.yaw) for point in self._path]
 
-            points_json = json.dumps([
-                {"x": point.x, "y": point.y, "yaw": point.yaw}
-                for point in self._path
-            ])
+            logger.debug(f"Saving path data to DB with key: {table_key} and data: {rows}")
 
-            home_position = self.home_manager.get_home_position()
-            home_position_json = json.dumps({
-                "x": home_position.x,
-                "y": home_position.y,
-                "yaw": home_position.yaw,
-            }) if home_position is not None else json.dumps(None)
-
-            row = path_table.build_row(
-                path_id=next_number,
-                points=points_json,
-                home_position=home_position_json,
-            )
-
-            logger.debug(f"Saving path data to DB with id: {next_number}")
-            db_manager.write_row(path_table, row)
+            db_manager.write_rows(path_table, rows)
         finally:
             db_manager.close_all()
 
         self._saved_file_path = Path.cwd() / ROBOT_DATA_DB_FILENAME
-        logger.info(f"Saved path {self.current_path_number} with {len(self._path)} points to SQLite table {PATH_POINTS_TABLE.name}")
+        logger.info(f"Saved {len(self._path)} path points to SQLite table {table_key}")
 
     # Backward-compatible name for existing callers.
     def save_path_to_csv(self):
