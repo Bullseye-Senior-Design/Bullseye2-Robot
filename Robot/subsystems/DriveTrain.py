@@ -131,6 +131,9 @@ class DriveTrain(Subsystem):
         self._speed = limited_speed
         self._angle = target_angle
         
+        KalmanStateEstimator().set_rear_wheel_velocity(limited_speed * Constants.rear_motor_top_speed)
+        KalmanStateEstimator().set_steering_angle(target_angle)
+        
         # Keep previous direction when command is effectively zero.
         # This avoids prematurely changing direction during a sign transition.
         if abs(limited_speed) > 1e-6:

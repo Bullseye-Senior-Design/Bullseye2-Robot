@@ -573,6 +573,21 @@ class PiCommThread:
         """Reset KFX button assignments to defaults"""
         with self._data_lock:
             self.kfx.reset_button_data()
+    
+    def reset_controller_data(self):
+        with self._data_lock:
+            self.comm_data.controller_data = ControllerData(
+                left_x=0.0, left_y=0.0,
+                right_x=0.0, right_y=0.0,
+                dpad_up=False, dpad_down=False,
+                dpad_left=False, dpad_right=False,
+                btn_A=False, btn_B=False,
+                btn_X=False, btn_Y=False,
+                btn_LB=False, btn_RB=False,
+                btn_LS=False, btn_RS=False,
+                btn_R2=-1.0, btn_L2=-1.0,
+                btn_share=False, btn_options=False,
+            )
 
     def close(self):
         """Gracefully shutdown the CommandBrain"""
