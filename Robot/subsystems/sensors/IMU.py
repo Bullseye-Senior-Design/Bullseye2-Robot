@@ -224,7 +224,7 @@ class IMU:
         offset_int = int(offset_deg * 100) & 0xFFFF
         cmd = bytes([0xFF, 0xAA, 0x02, offset_int & 0xFF, (offset_int >> 8) & 0xFF, 0x00])
         self.send_command(cmd)
-        logger.info(f"Set IMU yaw offset to {offset_deg:.2f} degrees ({offset_rad:.3f} radians)")
+        logger.debug(f"Set IMU yaw offset to {offset_deg:.2f} degrees ({offset_rad:.3f} radians)")
         
     def send_command(self, cmd: bytes):
         """Send raw configuration command to the IMU."""
