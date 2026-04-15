@@ -51,7 +51,7 @@ class TestingFollowPathCmd(Command):
         start_yaw = state_estimator.euler[2]
         
         # Create a simple straight path: 0.5 meters forward from current position
-        distance = 1  # meters
+        distance = 5  # meters
         num_points = 100
         self.path_matrix = np.zeros((num_points, 3))
         # Path goes forward in the direction of current yaw
