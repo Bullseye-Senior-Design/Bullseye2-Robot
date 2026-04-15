@@ -56,8 +56,8 @@ class Constants:
     frontwheel_power_ssr_pin = 17
     
     # Clutches Constants
-    left_clutch_pin = 26
-    right_clutch_pin = 16
+    left_clutch_pin = 16
+    right_clutch_pin = 26
     
     # Header Healer Limit Switches Constants
     header_limit_switch_pin = 23
