@@ -56,7 +56,7 @@ _FIELD_UNMAP = {
 
 # ==== LOGGING CONFIGURATION ====
 logger = logging.getLogger(f"{__name__}.PiCommThread")
-logger.setLevel(logging.INFO)  # Set to DEBUG for detailed output
+logger.setLevel(logging.DEBUG)  # Set to DEBUG for detailed output
 
 # ==== DEBUG/CONFIGURATION ====
 SUBSYSTEM_UPDATE_RATE = Constants.controller_update_rate  # ~10 Hz for subsystem polling
@@ -221,11 +221,11 @@ class PiCommThread:
 
             self.kfx.update_button_data(button)
 
-            if button == 8:
-                # Example: Button 8 triggers an emergency stop
+            if button == 7:
+                # Example: Button 7 triggers an emergency stop
                 self._handle_state_change(State.DISABLED)
-            elif button == 7:
-                # Example: Button 7 triggers return to home
+            elif button == 8:
+                # Example: Button 8 triggers return to home
                 self._handle_state_change(State.RETURN_TO_HOME)
              
     def _receive_controller_commands(self):
@@ -245,6 +245,8 @@ class PiCommThread:
             buffer = ""  # Accumulate incoming data
 
             while self._running:
+                # logger.info(self.comm_data.controller_data)
+
                 try:
                     # Read line from serial
                     if(self.pi_ser.in_waiting == 0):

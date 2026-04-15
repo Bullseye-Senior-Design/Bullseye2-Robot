@@ -41,7 +41,7 @@ class Constants:
     # Back Wheel Encoder Constants
     back_right_encoder_pin = 5
     back_left_encoder_pin = 25
-    wheel_circumference = 1.651  # meters
+    wheel_circumference = 1.756  # meters
     counts_per_revolution = 16  # encoder pulses per wheel rotation
     min_swap_speed_threshold = 0.01  # m/s, below this we consider the robot stopped. This determines wether to allow swapping to direction or not.
     
@@ -49,16 +49,16 @@ class Constants:
     backwheel_forward_ssr_pin = 27
     backwheel_reverse_ssr_pin = 22
     backwheel_power_ssr_pin = 4
-    rear_motor_top_speed = 0.13 # TODO Update this with real max speed of the robot, in m/s. This is used for scaling the back wheel speed commands to actual DAC values.
     distance_to_stop_from_full_speed = 10 # meters, distance at which it take to be able to stop from max speed. Used for clamping out speed when we are close to the boundary.
+    rear_motor_top_speed = 11.176 # 25 mph = 11.176 m/s
     backwheel_power_scale_factor = 0.5  # Scale factor for back wheel speed control
     
     # Front Wheel Constants
     frontwheel_power_ssr_pin = 17
     
     # Clutches Constants
-    left_clutch_pin = 26
-    right_clutch_pin = 16
+    left_clutch_pin = 16
+    right_clutch_pin = 26
     
     # Header Healer Limit Switches Constants
     header_limit_switch_pin = 23

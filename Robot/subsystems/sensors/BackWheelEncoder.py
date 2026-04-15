@@ -116,7 +116,8 @@ class BackWheelEncoder:
             
             direction_multiplier = -1 if self.backwheel_is_reversing else 1
             self._velocity = (distance / dt) * direction_multiplier
-            logger.debug(f"Encoder pin {self.pin_left} velocity: {self._velocity:.3f} m/s over dt={dt:.3f}s with count={count}")
+            #logger.debug(f"Encoder pin {self.pin_left} velocity: {self._velocity:.3f} m/s over dt={dt:.3f}s with count={count}")
+            #logger.debug(f"Encoder pin {self.pin_right} velocity: {self._velocity:.3f} m/s over dt={dt:.3f}s with count={count}")
             # self.state_estimator.update_encoder_velocity(self._velocity)
                 
             # Reset for next interval
