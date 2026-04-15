@@ -43,7 +43,7 @@ class Constants:
     wheel_circumference = 1.756  # meters
     counts_per_revolution = 16  # encoder pulses per wheel rotation
     min_swap_speed_threshold = 0.01  # m/s, below this we consider the robot stopped. This determines wether to allow swapping to direction or not.
-    inside_clutch_angle_threshold_rads = math.radians(10)  # degrees converted to radians, threshold for engaging inside clutch
+    inside_clutch_angle_threshold_rads = math.radians(45)  # degrees converted to radians, threshold for engaging inside clutch
     
     # Back Wheel Constants
     backwheel_forward_ssr_pin = 27
