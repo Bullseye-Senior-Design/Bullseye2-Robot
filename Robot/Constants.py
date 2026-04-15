@@ -51,7 +51,7 @@ class Constants:
     backwheel_power_ssr_pin = 4
     distance_to_stop_from_full_speed = 10 # meters, distance at which it take to be able to stop from max speed. Used for clamping out speed when we are close to the boundary.
     rear_motor_top_speed = 11.176 # 25 mph = 11.176 m/s
-    backwheel_power_scale_factor = 0.5  # Scale factor for back wheel speed control
+    backwheel_power_scale_factor = 0.1  # Scale factor for back wheel speed control
     
     # Front Wheel Constants
     frontwheel_power_ssr_pin = 17
