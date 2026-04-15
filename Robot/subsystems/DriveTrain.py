@@ -33,18 +33,25 @@ class DriveTrain(Subsystem):
             self._backwheel_reverse_ssr_pin = Constants.backwheel_reverse_ssr_pin
             self._backwheel_power_ssr_pin = Constants.backwheel_power_ssr_pin
             self._frontwheel_power_ssr_pin = Constants.frontwheel_power_ssr_pin
+            self._left_clutch_pin = Constants.left_clutch_pin
+            self._right_clutch_pin = Constants.right_clutch_pin
             self._dac_backwheel_channel = Constants.dac_backwheel_channel
             self._dac_frontwheel_channel = Constants.dac_frontwheel_channel
             self._backwheel_power_scale_factor = Constants.backwheel_power_scale_factor
+            self._inside_clutch_angle_threshold_rads = math.radians(10)
             
             GPIO.setmode(GPIO.BCM)
             GPIO.setup(self._backwheel_forward_ssr_pin, GPIO.OUT)
             GPIO.setup(self._backwheel_reverse_ssr_pin, GPIO.OUT)
             GPIO.setup(self._backwheel_power_ssr_pin, GPIO.OUT)
             GPIO.setup(self._frontwheel_power_ssr_pin, GPIO.OUT)
+            GPIO.setup(self._left_clutch_pin, GPIO.OUT)
+            GPIO.setup(self._right_clutch_pin, GPIO.OUT)
             
             GPIO.output(self._backwheel_power_ssr_pin, GPIO.HIGH)
             GPIO.output(self._frontwheel_power_ssr_pin, GPIO.HIGH)
+            GPIO.output(self._left_clutch_pin, GPIO.HIGH)
+            GPIO.output(self._right_clutch_pin, GPIO.HIGH)
             
             self.shutdown = False
             self.is_reversing = False
@@ -131,9 +138,14 @@ class DriveTrain(Subsystem):
 
         self._speed = limited_speed
         self._angle = target_angle
+        self._apply_inside_clutch_logic(target_angle)
         
+        # Update Kalman filter with commanded speed and angle for state estimation
         KalmanStateEstimator().set_rear_wheel_velocity(limited_speed * Constants.rear_motor_top_speed)
-        KalmanStateEstimator().set_steering_angle(target_angle)
+        current_angle = self._front_encoder.get_position()
+        if current_angle is None:
+            current_angle = target_angle  # Fallback to target angle if encoder fails
+        KalmanStateEstimator().set_steering_angle(current_angle)
         
         # Keep previous direction when command is effectively zero.
         # This avoids prematurely changing direction during a sign transition.
@@ -214,8 +226,9 @@ class DriveTrain(Subsystem):
         """
         Constants().distance_to_stop_from_full_speed
         distance_from_boundary = self.get_distance_from_boundary()
-        if distance_from_boundary == 0:
-            return True  # No boundary info, assume worst case
+        if distance_from_boundary == -1.0:
+            logger.debug("Boundary information unavailable, treating as if at boundary to be safe")
+            return False  # Boundary not set, ignore boundary limit (might want to return True to be safe)
         
         # Calculate stopping distance based on current speed. Scale speed to actual velocity using rear_motor_top_speed.
         stopping_distance = abs(speed) * (Constants().distance_to_stop_from_full_speed)
@@ -232,8 +245,8 @@ class DriveTrain(Subsystem):
         """
         boundary = ArenaBoundaryManager().get_arena_boundary()
         if boundary is None:
-            logger.warning("No arena boundary found, returning distance of 0")
-            return 0.0
+            logger.warning("No arena boundary found, returning distance of -1 (ignore)")
+            return -1.0
         current_position = KalmanStateEstimator().get_robot_pose()
         if current_position is None:
             logger.warning("Current robot position unknown, returning distance of 0")
@@ -245,11 +258,36 @@ class DriveTrain(Subsystem):
     
     def stop(self):
         """Stop motors (set speed and angle to zero)."""
+        KalmanStateEstimator().set_rear_wheel_velocity(0.0)
+        
         self._last_backwheel_speed_cmd = 0.0
         self._last_backwheel_speed_update_time = time.monotonic()
         self._speed = 0.0
         self._dac.write(self._dac_backwheel_channel, 0.0)
         self._dac.write(self._dac_frontwheel_channel, 0.5)
+        self._set_left_clutch(True)
+        self._set_right_clutch(True)
+
+    def _set_left_clutch(self, engaged: bool):
+        GPIO.output(self._left_clutch_pin, GPIO.HIGH if engaged else GPIO.LOW)
+
+    def _set_right_clutch(self, engaged: bool):
+        GPIO.output(self._right_clutch_pin, GPIO.HIGH if engaged else GPIO.LOW)
+
+    def _apply_inside_clutch_logic(self, steering_angle_rads: float):
+        """Disengage inside rear clutch when steering exceeds threshold."""
+        if steering_angle_rads > self._inside_clutch_angle_threshold_rads:
+            # Left turn: left wheel is inside turn radius.
+            self._set_left_clutch(False)
+            self._set_right_clutch(True)
+        elif steering_angle_rads < -self._inside_clutch_angle_threshold_rads:
+            # Right turn: right wheel is inside turn radius.
+            self._set_left_clutch(True)
+            self._set_right_clutch(False)
+        else:
+            # Near straight steering, keep both rear clutches engaged.
+            self._set_left_clutch(True)
+            self._set_right_clutch(True)
     
     def reset_pid(self):
         """Reset the front wheel PID controller.
@@ -270,6 +308,8 @@ class DriveTrain(Subsystem):
                 GPIO.cleanup(self._backwheel_reverse_ssr_pin)
                 GPIO.cleanup(self._backwheel_power_ssr_pin)
                 GPIO.cleanup(self._frontwheel_power_ssr_pin)
+                GPIO.cleanup(self._left_clutch_pin)
+                GPIO.cleanup(self._right_clutch_pin)
             except Exception:
                 pass
                         
