@@ -18,16 +18,7 @@ class SavedPathsHelper:
     stored in the SQLite database.
     """
 
-    def __init__(self, db_path: Optional[Path] = None):
-        """Initialize SavedPathsHelper.
-        
-        Args:
-            db_path: Path to the database file. If None, uses current working directory.
-        """
-        if db_path is None:
-            self.db_path = Path.cwd() / ROBOT_DATA_DB_FILENAME
-        else:
-            self.db_path = db_path
+    def __init__(self):
         
         self.db_manager = SQLiteFileManager()
         self.home_manager = HomePositionManager()

@@ -10,7 +10,6 @@ class UWBTagInfo:
 
 class Constants:
 
-
     # Wheel base width in meters
     wheel_base_width = 1.0414 # updated for big bullseye
     steering_angle_limit_rads = math.radians(30)  # degrees converted to radians, max steering angle for the front wheel
@@ -44,11 +43,13 @@ class Constants:
     wheel_circumference = 1.756  # meters
     counts_per_revolution = 16  # encoder pulses per wheel rotation
     min_swap_speed_threshold = 0.01  # m/s, below this we consider the robot stopped. This determines wether to allow swapping to direction or not.
+    inside_clutch_angle_threshold_rads = math.radians(10)  # degrees converted to radians, threshold for engaging inside clutch
     
     # Back Wheel Constants
     backwheel_forward_ssr_pin = 27
     backwheel_reverse_ssr_pin = 22
     backwheel_power_ssr_pin = 4
+    distance_to_stop_from_full_speed = 10 # meters, distance at which it take to be able to stop from max speed. Used for clamping out speed when we are close to the boundary.
     rear_motor_top_speed = 11.176 # 25 mph = 11.176 m/s
     backwheel_power_scale_factor = 0.5  # Scale factor for back wheel speed control
     
