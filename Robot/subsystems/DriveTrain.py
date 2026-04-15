@@ -138,7 +138,6 @@ class DriveTrain(Subsystem):
 
         self._speed = limited_speed
         self._angle = target_angle
-        self._apply_inside_clutch_logic(target_angle)
         
         # Update Kalman filter with commanded speed and angle for state estimation
         KalmanStateEstimator().set_rear_wheel_velocity(limited_speed * Constants.rear_motor_top_speed)
@@ -146,6 +145,9 @@ class DriveTrain(Subsystem):
         if current_angle is None:
             current_angle = target_angle  # Fallback to target angle if encoder fails
         KalmanStateEstimator().set_steering_angle(current_angle)
+        
+        # Apply inside clutch logic based on current steering angle to improve turning performance
+        self._apply_inside_clutch_logic(current_angle)
         
         # Keep previous direction when command is effectively zero.
         # This avoids prematurely changing direction during a sign transition.
