@@ -38,7 +38,7 @@ class DriveTrain(Subsystem):
             self._dac_backwheel_channel = Constants.dac_backwheel_channel
             self._dac_frontwheel_channel = Constants.dac_frontwheel_channel
             self._backwheel_power_scale_factor = Constants.backwheel_power_scale_factor
-            self._inside_clutch_angle_threshold_rads = math.radians(10)
+            self._inside_clutch_angle_threshold_rads = Constants.inside_clutch_angle_threshold_rads
             
             GPIO.setmode(GPIO.BCM)
             GPIO.setup(self._backwheel_forward_ssr_pin, GPIO.OUT)
@@ -61,7 +61,6 @@ class DriveTrain(Subsystem):
             self._dac.write(self._dac_frontwheel_channel, 0.5)  
             
             # Pitch PID controller
-            # TODO Fine-tune PID parameters for better performance
             self.front_wheel_pid = PID(
                 1.1, 0.1, 0.0, 
                 setpoint=0,

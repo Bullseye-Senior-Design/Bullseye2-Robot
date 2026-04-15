@@ -9,10 +9,14 @@ from structure.Subsystem import Subsystem
 from Robot.Constants import Constants
 import rsplan
 import math
-
+from enum import Enum
 
 logger = logging.getLogger(f"{__name__}.PathFollowing")
 logger.setLevel(logging.INFO)
+
+class DriveDirection(Enum):
+    FORWARD = "forward"
+    REVERSE = "reverse"
 
 class PathFollowing(Subsystem):
     """Model Predictive Control Navigator for path following.
@@ -41,6 +45,9 @@ class PathFollowing(Subsystem):
         self.L = Constants.wheel_base_width  # Wheelbase of the robot (meters) - must be set in Constants.py
         # crusing speed for reference trajectory generation, can be adjusted via set_nominal_speed() method
         self.v_nom = Constants.rear_motor_top_speed
+        
+        # Track direction as enum (not bool/string)
+        self._drive_direction = DriveDirection.FORWARD
         
         # CHANGED: Use abs() to ensure positive arc-length steps even if driving in reverse
         self.ds = abs(self.v_nom) * self.Ts
@@ -247,6 +254,42 @@ class PathFollowing(Subsystem):
         """Set the path to follow."""
         with self._lock:
             self.path_matrix = np.asarray(path_matrix, dtype=float)
+            
+    def _update_solver_bounds(self):
+        """Rebuild optimization bounds using current velocity and steering limits."""
+        self.lbx = np.array(
+            [-np.inf, -np.inf, -np.inf] * (self.p + 1) +
+            [self.v_bounds[0], self.delta_bounds[0]] * self.p
+        )
+        self.ubx = np.array(
+            [np.inf, np.inf, np.inf] * (self.p + 1) +
+            [self.v_bounds[1], self.delta_bounds[1]] * self.p
+        )
+            
+    def set_drive_direction(self, direction: DriveDirection) -> bool:
+        """Set motion direction constraints using DriveDirection enum."""
+        with self._lock:
+            if not isinstance(direction, DriveDirection):
+                logger.warning("Invalid direction '%s'. Use DriveDirection.FORWARD or DriveDirection.REVERSE.", direction)
+                return False
+
+            self._drive_direction = direction
+
+            # Keep speed magnitude, flip sign to match direction
+            speed_mag = abs(self.v_nom)
+            self.v_nom = speed_mag if direction == DriveDirection.FORWARD else -speed_mag
+
+            if direction == DriveDirection.FORWARD:
+                self.v_bounds = [0.0, Constants.rear_motor_top_speed]
+            else:
+                self.v_bounds = [-Constants.rear_motor_top_speed, 0.0]
+
+            self.ds = abs(self.v_nom) * self.Ts
+            self.ds_ref = abs(self.v_nom) * self.Ts
+            self._update_solver_bounds()
+
+            logger.debug("Drive direction set to %s (v_nom=%.3f)", self._drive_direction.value, self.v_nom)
+            return True
     
     def set_nominal_speed(self, speed_percent):
         """Set the desired nominal speed for path following.
@@ -259,24 +302,28 @@ class PathFollowing(Subsystem):
             clamped_percent = np.clip(speed_percent, -100, 100)
             self.v_nom = (clamped_percent / 100.0) * Constants.rear_motor_top_speed
             
+            # Keep enum direction synchronized with speed sign
+            self._drive_direction = (
+                DriveDirection.FORWARD if self.v_nom >= 0 else DriveDirection.REVERSE
+            )
+            
             # CHANGED: Absolute values to maintain proper spatial lookahead
             self.ds = abs(self.v_nom) * self.Ts
             self.ds_ref = abs(self.v_nom) * self.Ts  
             
-            # CHANGED: Dynamically update velocity bounds to prevent MPC shifting into reverse
-            # to correct steering errors. If negative speed requested, only allow reverse.
             if self.v_nom >= 0:
                 self.v_bounds = [0.0, Constants.rear_motor_top_speed]
             else:
                 self.v_bounds = [-Constants.rear_motor_top_speed, 0.0]
                 
-            # Update bounds array used in solver
-            self.lbx = np.array([-np.inf, -np.inf, -np.inf] * (self.p + 1) + 
-                                [self.v_bounds[0], self.delta_bounds[0]] * self.p)
-            self.ubx = np.array([np.inf, np.inf, np.inf] * (self.p + 1) + 
-                                [self.v_bounds[1], self.delta_bounds[1]] * self.p)
+            self._update_solver_bounds()
             
-            logger.debug(f"Set nominal speed: {speed_percent}% -> {self.v_nom:.3f} m/s")
+            logger.debug(
+                "Set nominal speed: %s%% -> %.3f m/s (%s)",
+                speed_percent,
+                self.v_nom,
+                self._drive_direction.value,
+            )
     
     def get_nominal_speed(self):
         """Get the current nominal speed setting."""

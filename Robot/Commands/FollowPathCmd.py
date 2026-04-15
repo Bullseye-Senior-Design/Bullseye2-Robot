@@ -1,13 +1,11 @@
 from structure.commands.Command import Command
 import time
 import numpy as np
-from Robot.subsystems.algorithms.PathFollowing import PathFollowing
+from Robot.subsystems.algorithms.PathFollowing import PathFollowing, DriveDirection
 from Robot.subsystems.algorithms.KalmanStateEstimator import KalmanStateEstimator
 from Robot.subsystems.DriveTrain import DriveTrain
 import logging
 from Robot.Constants import Constants
-from helpers.dbConstants import PATH_POINTS_TABLE
-from helpers.sqllib import SQLiteFileManager
 from helpers.SavedPathsHelper import SavedPathsHelper
 from Comms.PiCommThread import PiCommThread
 
@@ -24,7 +22,7 @@ class FollowPathCmd(Command):
     def __init__(
         self,
         drive_train: DriveTrain,
-        path_following: PathFollowing
+        path_following: PathFollowing,
     ):
         """Initialize FollowPathCmd with a saved path.
         
@@ -65,6 +63,7 @@ class FollowPathCmd(Command):
         
         self.path_following.set_path(self.path_data)
         self.path_following.set_nominal_speed(self.path_speed)
+        self.path_following.set_drive_direction(DriveDirection.FORWARD) # set drive direction to forward for while following a user path
         self.speed = 0.0
         self.is_approaching_boundary = False
         

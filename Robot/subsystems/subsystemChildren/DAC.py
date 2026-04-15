@@ -5,7 +5,7 @@ import spidev
 from Robot.Constants import Constants
 import RPi.GPIO as GPIO
 
-logger = logging.getLogger(f"{__name__}.DriveTrain")
+logger = logging.getLogger(f"{__name__}.DAC")
 logger.setLevel(logging.INFO)  # Set to DEBUG for detailed output
 
 class DAC:

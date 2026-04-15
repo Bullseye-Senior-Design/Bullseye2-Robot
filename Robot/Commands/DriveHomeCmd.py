@@ -1,7 +1,8 @@
 from structure.commands.Command import Command
 from Robot.subsystems.DriveTrain import DriveTrain
-from Robot.subsystems.algorithms.PathFollowing import PathFollowing
+from Robot.subsystems.algorithms.PathFollowing import PathFollowing, DriveDirection
 from Robot.subsystems.algorithms.KalmanStateEstimator import KalmanStateEstimator
+from Robot.Constants import Constants
 import logging
 
 from helpers.dbConstants import HOME_POSITION_TABLE
@@ -40,9 +41,24 @@ class DriveHomeCmd(Command):
         path_matrix = self._path_following.generate_path(start_pose, home_pose)
         self._path_following.set_path(path_matrix)
         self._path_following.start_path_following()
+        self._path_following.set_drive_direction(DriveDirection.REVERSE) # set drive direction to reverse for driving back to home position
     
     def execute(self):
-        pass
+        """Poll navigation system and send motor commands."""
+
+        # Get current commands from navigator
+        v_cmd, delta_cmd = self._path_following.get_current_commands()
+
+        # Convert to motor commands
+        # v_cmd is in m/s, delta_cmd is in radians
+        # Convert velocity to percentage (assuming top speed m/s = 1)
+        self.speed = int((v_cmd / Constants.rear_motor_top_speed))
+        angle = delta_cmd
+
+        logger.debug(f"FollowPathCmd: v_cmd={v_cmd:.2f} m/s, delta_cmd={delta_cmd:.2f} rad -> speed={self.speed}%, angle={angle} rad")
+
+        # Send to motors via DriveTrain subsystem
+        self._drive_train.set_speed_angle(self.speed, angle)
     
     def end(self, interrupted):
         self._path_following.stop_path_following()
