@@ -19,6 +19,7 @@ class ParkingCmd(Command):
         self._db = SQLiteFileManager()
         self._home_position_key = HOME_POSITION_TABLE
         self.add_requirement(drive_train)
+        self.is_approaching_boundary = False
     
     def _read_home_position(self) -> list[float] | None:
         row = self._db.read_last_row(self._home_position_key)
@@ -30,6 +31,8 @@ class ParkingCmd(Command):
         
     def initialize(self):
         self.home_pose = self._read_home_position()
+        self.speed = 0.0
+        self.is_approaching_boundary = False
         if self.home_pose is None:
             position = self._kalman_estimator.pos
             self.home_pose = [float(position[0]), float(position[1]), float(self._kalman_estimator.euler[2])]
@@ -37,12 +40,20 @@ class ParkingCmd(Command):
     def execute(self):
         current_state = self._kalman_estimator.get_state()
         current_pos = [float(current_state.pos[0]), float(current_state.pos[1]), float(self._kalman_estimator.euler[2])]
-        self._parking_controller.compute_commands(current_pos, self.home_pose)
+        speed, angle = self._parking_controller.compute_commands(current_pos, self.home_pose)
+        self.speed = speed
+        self._drive_train.set_speed_angle(speed, angle)
             
     def end(self, interrupted):
         self._drive_train.stop()
+        
+        if self.is_approaching_boundary:
+            #TODO - Send an error packet up to the steam deck
+            logger.warning("ParkingCmd ended due to approaching boundary. Stopping robot to prevent collision.")
     
     def is_finished(self):
         current_state = self._kalman_estimator.get_state()
         current_pos = [float(current_state.pos[0]), float(current_state.pos[1]), float(self._kalman_estimator.euler[2])]
-        return self._parking_controller.is_at_goal(current_pos, self.home_pose)
+        
+        self.is_approaching_boundary = self._drive_train.is_approaching_boundary(self.speed)
+        return self._parking_controller.is_at_goal(current_pos, self.home_pose) or self.is_approaching_boundary

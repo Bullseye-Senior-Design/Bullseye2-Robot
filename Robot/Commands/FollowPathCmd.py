@@ -41,13 +41,16 @@ class FollowPathCmd(Command):
         
         # Load path using SavedPathsHelper
         self.path_helper = SavedPathsHelper()
+
+        
+    def initialize(self):
+        """Start path following."""
         self.path_speed, self.path_id = PiCommThread().get_path_data()
         if self.path_id is None or self.path_speed is None:
             logger.warning("No path data received from PiCommThread, using defaults")
             self.path_id = 1  # Default path ID
             self.path_speed = 0.0  # Default speed in m/s
 
-        
         # Load the path data
         raw_path_data = self.path_helper.load_path_by_id(self.path_id)
 
@@ -60,10 +63,10 @@ class FollowPathCmd(Command):
         
         self._last_update_time = 0.0
         
-    def initialize(self):
-        """Start path following."""
         self.path_following.set_path(self.path_data)
         self.path_following.set_nominal_speed(self.path_speed)
+        self.speed = 0.0
+        self.is_approaching_boundary = False
         
         self.path_following.start_path_following()
         self._last_update_time = time.time()
@@ -78,15 +81,14 @@ class FollowPathCmd(Command):
 
         # Convert to motor commands
         # v_cmd is in m/s, delta_cmd is in radians
-        # Convert velocity to percentage (assuming 1 m/s = 100%)
-        speed_percent = int((v_cmd / Constants.rear_motor_top_speed) * 100.0)
-        # Convert steering angle from radians to degrees
-        angle_deg = int(np.degrees(delta_cmd))
+        # Convert velocity to percentage (assuming top speed m/s = 1)
+        self.speed = int((v_cmd / Constants.rear_motor_top_speed))
+        angle = delta_cmd
 
-        logger.debug(f"FollowPathCmd: v_cmd={v_cmd:.2f} m/s, delta_cmd={delta_cmd:.2f} rad -> speed={speed_percent}%, angle={angle_deg} deg")
+        logger.debug(f"FollowPathCmd: v_cmd={v_cmd:.2f} m/s, delta_cmd={delta_cmd:.2f} rad -> speed={self.speed}%, angle={angle} rad")
 
         # Send to motors via DriveTrain subsystem
-        self.drive_train.set_speed_angle(speed_percent, angle_deg)
+        self.drive_train.set_speed_angle(self.speed, angle)
 
     def end(self, interrupted):
         """Stop path following and clean up."""
@@ -95,12 +97,14 @@ class FollowPathCmd(Command):
         
         # Stop motors
         self.drive_train.stop()
+        
+        if self.is_approaching_boundary:
+            # TODO - Send an error packet up to the steam deck
+            logger.warning("FollowPathCmd ended due to approaching boundary. Stopping robot to prevent collision.")
                 
-        if interrupted:
-            print("FollowPathCmd: interrupted")
-        else:
-            print("FollowPathCmd: completed")
 
     def is_finished(self):
         """Command runs until cancelled."""
-        return self.path_following.is_at_goal(0.1)
+        self.is_approaching_boundary = self.drive_train.is_approaching_boundary(self.speed)
+        
+        return self.path_following.is_at_goal(0.1) or self.is_approaching_boundary

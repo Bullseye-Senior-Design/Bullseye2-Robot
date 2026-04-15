@@ -1,6 +1,7 @@
 """Helper for managing the arena boundary using SQLite."""
 
 import logging
+import math
 from pathlib import Path
 from dataclasses import dataclass
 from typing import Optional
@@ -31,6 +32,70 @@ class ArenaBoundary:
             (self.x3, self.y3),
             (self.x4, self.y4)
         ]
+
+    @staticmethod
+    def _cross(o: tuple[float, float], a: tuple[float, float], b: tuple[float, float]) -> float:
+        """2D cross product of OA and OB vectors."""
+        return (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0])
+
+    @staticmethod
+    def _distance_point_to_segment(
+        px: float,
+        py: float,
+        ax: float,
+        ay: float,
+        bx: float,
+        by: float,
+    ) -> float:
+        """Shortest Euclidean distance from a point to a line segment."""
+        abx = bx - ax
+        aby = by - ay
+        apx = px - ax
+        apy = py - ay
+
+        ab_len_sq = abx * abx + aby * aby
+        if ab_len_sq == 0.0:
+            return math.hypot(apx, apy)
+
+        t = (apx * abx + apy * aby) / ab_len_sq
+        t = max(0.0, min(1.0, t))
+
+        closest_x = ax + t * abx
+        closest_y = ay + t * aby
+        return math.hypot(px - closest_x, py - closest_y)
+
+    def shortest_distance_to_edge(self, x: float, y: float) -> float:
+        """
+        Return shortest distance from a point to the nearest rectangle edge.
+
+        If the point is outside the rectangle, returns 0.0.
+        """
+        corners = self.get_corners()
+        p = (x, y)
+
+        # For a convex quadrilateral with ordered corners, point is inside iff
+        # all cross products have the same sign (or zero on edges).
+        signs = [
+            self._cross(corners[i], corners[(i + 1) % 4], p)
+            for i in range(4)
+        ]
+        has_pos = any(v > 0 for v in signs)
+        has_neg = any(v < 0 for v in signs)
+        if has_pos and has_neg:
+            return 0.0
+
+        distances = [
+            self._distance_point_to_segment(
+                x,
+                y,
+                corners[i][0],
+                corners[i][1],
+                corners[(i + 1) % 4][0],
+                corners[(i + 1) % 4][1],
+            )
+            for i in range(4)
+        ]
+        return min(distances)
 
 
 class ArenaBoundaryManager:
