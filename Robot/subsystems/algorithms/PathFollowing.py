@@ -44,7 +44,7 @@ class PathFollowing(Subsystem):
         self.p = 25 # 12 may be better for computation capacity
         self.L = Constants.wheel_base_width  # Wheelbase of the robot (meters) - must be set in Constants.py
         # crusing speed for reference trajectory generation, can be adjusted via set_nominal_speed() method
-        self.v_nom = Constants.rear_motor_top_speed
+        self.v_nom = Constants.rear_motor_top_speed*0.4
         
         # Track direction as enum (not bool/string)
         self._drive_direction = DriveDirection.FORWARD
@@ -64,7 +64,9 @@ class PathFollowing(Subsystem):
         
         # Constraints
         # CHANGED: Default to forward-only to prevent backwards/forwards oscillation traps
-        self.v_bounds = [Constants.rear_motor_top_speed*0.5, Constants.rear_motor_top_speed] 
+        self.lower_speed_limit = 0.3
+        self.upper_speed_limit = 0.5
+        self.v_bounds = [Constants.rear_motor_top_speed*self.lower_speed_limit, Constants.rear_motor_top_speed*self.upper_speed_limit] 
         self.delta_bounds = [-np.deg2rad(30), np.deg2rad(30)]
 
         # State bounds
@@ -280,9 +282,9 @@ class PathFollowing(Subsystem):
             self.v_nom = speed_mag if direction == DriveDirection.FORWARD else -speed_mag
 
             if direction == DriveDirection.FORWARD:
-                self.v_bounds = [0.0, Constants.rear_motor_top_speed]
+                self.v_bounds = [Constants.rear_motor_top_speed*self.lower_speed_limit, Constants.rear_motor_top_speed*self.upper_speed_limit]
             else:
-                self.v_bounds = [-Constants.rear_motor_top_speed, 0.0]
+                self.v_bounds = [-Constants.rear_motor_top_speed*self.upper_speed_limit, -Constants.rear_motor_top_speed*self.lower_speed_limit]
 
             self.ds = abs(self.v_nom) * self.Ts
             self.ds_ref = abs(self.v_nom) * self.Ts
@@ -312,10 +314,10 @@ class PathFollowing(Subsystem):
             self.ds_ref = abs(self.v_nom) * self.Ts  
             
             if self.v_nom >= 0:
-                self.v_bounds = [0.0, Constants.rear_motor_top_speed]
+                self.v_bounds = [Constants.rear_motor_top_speed*self.lower_speed_limit, Constants.rear_motor_top_speed*self.upper_speed_limit]
             else:
-                self.v_bounds = [-Constants.rear_motor_top_speed, 0.0]
-                
+                self.v_bounds = [-Constants.rear_motor_top_speed*self.upper_speed_limit, -Constants.rear_motor_top_speed*self.lower_speed_limit]
+
             self._update_solver_bounds()
             
             logger.debug(
