@@ -88,8 +88,8 @@ class RobotContainer:
         
     def start_path_following(self):
         logger.info("Starting path following mode")
-        TestingFollowPathCmd(self.drive_train, self.path_following).schedule()
-        # FollowPathCmd(self.drive_train, self.path_following).schedule()
+        # TestingFollowPathCmd(self.drive_train, self.path_following).schedule()
+        FollowPathCmd(self.drive_train, self.path_following).schedule()
 
     def start_teleop(self):
         logger.info("Starting teleop control")
