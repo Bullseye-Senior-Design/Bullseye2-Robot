@@ -10,7 +10,6 @@ class UWBTagInfo:
 
 class Constants:
 
-
     # Wheel base width in meters
     wheel_base_width = 1.0414 # updated for big bullseye
     steering_angle_limit_rads = math.radians(30)  # degrees converted to radians, max steering angle for the front wheel
