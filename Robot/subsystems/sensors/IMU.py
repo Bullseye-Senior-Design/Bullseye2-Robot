@@ -44,8 +44,8 @@ class IMU:
         self._lock = threading.Lock()
         self.acc: Tuple[float, float, float] = (0.0, 0.0, 0.0)      # g
         self.gyro: Tuple[float, float, float] = (0.0, 0.0, 0.0)    # °/s
-        self.angle: Tuple[float, float, float] = (0.0, 0.0, 0.0)   # Corrected Roll, Pitch, Yaw in °
-        self.raw_angle: Tuple[float, float, float] = (0.0, 0.0, 0.0)   # Raw Roll, Pitch, Yaw in °
+        self.angle: Tuple[float, float, float] = (0.0, 0.0, 0.0)   # Corrected Roll, Pitch, Yaw in rad
+        self.raw_angle: Tuple[float, float, float] = (0.0, 0.0, 0.0)   # Raw Roll, Pitch, Yaw in rad
         self.mag: Tuple[float, float, float] = (0.0, 0.0, 0.0)     # Magnetometer raw units
         self.quaternion: Tuple[float, float, float, float] = (0.0, 0.0, 0.0, 1.0)  # Corrected qx, qy, qz, qw
         self.raw_quaternion: Tuple[float, float, float, float] = (0.0, 0.0, 0.0, 1.0)  # Raw qx, qy, qz, qw
@@ -130,13 +130,21 @@ class IMU:
                     self.last_update_time = time.time()
 
             elif pkt_type == 0x53:  # Euler angles (Roll, Pitch, Yaw)
-                roll  = struct.unpack('<h', data[0:2])[0] / 32768.0 * 180.0
-                pitch = struct.unpack('<h', data[2:4])[0] / 32768.0 * 180.0
-                yaw   = struct.unpack('<h', data[4:6])[0] / 32768.0 * 180.0
+                roll_deg  = struct.unpack('<h', data[0:2])[0] / 32768.0 * 180.0
+                pitch_deg = struct.unpack('<h', data[2:4])[0] / 32768.0 * 180.0
+                yaw_deg   = struct.unpack('<h', data[4:6])[0] / 32768.0 * 180.0
+                roll = math.radians(roll_deg)
+                pitch = math.radians(pitch_deg)
+                yaw = math.radians(yaw_deg)
                 with self._lock:
                     self.raw_angle = (roll, pitch, yaw)
                     self.angle = self._apply_yaw_offset_to_euler(self.raw_angle)
-                    logger.debug(f"IMU Euler angles updated: Roll={roll:.2f}°, Pitch={pitch:.2f}°, Yaw={yaw:.2f}°")
+                    logger.debug(
+                        "IMU Euler angles updated: Roll=%.2f deg, Pitch=%.2f deg, Yaw=%.2f deg",
+                        roll_deg,
+                        pitch_deg,
+                        yaw_deg,
+                    )
                     self.last_update_time = time.time()
 
             elif pkt_type == 0x54:  # Magnetometer
@@ -236,14 +244,10 @@ class IMU:
         offset_deg = math.degrees(offset_rad)
         logger.debug(f"Set IMU yaw offset in software to {offset_deg:.2f} degrees ({offset_rad:.3f} radians)")
 
-    def _apply_yaw_offset_to_euler(self, euler_deg: Tuple[float, float, float]) -> Tuple[float, float, float]:
-        roll_deg, pitch_deg, yaw_deg = euler_deg
-        yaw_rad = math.radians(yaw_deg) + self.yaw_offset_rad
-        corrected = np.array([math.radians(roll_deg), math.radians(pitch_deg), yaw_rad], dtype=float)
-        corrected[2] = MathUtil.wrap_to_pi(corrected[2])
-        corrected_deg = np.degrees(corrected)
-        corrected_deg[2] = ((corrected_deg[2] + 180.0) % 360.0) - 180.0
-        return (float(corrected_deg[0]), float(corrected_deg[1]), float(corrected_deg[2]))
+    def _apply_yaw_offset_to_euler(self, euler_rad: Tuple[float, float, float]) -> Tuple[float, float, float]:
+        roll_rad, pitch_rad, yaw_rad = euler_rad
+        corrected_yaw = MathUtil.wrap_to_pi(yaw_rad + self.yaw_offset_rad)
+        return (float(roll_rad), float(pitch_rad), float(corrected_yaw))
 
     def _apply_yaw_offset_to_quaternion(self, quat: Tuple[float, float, float, float]) -> Tuple[float, float, float, float]:
         q = np.asarray(quat, dtype=float)
@@ -311,7 +315,7 @@ class IMU:
             return self.gyro
 
     def get_angle(self) -> Tuple[float, float, float]:
-        """Returns corrected (roll, pitch, yaw) in degrees."""
+        """Returns corrected (roll, pitch, yaw) in radians."""
         with self._lock:
             return self.angle
 
