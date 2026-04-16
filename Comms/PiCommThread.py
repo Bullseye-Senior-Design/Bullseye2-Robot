@@ -308,7 +308,7 @@ class PiCommThread:
                 continue  # Still hearing from the Deck — nothing to do.
 
             # Silence threshold crossed: send a ping and wait for ack.
-            logger.warning(f"No packet received for {idle:.2f}s — sending connection-check ping")
+            # logger.warning(f"No packet received for {idle:.2f}s — sending connection-check ping")
             rx_before_ping = self._last_rx_time
             self._send(DataPacket(type="ping", json_data="{}"))
 
@@ -317,7 +317,7 @@ class PiCommThread:
             while time.time() < deadline:
                 if self._last_rx_time != rx_before_ping:
                     # A new packet came in — connection restored.
-                    logger.info("Connection-check ping acknowledged — link restored")
+                    # logger.info("Connection-check ping acknowledged — link restored")
                     break
                 time.sleep(0.05)
             else:
