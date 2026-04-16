@@ -10,7 +10,7 @@ from Robot.subsystems.sensors.UWB import UWB
 import logging
 
 logger = logging.getLogger(f"{__name__}.AlignIMUToWorldCmd")
-logger.setLevel(logging.INFO)
+logger.setLevel(logging.DEBUG)
 
 
 def _wrap_angle(a: float) -> float:
@@ -95,24 +95,26 @@ class AlignIMUToWorldCmd(Command):
             self._start_time = time.time()  # reset start time to avoid premature timeout
             return
         
-        # Get IMU yaw in radians (IMU.get_angle returns degrees: (yaw, roll, pitch))
+        # Get IMU yaw in radians (IMU.get_angle returns (roll, pitch, yaw) in radians)
         imu = self._imu
-        imu_yaw_deg = imu.get_angle()[2]
-        imu_yaw_rad = math.radians(imu_yaw_deg)
+        imu_yaw_rad = float(imu.get_angle()[2])
+        imu_raw_yaw_rad = float(imu.get_raw_angle()[2])
+        imu_offset_deg = math.degrees(imu.yaw_offset_rad)
 
         logger.debug(f"AlignIMUToWorldCmd: UWB yaw = {math.degrees(uwb_yaw):.3f} deg")
-        logger.debug(f"AlignIMUToWorldCmd: IMU yaw = {imu_yaw_deg:.3f} deg (with offset {math.degrees(self._bias):.3f} deg)")
+        logger.debug(f"AlignIMUToWorldCmd: IMU raw yaw = {math.degrees(imu_raw_yaw_rad):.3f} deg (before offset)")
+        logger.debug(f"AlignIMUToWorldCmd: IMU yaw = {math.degrees(imu_yaw_rad):.3f} deg (with offset {imu_offset_deg:.3f} deg)")
 
         # residual between measured UWB yaw and corrected IMU yaw
         residual = _wrap_angle(uwb_yaw - imu_yaw_rad)
         self.residuals_window.append(residual)
         self._bias = float(np.median(self.residuals_window))
 
-        # apply bias to IMU (degrees)
-        logger.debug(f"AlignIMUToWorldCmd: applying yaw offset {math.degrees(self._bias):.3f} deg")
-        imu.set_yaw_offset(self._bias)
 
         if self._last_db_log_time is None or (now - self._last_db_log_time) >= 30.0:
+            # apply bias to IMU (degrees)
+            logger.debug(f"AlignIMUToWorldCmd: applying yaw offset {math.degrees(self._bias):.3f} deg")
+            imu.set_yaw_offset(self._bias)
             self._record_yaw_offset_db(now, "execute")
             self._last_db_log_time = now
 
