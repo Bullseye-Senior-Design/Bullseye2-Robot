@@ -88,6 +88,7 @@ class RobotContainer:
         
     def start_path_following(self):
         logger.info("Starting path following mode")
+        self.path_following = PathFollowing.reset_instance()  # Get fresh instance
         TestingFollowPathCmd(self.drive_train, self.path_following).schedule()
         # FollowPathCmd(self.drive_train, self.path_following).schedule()
 

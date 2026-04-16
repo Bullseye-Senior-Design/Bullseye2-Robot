@@ -18,6 +18,14 @@ In order to auto install required python Libraries run command below in the dire
 login as: bullseye
 password: pass0
 
+# Recover Broken Git
+
+Find size 0 object files, delete them, then fetch from origin
+```bash
+find .git/objects -size 0 -delete
+git fetch origin
+```
+
 
 # Creating the an Automatic bootup sequence
 Create a systemd file using this command:

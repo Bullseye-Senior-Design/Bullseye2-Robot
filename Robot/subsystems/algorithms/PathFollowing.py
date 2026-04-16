@@ -34,6 +34,16 @@ class PathFollowing(Subsystem):
             cls._instance.start()
         return cls._instance
     
+    @classmethod
+    def reset_instance(cls):
+        """Reset the singleton instance and return a fresh one. Call before restart."""
+        if cls._instance is not None:
+            cls._instance.stop_path_following()
+            cls._instance = None
+            logger.info("PathFollowing singleton reset")
+        # Return new instance
+        return cls()
+    
     def start(self):
         """Initialize MPC Navigator with default parameters."""
         super().__init__()
@@ -373,8 +383,17 @@ class PathFollowing(Subsystem):
             self._running = False
             logger.info("MPC path following stopped")
         
+        # Wait for thread to fully exit before returning
         if self._thread is not None:
             self._thread.join(timeout=2.0)
+            if self._thread.is_alive():
+                logger.warning("MPC control loop thread did not terminate within timeout")
+        
+        # Reset warm start data to prevent incompatibility on restart
+        with self._lock:
+            self._x_prev = None
+            self._last_u = np.array([0.0, 0.0])
+            logger.info("MPC state reset for clean restart")
     
     def get_current_commands(self):
         """Get the current velocity and steering commands."""
@@ -464,6 +483,7 @@ class PathFollowing(Subsystem):
         """Main control loop running in separate thread."""
         logger.info("MPC control loop started")
         next_time = time.time()
+        iteration = 0
         
         while True:
             with self._lock:
@@ -472,6 +492,7 @@ class PathFollowing(Subsystem):
             
             next_time += self.Ts
             start_time = time.time()
+            iteration += 1
             
             try:
                 # Get current state from Kalman filter
@@ -514,16 +535,33 @@ class PathFollowing(Subsystem):
                     'ubg': self.ubg, 
                     'p': params
                 }
-                if self._x_prev is not None:
+                # Only use warm start after first few iterations to avoid stale solver state issues
+                if self._x_prev is not None and iteration > 2:
                     solver_args['x0'] = ca.DM(self._x_prev)
                 
                 res = self.solver(**solver_args)
+                
+                # Verify solver result is valid before using
+                if res is None or 'x' not in res:
+                    logger.error("Solver returned invalid result, zeroing commands")
+                    with self._lock:
+                        self._v_cmd = 0.0
+                        self._delta_cmd = 0.0
+                    continue
                 
                 # Extract control commands
                 u_offset = self.n_states * (self.p + 1)
                 u_opt = res['x'][u_offset : u_offset + self.n_controls]
                 v_cmd = float(u_opt[0])
                 delta_cmd = float(u_opt[1])
+                
+                # Sanity check before applying commands
+                if not (np.isfinite(v_cmd) and np.isfinite(delta_cmd)):
+                    logger.error("Solver produced non-finite commands: v=%.3f, δ=%.3f, zeroing", v_cmd, delta_cmd)
+                    with self._lock:
+                        self._v_cmd = 0.0
+                        self._delta_cmd = 0.0
+                    continue
                 
                 # Update stored values
                 with self._lock:
