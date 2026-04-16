@@ -12,10 +12,9 @@ class ZeroIMUCmd(Command):
     """Command that sets the IMU yaw offset so the current heading becomes zero.
 
     Behavior:
-    - Collect up to `sample_count` heading samples (degrees) via
-      `IMU.get_euler()` and compute a circular-safe median by unwrapping
-      radians before taking the median.
-    - Apply yaw offset = -median_heading (degrees) using
+        - Collect up to `sample_count` heading samples (radians) via
+            `IMU.get_angle()` and compute a circular-safe median by unwrapping.
+        - Apply yaw offset = -median_heading (radians) using
       `IMU.set_yaw_offset()` and finish.
     """
 
@@ -47,32 +46,29 @@ class ZeroIMUCmd(Command):
         if not euler or len(euler) < 1:
             return
 
-        heading_deg = float(euler[0])
+        heading_rad = float(euler[2])
 
         # store sample
-        self._samples.append(heading_deg)
+        self._samples.append(heading_rad)
         # keep at most sample_count (older values are fine but we only need N)
         if len(self._samples) < self.sample_count:
             # not enough samples yet
             return
 
-        # compute circular-safe median:
-        # - convert to radians
-        # - unwrap to remove wrap discontinuities
-        # - take median
-        # - convert back to degrees and wrap to [-180, 180]
+        # Compute circular-safe median in radians.
         arr = np.asarray(self._samples, dtype=float)
-        radians = np.radians(arr)
-        unwrapped = np.unwrap(radians)
+        unwrapped = np.unwrap(arr)
         median_rad = float(np.median(unwrapped))
-        median_deg = np.degrees(median_rad)
-        # normalize to [-180,180]
-        median_deg = ((median_deg + 180.0) % 360.0) - 180.0
+        median_rad = ((median_rad + np.pi) % (2.0 * np.pi)) - np.pi
 
-        yaw_offset_deg = -median_deg
-        self._imu.set_yaw_offset(yaw_offset_deg)
+        yaw_offset_rad = -median_rad
+        self._imu.set_yaw_offset(yaw_offset_rad)
         self._applied = True
-        print(f"ZeroIMUCmd: applied yaw offset {yaw_offset_deg:.2f} deg to zero median heading (median was {median_deg:.2f} deg)")
+        print(
+            "ZeroIMUCmd: applied yaw offset "
+            f"{np.degrees(yaw_offset_rad):.2f} deg to zero median heading "
+            f"(median was {np.degrees(median_rad):.2f} deg)"
+        )
 
     def end(self, interrupted):
         if interrupted and not self._applied:
