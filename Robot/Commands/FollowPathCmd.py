@@ -85,7 +85,7 @@ class FollowPathCmd(Command):
         # v_cmd is in m/s, delta_cmd is in radians
         # Convert velocity to percentage (assuming top speed m/s = 1)
         self.speed = (v_cmd / Constants.rear_motor_top_speed)
-        angle = -delta_cmd
+        angle = delta_cmd
 
         logger.debug(f"FollowPathCmd: v_cmd={v_cmd:.2f} m/s, delta_cmd={delta_cmd:.2f} rad -> speed={self.speed}%, angle={angle} rad")
 
@@ -109,4 +109,4 @@ class FollowPathCmd(Command):
         """Command runs until cancelled."""
         self.is_approaching_boundary = self.drive_train.is_approaching_boundary(self.speed)
         
-        return self.path_following.is_at_goal(0.1) or self.is_approaching_boundary
+        return self.path_following.is_at_goal(0.1) # or self.is_approaching_boundary
