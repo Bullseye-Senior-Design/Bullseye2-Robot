@@ -6,8 +6,7 @@ from Robot.subsystems.algorithms.KalmanStateEstimator import KalmanStateEstimato
 from Robot.subsystems.DriveTrain import DriveTrain
 import logging
 from Robot.Constants import Constants
-from helpers.dbConstants import PATH_POINTS_TABLE
-from helpers.sqllib import SQLiteFileManager
+from helpers.SavedPathsHelper import SavedPathsHelper
 from Comms.PiCommThread import PiCommThread
 
 
@@ -109,23 +108,21 @@ class TestingFollowPathCmd(Command):
             print("FollowPathCmd: completed")
     
     def _save_reference_path(self):
-        """Save the reference path to SQLite in the references folder."""
+        """Save the reference path to SQLite using the standard saved-path format."""
         # Create references folder if it doesn't exist
         references_dir = Constants.references_directory
         references_dir.mkdir(parents=True, exist_ok=True)
-        
-        # Generate timestamped table key
-        ts_str = time.strftime('%Y%m%d_%H%M%S', time.localtime())
-        
-        # Setup manager and write path data
-        db_manager = SQLiteFileManager()
-        reference_table = PATH_POINTS_TABLE
-        db_manager.setup_file(reference_table, replace_existing=True)
 
-        rows = [reference_table.build_row(row_data[0], row_data[1], row_data[2]) for row_data in self.path_matrix]
-        db_manager.write_rows(reference_table, rows)
-        db_manager.close_all()
-        logger.info(f"Reference path saved to SQLite key: {PATH_POINTS_TABLE.name}")
+        path_points = [
+            (float(row_data[0]), float(row_data[1]), float(row_data[2]))
+            for row_data in self.path_matrix
+        ]
+        path_id = SavedPathsHelper().save_path(path_points)
+        if path_id is None:
+            logger.error("Failed to save reference path")
+            return
+
+        logger.info(f"Reference path saved with path ID: {path_id}")
 
     def is_finished(self):
         """Command runs until cancelled."""
