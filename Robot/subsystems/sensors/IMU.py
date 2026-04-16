@@ -340,6 +340,11 @@ class IMU:
         """
         with self._lock:
             return self.calibration_status.copy()
+    
+    def get_raw_angle(self) -> Tuple[float, float, float]:
+        """Returns raw (uncorrected) (roll, pitch, yaw) in radians."""
+        with self._lock:
+            return self.raw_angle
 
     def request_calibration_status(self):
         """
