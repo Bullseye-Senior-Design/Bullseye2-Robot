@@ -14,7 +14,7 @@ from helpers.sqllib import ROBOT_DATA_DB_FILENAME
 from helpers.SavedPathsHelper import SavedPathsHelper
 
 logger = logging.getLogger(f"{__name__}.PathFollowing")
-logger.setLevel(logging.DEBUG)
+logger.setLevel(logging.INFO)
 
 @dataclass
 class DataPoint:

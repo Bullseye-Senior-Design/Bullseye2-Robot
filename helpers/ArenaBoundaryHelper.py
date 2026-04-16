@@ -130,7 +130,7 @@ class ArenaBoundaryManager:
             success = db_manager.overwrite_with_row(ARENA_BOUNDARY_TABLE, boundary_data)
             
             if success:
-                logger.info(f"Arena boundary set with corners: {corners}")
+                logger.debug(f"Arena boundary set with corners: {corners}")
             else:
                 logger.error("Failed to set arena boundary")
             
@@ -184,7 +184,7 @@ class ArenaBoundaryManager:
                     x4=float(row.get('x4', 0.0)),
                     y4=float(row.get('y4', 0.0))
                 )
-                logger.info(f"Arena boundary retrieved: {boundary.get_corners()}")
+                logger.debug(f"Arena boundary retrieved: {boundary.get_corners()}")
                 return boundary
             except (ValueError, TypeError) as e:
                 logger.error(f"Error parsing arena boundary data: {e}")
