@@ -445,7 +445,7 @@ class PiCommThread:
         x, y, yaw = self.kalman_estimator.get_robot_pose()
         x = math.trunc(x * 100) / 100
         y = math.trunc(y * 100) / 100
-        yaw = math.trunc(yaw * 100) / 100
+        yaw = math.trunc(math.degrees(yaw) * 100) / 100
         pos = PosData(x=x, y=y, yaw=yaw)
         packet = DataPacket(type="pos_data", json_data=pos.model_dump_json())
         self._send(packet)
