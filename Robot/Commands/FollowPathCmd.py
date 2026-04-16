@@ -39,6 +39,7 @@ class FollowPathCmd(Command):
         
         # Load path using SavedPathsHelper
         self.path_helper = SavedPathsHelper()
+        self.is_approaching_boundary = False
 
         
     def initialize(self):
