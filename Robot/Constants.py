@@ -35,7 +35,7 @@ class Constants:
     # Front Wheel Encoder Constants
     frontwheel_encoder_resolution = 14  # bits
     frontwheel_encoder_max_position = (1 << frontwheel_encoder_resolution) - 1
-    frontwheel_encoder_zero_offset = math.radians(248.72)  # calibrated for straight-ahead position
+    frontwheel_encoder_zero_offset = math.radians(242.11)  # calibrated for straight-ahead position
     
     # Back Wheel Encoder Constants
     back_right_encoder_pin = 5
