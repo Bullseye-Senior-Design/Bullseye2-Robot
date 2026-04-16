@@ -89,8 +89,8 @@ class RobotContainer:
     def start_path_following(self):
         logger.info("Starting path following mode")
         self.path_following = PathFollowing.reset_instance()  # Get fresh instance
-        TestingFollowPathCmd(self.drive_train, self.path_following).schedule()
-        # FollowPathCmd(self.drive_train, self.path_following).schedule()
+        # TestingFollowPathCmd(self.drive_train, self.path_following).schedule()
+        FollowPathCmd(self.drive_train, self.path_following).schedule()
 
     def start_teleop(self):
         logger.info("Starting teleop control")
@@ -100,7 +100,7 @@ class RobotContainer:
                             lambda: self.comm_thread.get_controller_data().right_x).schedule()
         
         InputScheduler(lambda: self.comm_thread.get_controller_data().btn_Y).on_true(
-            StopMovementCmd(self.drive_train)
+            StopMovementCmd(self.drive_train, self.clutches)
         )
 
         InputScheduler(lambda: self.comm_thread.get_controller_data().btn_X).on_true(
@@ -124,7 +124,7 @@ class RobotContainer:
         logger.info("Robot disabled, stopping all movement")
         if self.path_cmd is not None:
             self.path_cmd.cancel()
-        StopMovementCmd(self.drive_train).schedule()
+        StopMovementCmd(self.drive_train, self.clutches).schedule()
 
     def shutdown(self):
         self.clutches.close()

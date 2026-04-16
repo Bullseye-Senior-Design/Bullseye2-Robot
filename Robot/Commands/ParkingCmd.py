@@ -26,13 +26,15 @@ class ParkingCmd(Command):
         if row is None:
             logger.warning(f"DriveHomeCmd: home position row not found in SQLite key {self._home_position_key}")
             return None
-
         return [float(row["x"]), float(row["y"]), float(row["yaw"])]
+
         
     def initialize(self):
         self.home_pose = self._read_home_position()
         self.speed = 0.0
         self.is_approaching_boundary = False
+        self._drive_train.reset_pid()  # Reset PID controller for fresh state at start of movement
+
         if self.home_pose is None:
             position = self._kalman_estimator.pos
             self.home_pose = [float(position[0]), float(position[1]), float(self._kalman_estimator.euler[2])]
