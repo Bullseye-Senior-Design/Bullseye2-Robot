@@ -8,7 +8,7 @@ from Robot.Constants import Constants
 from Robot.subsystems.algorithms.KalmanStateEstimator import KalmanStateEstimator
 
 logger = logging.getLogger(f"{__name__}.BackWheelEncoder")
-logger.setLevel(logging.DEBUG)  # Set to INFO for detailed output
+logger.setLevel(logging.INFO)  # Set to INFO for detailed output
 
 import RPi.GPIO as GPIO
 
