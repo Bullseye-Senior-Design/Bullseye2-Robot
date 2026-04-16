@@ -376,7 +376,7 @@ class PiCommThread:
             # Steam Deck is commanding the robot to update its home position.
             pos = PosData.model_validate_json(packet.json_data)
             
-            HomePositionManager().set_home_position(pos.x, pos.y, pos.yaw)
+            HomePositionManager().set_home_position(pos.x, pos.y, math.radians(pos.yaw))
            
             logger.info(f"Home position set: x={pos.x}, y={pos.y}, yaw={pos.yaw}")
             self._send_home_ack()
