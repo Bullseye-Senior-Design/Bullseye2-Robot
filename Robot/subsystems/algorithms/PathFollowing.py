@@ -237,16 +237,34 @@ class PathFollowing(Subsystem):
         x_wp = self.path_matrix[:, 0]
         y_wp = self.path_matrix[:, 1]
         theta_wp = self.path_matrix[:, 2]
+        if len(x_wp) < 2:
+            # Not enough points to form a path segment; hold current waypoint pose.
+            ref_pose = np.array([x_wp[0], y_wp[0], theta_wp[0]], dtype=float) if len(x_wp) == 1 else np.zeros(3)
+            return np.tile(ref_pose, (self.p + 1, 1))
         
         # Compute cumulative arc-length of waypoints
         dx, dy = np.diff(x_wp), np.diff(y_wp)
         s_wp = np.cumsum(np.sqrt(dx**2 + dy**2))
         s_wp = np.insert(s_wp, 0, 0.0)
+
+        # Remove non-increasing arc-length samples caused by duplicate/near-duplicate waypoints.
+        keep = np.concatenate(([True], np.diff(s_wp) > 1e-9))
+        s_wp = s_wp[keep]
+        x_wp = x_wp[keep]
+        y_wp = y_wp[keep]
+        theta_wp = theta_wp[keep]
+
+        if len(s_wp) < 2:
+            ref_pose = np.array([x_wp[0], y_wp[0], theta_wp[0]], dtype=float)
+            return np.tile(ref_pose, (self.p + 1, 1))
+
+        # Cubic requires >=4 points; linear is robust for short segments.
+        interp_kind = 'cubic' if len(s_wp) >= 4 else 'linear'
         
         # Create interpolators for x, y, and theta as functions of arc-length
-        interp_x = interp1d(s_wp, x_wp, kind='cubic', fill_value='extrapolate') # type: ignore
-        interp_y = interp1d(s_wp, y_wp, kind='cubic', fill_value='extrapolate') # type: ignore
-        interp_theta = interp1d(s_wp, theta_wp, kind='cubic', fill_value='extrapolate') # type: ignore
+        interp_x = interp1d(s_wp, x_wp, kind=interp_kind, fill_value='extrapolate') # type: ignore
+        interp_y = interp1d(s_wp, y_wp, kind=interp_kind, fill_value='extrapolate') # type: ignore
+        interp_theta = interp1d(s_wp, theta_wp, kind=interp_kind, fill_value='extrapolate') # type: ignore
         
         # Find closest point on path to current state
         distances = np.sqrt((x_wp - cur_state[0])**2 + (y_wp - cur_state[1])**2)
