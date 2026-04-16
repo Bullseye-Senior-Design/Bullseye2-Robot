@@ -31,6 +31,8 @@ class DriveHomeCmd(Command):
         return [float(row["x"]), float(row["y"]), float(row["yaw"])]
         
     def initialize(self):
+        self._drive_train.reset_pid()  # Reset PID controller for fresh state at start of movement
+        
         home_pose = self._read_home_position()
         if home_pose is None:
             position = self._kalman_estimator.pos
