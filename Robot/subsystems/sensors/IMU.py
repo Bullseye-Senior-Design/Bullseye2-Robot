@@ -6,12 +6,15 @@ import time
 import struct
 import threading
 from typing import Optional, Tuple, Dict
+import numpy as np
 from Robot.Constants import Constants
+from Robot.MathUtil import MathUtil
 from Robot.subsystems.algorithms.KalmanStateEstimator import KalmanStateEstimator
 
 logger = logging.getLogger(f"{__name__}.IMU")
 logger.setLevel(logging.DEBUG)  # Set to INFO for high-level events, DEBUG for detailed parsing info
 
+# Using Hiwonder IMU (WitMotion WT901) as the primary IMU. Communicates over serial with a custom binary protocol.
 class IMU:
     _instance = None
 
@@ -41,9 +44,12 @@ class IMU:
         self._lock = threading.Lock()
         self.acc: Tuple[float, float, float] = (0.0, 0.0, 0.0)      # g
         self.gyro: Tuple[float, float, float] = (0.0, 0.0, 0.0)    # °/s
-        self.angle: Tuple[float, float, float] = (0.0, 0.0, 0.0)   # Roll, Pitch, Yaw in °
+        self.angle: Tuple[float, float, float] = (0.0, 0.0, 0.0)   # Corrected Roll, Pitch, Yaw in °
+        self.raw_angle: Tuple[float, float, float] = (0.0, 0.0, 0.0)   # Raw Roll, Pitch, Yaw in °
         self.mag: Tuple[float, float, float] = (0.0, 0.0, 0.0)     # Magnetometer raw units
-        self.quaternion: Tuple[float, float, float, float] = (0.0, 0.0, 0.0, 1.0)  # qx, qy, qz, qw
+        self.quaternion: Tuple[float, float, float, float] = (0.0, 0.0, 0.0, 1.0)  # Corrected qx, qy, qz, qw
+        self.raw_quaternion: Tuple[float, float, float, float] = (0.0, 0.0, 0.0, 1.0)  # Raw qx, qy, qz, qw
+        self.yaw_offset_rad: float = 0.0
         self.calibration_status: Dict[str, int] = {
             'acc_x': 0,   # 0-3, higher = better calibration
             'acc_y': 0,
@@ -128,7 +134,8 @@ class IMU:
                 pitch = struct.unpack('<h', data[2:4])[0] / 32768.0 * 180.0
                 yaw   = struct.unpack('<h', data[4:6])[0] / 32768.0 * 180.0
                 with self._lock:
-                    self.angle = (roll, pitch, yaw)
+                    self.raw_angle = (roll, pitch, yaw)
+                    self.angle = self._apply_yaw_offset_to_euler(self.raw_angle)
                     logger.debug(f"IMU Euler angles updated: Roll={roll:.2f}°, Pitch={pitch:.2f}°, Yaw={yaw:.2f}°")
                     self.last_update_time = time.time()
 
@@ -148,7 +155,8 @@ class IMU:
                 qy = struct.unpack('<h', data[4:6])[0] / 32768.0
                 qz = struct.unpack('<h', data[6:8])[0] / 32768.0
                 with self._lock:
-                    self.quaternion = (qx, qy, qz, qw)
+                    self.raw_quaternion = (qx, qy, qz, qw)
+                    self.quaternion = self._apply_yaw_offset_to_quaternion(self.raw_quaternion)
                     self.last_update_time = time.time()
 
             elif pkt_type == 0x5A:  # Calibration status
@@ -191,7 +199,7 @@ class IMU:
                     else:
                         del self.buffer[0]  # Remove garbage
 
-                self.state_estimator.update_imu_attitude(q_meas=self.get_quaternion())
+                self.state_estimator.update_imu_attitude(q_meas=np.array(self.get_quaternion()))
 
                 time.sleep(1.0 / (self.update_rate * 2))  # Low CPU usage
 
@@ -210,21 +218,47 @@ class IMU:
                 'acc': self.acc,
                 'gyro': self.gyro,
                 'angle': self.angle,   # Roll, Pitch, Yaw
+                'raw_angle': self.raw_angle,
                 'mag': self.mag,
                 'quaternion': self.quaternion,
+                'raw_quaternion': self.raw_quaternion,
                 'calibration': self.calibration_status,
                 'timestamp': self.last_update_time
             }
         
     def set_yaw_offset(self, offset_rad: float):
         """Set a yaw offset (in radians) to align IMU yaw with world frame."""
+        with self._lock:
+            self.yaw_offset_rad = float(offset_rad)
+            self.angle = self._apply_yaw_offset_to_euler(self.raw_angle)
+            self.quaternion = self._apply_yaw_offset_to_quaternion(self.raw_quaternion)
+
         offset_deg = math.degrees(offset_rad)
-        # Command to set yaw offset: 0xFF 0xAA 0x02 OFFSET_L OFFSET_H 0x00
-        # OFFSET is a signed 16-bit integer representing degrees * 100 (for 0.01° resolution)
-        offset_int = int(offset_deg * 100) & 0xFFFF
-        cmd = bytes([0xFF, 0xAA, 0x02, offset_int & 0xFF, (offset_int >> 8) & 0xFF, 0x00])
-        self.send_command(cmd)
-        logger.debug(f"Set IMU yaw offset to {offset_deg:.2f} degrees ({offset_rad:.3f} radians)")
+        logger.debug(f"Set IMU yaw offset in software to {offset_deg:.2f} degrees ({offset_rad:.3f} radians)")
+
+    def _apply_yaw_offset_to_euler(self, euler_deg: Tuple[float, float, float]) -> Tuple[float, float, float]:
+        roll_deg, pitch_deg, yaw_deg = euler_deg
+        yaw_rad = math.radians(yaw_deg) + self.yaw_offset_rad
+        corrected = np.array([math.radians(roll_deg), math.radians(pitch_deg), yaw_rad], dtype=float)
+        corrected[2] = MathUtil.wrap_to_pi(corrected[2])
+        corrected_deg = np.degrees(corrected)
+        corrected_deg[2] = ((corrected_deg[2] + 180.0) % 360.0) - 180.0
+        return (float(corrected_deg[0]), float(corrected_deg[1]), float(corrected_deg[2]))
+
+    def _apply_yaw_offset_to_quaternion(self, quat: Tuple[float, float, float, float]) -> Tuple[float, float, float, float]:
+        q = np.asarray(quat, dtype=float)
+        if not np.all(np.isfinite(q)):
+            return (0.0, 0.0, 0.0, 1.0)
+
+        euler = MathUtil.quat_to_euler(q)
+        euler[2] = MathUtil.wrap_to_pi(e=float(euler[2]) + self.yaw_offset_rad)
+        q_corrected = MathUtil.euler_to_quat(euler)
+        return (
+            float(q_corrected[0]),
+            float(q_corrected[1]),
+            float(q_corrected[2]),
+            float(q_corrected[3]),
+        )
         
     def send_command(self, cmd: bytes):
         """Send raw configuration command to the IMU."""
@@ -277,7 +311,7 @@ class IMU:
             return self.gyro
 
     def get_angle(self) -> Tuple[float, float, float]:
-        """Returns (roll, pitch, yaw) in degrees"""
+        """Returns corrected (roll, pitch, yaw) in degrees."""
         with self._lock:
             return self.angle
 
@@ -287,7 +321,7 @@ class IMU:
             return self.mag
 
     def get_quaternion(self) -> Tuple[float, float, float, float]:
-        """Returns quaternion as (qx, qy, qz, qw)."""
+        """Returns corrected quaternion as (qx, qy, qz, qw)."""
         with self._lock:
             return self.quaternion
 
