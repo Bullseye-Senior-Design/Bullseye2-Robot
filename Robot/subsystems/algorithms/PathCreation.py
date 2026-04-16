@@ -164,7 +164,7 @@ class PathCreation(Subsystem):
 
     def simplify_path(
         self,
-        rdp_epsilon: float = 0.5, # meters, max distance for RDP simplification (higher = fewer points)
+        rdp_epsilon: float = 0.25, # meters, max distance for RDP simplification (higher = fewer points)
         unwrap_yaw: bool = True, # whether to unwrap yaw angles to prevent discontinuities before smoothing
         wrap_yaw_to_pi: bool = True, # whether to wrap final yaw angles to [-pi, pi] after smoothing
         yaw_min_motion_distance: float = 1e-3, # minimum distance between points to consider for computing yaw (prevents unstable headings from tiny motions)
