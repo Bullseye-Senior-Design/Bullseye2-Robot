@@ -10,7 +10,7 @@ from helpers.SavedPathsHelper import SavedPathsHelper
 from Comms.PiCommThread import PiCommThread
 
 logger = logging.getLogger(f"{__name__}.FollowPathCmd")
-logger.setLevel(logging.INFO)  # Set to DEBUG for detailed output
+logger.setLevel(logging.DEBUG)  # Set to DEBUG for detailed output
 
 class FollowPathCmd(Command):
     """Command that uses MPCNavigator to follow a path.
@@ -39,6 +39,7 @@ class FollowPathCmd(Command):
         
         # Load path using SavedPathsHelper
         self.path_helper = SavedPathsHelper()
+        self.is_approaching_boundary = False
 
         
     def initialize(self):
@@ -84,7 +85,7 @@ class FollowPathCmd(Command):
         # v_cmd is in m/s, delta_cmd is in radians
         # Convert velocity to percentage (assuming top speed m/s = 1)
         self.speed = (v_cmd / Constants.rear_motor_top_speed)
-        angle = delta_cmd
+        angle = -delta_cmd
 
         logger.debug(f"FollowPathCmd: v_cmd={v_cmd:.2f} m/s, delta_cmd={delta_cmd:.2f} rad -> speed={self.speed}%, angle={angle} rad")
 

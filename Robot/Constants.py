@@ -35,7 +35,7 @@ class Constants:
     # Front Wheel Encoder Constants
     frontwheel_encoder_resolution = 14  # bits
     frontwheel_encoder_max_position = (1 << frontwheel_encoder_resolution) - 1
-    frontwheel_encoder_zero_offset = math.radians(248.72)  # calibrated for straight-ahead position
+    frontwheel_encoder_zero_offset = math.radians(242.11)  # calibrated for straight-ahead position
     
     # Back Wheel Encoder Constants
     back_right_encoder_pin = 5
@@ -84,6 +84,8 @@ class Constants:
     serial_baud_rate = 19200
     pi_serial_port = "/dev/ttyAMA1"
     controller_update_rate = 0.05  # seconds between sending StateData updates to the controller
+    connection_idle_timeout = 1.0   # seconds of silence before Pi sends a connection-check ping
+    connection_ack_timeout = 0.5    # seconds to wait for ping_ack before disabling the robot
 
     #BMS Constants
     bms_update_interval = 0.05 # seconds between reads
@@ -99,7 +101,7 @@ class Constants:
     
     # Home Position Constants
     distance_to_home_threshold = 1.5  # meters, how close we need to be to consider ourselves "at home"
-    difference_in_heading_to_home_threshold = math.radians(15)  # radians, how close our heading needs to be to consider ourselves "at home"
+    difference_in_heading_to_home_threshold = math.radians(30)  # radians, how close our heading needs to be to consider ourselves "at home"
 
 
     #test

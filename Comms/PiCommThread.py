@@ -63,6 +63,10 @@ SUBSYSTEM_UPDATE_RATE = Constants.controller_update_rate  # ~10 Hz for subsystem
 BATTERY_SOC_THRESHOLD = 0.5  # Send battery data when SOC drops by this %
 BATTERY_CHECK_RATE = 5.0     # How often to poll SOC for threshold change (seconds)
 
+# ==== CONNECTION WATCHDOG ====
+# Set to False to disable the idle-timeout / connection-check behaviour entirely.
+ENABLE_CONNECTION_WATCHDOG = True
+
 # ==== ROBOT STATE DATA ====
 class CommData:
     """Holds all the robot's current state and sensor data"""
@@ -153,6 +157,9 @@ class PiCommThread:
         # KFXController can use it to send kfx_ack packets back to the Deck.
         self.pi_ser = None
 
+        # Timestamp of the last packet received from the Steam Deck (used by watchdog).
+        self._last_rx_time = time.time()
+
         # KFXController is created here but NOT started yet – we start it in
         # start() so that pi_ser is guaranteed to be assigned before KFX needs
         # it.  pi_ser may still be None at start() time if the port fails, which
@@ -207,6 +214,16 @@ class PiCommThread:
         )
         self.battery_thread.start()
         logger.info("Started battery sender thread")
+
+        # Start connection watchdog thread (only if enabled)
+        if ENABLE_CONNECTION_WATCHDOG:
+            self.watchdog_thread = threading.Thread(
+                target=self._connection_watchdog,
+                daemon=True,
+                name="ConnectionWatchdog"
+            )
+            self.watchdog_thread.start()
+            logger.info("Started connection watchdog thread")
 
     def _receive_kfx_commands(self):
         """
@@ -263,6 +280,7 @@ class PiCommThread:
                         line = line.strip()
                         if not line:
                             continue
+                        self._last_rx_time = time.time()
                         try:
                             self._process_packet(self.pi_ser, line)
                         except Exception as e:
@@ -274,6 +292,40 @@ class PiCommThread:
 
         except serial.SerialException as e:
             logger.error(f"Could not connect to controller receiver: {e}")
+
+    def _connection_watchdog(self):
+        """
+        Monitors how long it has been since the last packet was received from the
+        Steam Deck.  If silence exceeds connection_idle_timeout, sends a ping.
+        If no ping_ack arrives within connection_ack_timeout, disables the robot.
+        Runs in its own daemon thread; exits when self._running is False.
+        """
+        while self._running:
+            time.sleep(SUBSYSTEM_UPDATE_RATE)
+
+            idle = time.time() - self._last_rx_time
+            if idle < Constants.connection_idle_timeout:
+                continue  # Still hearing from the Deck — nothing to do.
+
+            # Silence threshold crossed: send a ping and wait for ack.
+            # logger.warning(f"No packet received for {idle:.2f}s — sending connection-check ping")
+            rx_before_ping = self._last_rx_time
+            self._send(DataPacket(type="ping", json_data="{}"))
+
+            # Wait up to connection_ack_timeout for any new packet (ack resets _last_rx_time).
+            deadline = time.time() + Constants.connection_ack_timeout
+            while time.time() < deadline:
+                if self._last_rx_time != rx_before_ping:
+                    # A new packet came in — connection restored.
+                    # logger.info("Connection-check ping acknowledged — link restored")
+                    break
+                time.sleep(0.05)
+            else:
+                # No response within the ack window — disable the robot.
+                logger.error("No ping_ack received — disabling robot due to lost connection")
+                self._handle_state_change(State.DISABLED)
+                # Reset the timer so we don't spam disables every loop tick.
+                self._last_rx_time = time.time()
 
     def _process_packet(self, serial_port, line: str):
         """Process a single received packet line."""
@@ -480,6 +532,22 @@ class PiCommThread:
                     logger.debug(f"Sent battery data — SOC: {current_soc:.1f}%")
             except Exception as e:
                 logger.error(f"Error sending battery data: {e}")
+
+    def send_error(self, errstr: str):
+        #TODO: Add error codes and types to distinguish recoverable errors. (NAV)
+        """Send a recoverable error message to the Steam Deck for operator display."""
+        payload = json.dumps({"errstr": errstr})
+        packet = DataPacket(type="error", json_data=payload)
+        self._send(packet)
+        logger.info(f"Sent error: {errstr}")
+
+    def send_route_finished(self, message: str):
+        #TODO: Add route finished notification logic. Route completed or Returned to home string. (NAV)
+        """Notify the Steam Deck that a KFX route or return-to-home maneuver completed."""
+        payload = json.dumps({"message": message})
+        packet = DataPacket(type="route_finished", json_data=payload)
+        self._send(packet)
+        logger.info(f"Sent route_finished: {message}")
 
     def send_new_path_data(self, path_id: int):
         """Send new path data to the controller."""

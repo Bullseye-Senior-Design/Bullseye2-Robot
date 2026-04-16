@@ -76,7 +76,7 @@ class AlignIMUToWorldCmd(Command):
         saved_offset_deg = self._read_last_logged_yaw_offset_deg()
         if saved_offset_deg is not None:
             self._bias = math.radians(saved_offset_deg)
-            imu.set_yaw_offset(saved_offset_deg)
+            imu.set_yaw_offset(self._bias)
             logger.info(f"AlignIMUToWorldCmd: restored yaw offset from SQLite: {saved_offset_deg:.3f} deg")
         else:
             self._bias = 0.0
@@ -110,7 +110,7 @@ class AlignIMUToWorldCmd(Command):
 
         # apply bias to IMU (degrees)
         logger.debug(f"AlignIMUToWorldCmd: applying yaw offset {math.degrees(self._bias):.3f} deg")
-        imu.set_yaw_offset(math.degrees(self._bias))
+        imu.set_yaw_offset(self._bias)
 
         if self._last_db_log_time is None or (now - self._last_db_log_time) >= 30.0:
             self._record_yaw_offset_db(now, "execute")
