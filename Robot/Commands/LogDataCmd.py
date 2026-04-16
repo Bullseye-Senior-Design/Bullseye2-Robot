@@ -178,6 +178,7 @@ class LogDataCmd(Command):
     
     def is_finished(self):
         return False
+    
     def save_uwb_pos_to_csv(self, position: Optional[Position], tag_id: int, table: Table, timestamp: Optional[float] = None) -> bool:
         """Save a position reading to a table with tag ID."""
 

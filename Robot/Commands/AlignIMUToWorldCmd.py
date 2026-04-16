@@ -10,7 +10,7 @@ from Robot.subsystems.sensors.UWB import UWB
 import logging
 
 logger = logging.getLogger(f"{__name__}.AlignIMUToWorldCmd")
-logger.setLevel(logging.INFO)
+logger.setLevel(logging.DEBUG)
 
 
 def _wrap_angle(a: float) -> float:
@@ -108,11 +108,11 @@ class AlignIMUToWorldCmd(Command):
         self.residuals_window.append(residual)
         self._bias = float(np.median(self.residuals_window))
 
-        # apply bias to IMU (degrees)
-        logger.debug(f"AlignIMUToWorldCmd: applying yaw offset {math.degrees(self._bias):.3f} deg")
-        imu.set_yaw_offset(self._bias)
 
         if self._last_db_log_time is None or (now - self._last_db_log_time) >= 30.0:
+            # apply bias to IMU (degrees)
+            logger.debug(f"AlignIMUToWorldCmd: applying yaw offset {math.degrees(self._bias):.3f} deg")
+            imu.set_yaw_offset(self._bias)
             self._record_yaw_offset_db(now, "execute")
             self._last_db_log_time = now
 
