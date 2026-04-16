@@ -53,6 +53,7 @@ class PathFollowing(Subsystem):
         self.Ts = 0.3  # MPC sampling time (seconds)
         self.p = 25 # 12 may be better for computation capacity
         self.L = Constants.wheel_base_width  # Wheelbase of the robot (meters) - must be set in Constants.py
+        self.clutch_disengage_threshold = Constants.inside_clutch_angle_threshold_rads
         # crusing speed for reference trajectory generation, can be adjusted via set_nominal_speed() method
         self.v_nom = Constants.rear_motor_top_speed*0.4
         
@@ -129,8 +130,14 @@ class PathFollowing(Subsystem):
         controls = ca.vertcat(v, delta)
         n_controls = controls.size1()
         
-        # Right hand side (Bicycle Model)
-        rhs = ca.vertcat(v * ca.cos(theta), v * ca.sin(theta), v/self.L * ca.tan(delta))
+        # Hybrid kinematic model:
+        # - Bicycle model when both rear clutches are engaged (small steering)
+        # - Tricycle model when one rear clutch is disengaged (larger steering)
+        omega_bicycle = (v / self.L) * ca.tan(delta)
+        omega_tricycle = (v / self.L) * ca.sin(delta) # simplified tricycle model for larger steering angles
+        use_tricycle = ca.fabs(delta) > self.clutch_disengage_threshold
+        omega = ca.if_else(use_tricycle, omega_tricycle, omega_bicycle)
+        rhs = ca.vertcat(v * ca.cos(theta), v * ca.sin(theta), omega)
         f = ca.Function('f', [states, controls], [rhs])
         
         # Optimization variables
