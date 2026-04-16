@@ -238,8 +238,6 @@ class IMU:
         """Set a yaw offset (in radians) to align IMU yaw with world frame."""
         with self._lock:
             self.yaw_offset_rad = float(offset_rad)
-            self.angle = self._apply_yaw_offset_to_euler(self.raw_angle)
-            self.quaternion = self._apply_yaw_offset_to_quaternion(self.raw_quaternion)
 
         offset_deg = math.degrees(offset_rad)
         logger.debug(f"Set IMU yaw offset in software to {offset_deg:.2f} degrees ({offset_rad:.3f} radians)")
