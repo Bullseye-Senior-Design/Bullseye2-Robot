@@ -10,6 +10,7 @@ from helpers.dbConstants import ARENA_BOUNDARY_TABLE
 from helpers.sqllib import SQLiteFileManager
 
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
 
 
 @dataclass
