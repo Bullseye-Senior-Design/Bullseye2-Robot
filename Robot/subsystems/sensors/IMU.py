@@ -10,7 +10,7 @@ from Robot.Constants import Constants
 from Robot.subsystems.algorithms.KalmanStateEstimator import KalmanStateEstimator
 
 logger = logging.getLogger(f"{__name__}.IMU")
-logger.setLevel(logging.INFO)  # Set to INFO for high-level events, DEBUG for detailed parsing info
+logger.setLevel(logging.DEBUG)  # Set to INFO for high-level events, DEBUG for detailed parsing info
 
 class IMU:
     _instance = None
@@ -232,7 +232,7 @@ class IMU:
             self.ser.write(cmd)
             self.ser.flush()
             time.sleep(0.05)  # Small delay for module to process
-            logger.debug(f"Sent command: {' '.join(f'{b:02X}' for b in cmd)}")
+            #logger.debug(f"Sent command: {' '.join(f'{b:02X}' for b in cmd)}")
 
     def set_output_rate(self, rate_hz: int = 100, save: bool = True):
         """
