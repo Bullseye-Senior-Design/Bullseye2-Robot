@@ -105,18 +105,21 @@ class AlignIMUToWorldCmd(Command):
         logger.debug(f"AlignIMUToWorldCmd: IMU raw yaw = {math.degrees(imu_raw_yaw_rad):.3f} deg (before offset)")
         logger.debug(f"AlignIMUToWorldCmd: IMU yaw = {math.degrees(imu_yaw_rad):.3f} deg (with offset {imu_offset_deg:.3f} deg)")
 
-        # residual between measured UWB yaw and corrected IMU yaw
-        residual = _wrap_angle(uwb_yaw - imu_yaw_rad)
+        # Drive IMU yaw to UWB-referenced zero error:
+        # error = imu_yaw - uwb_yaw, target error = 0.
+        residual = _wrap_angle(uwb_yaw - imu_raw_yaw_rad)
         self.residuals_window.append(residual)
         self._bias = float(np.median(self.residuals_window))
+
+        imu.set_yaw_offset(self._bias)
 
 
         if self._last_db_log_time is None or (now - self._last_db_log_time) >= 30.0:
             # apply bias to IMU (degrees)
             logger.debug(f"AlignIMUToWorldCmd: applying yaw offset {math.degrees(self._bias):.3f} deg")
-            imu.set_yaw_offset(self._bias)
             self._record_yaw_offset_db(now, "execute")
             self._last_db_log_time = now
+          
 
         # bookkeeping
         self._samples += 1
