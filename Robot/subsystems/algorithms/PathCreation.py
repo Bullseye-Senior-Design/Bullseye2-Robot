@@ -43,7 +43,6 @@ class PathCreation(Subsystem):
             logger.error("No path points were recorded, nothing to save.")
             return None
 
-        
     def save_path_to_db(self):
         if not self._path:
             return
@@ -106,8 +105,99 @@ class PathCreation(Subsystem):
             euler = self.kf.euler  # numpy array [roll, pitch, yaw] in radians
             currentPos.yaw = float(euler[2])
             self._path.append(currentPos)
+    
+    def rdp(self, points, epsilon):
+        if len(points) < 3:
+            return points[:]
+
+        # Find the point with the maximum distance
+        dmax = 0
+        index = 0
+        end = len(points) - 1
+        
+        # Check every point between start and end
+        for i in range(1, end):
+            d = self.perpendicular_distance(points[i], line_start=points[0], line_end=points[end])
+            if d > dmax:
+                index = i
+                dmax = d
+
+        # If max distance is greater than epsilon, simplify both sub-curves
+        if dmax > epsilon:
+            # Recursive call: Split at the furthest point (index)
+            results1 = self.rdp(points[:index+1], epsilon)
+            results2 = self.rdp(points[index:], epsilon)
+
+            # Combine results (minus the duplicate point where they meet)
+            return results1[:-1] + results2
+        else:
+            # If max distance is small, just return the start and end points
+            return [points[0], points[end]]
+
+    def perpendicular_distance(self, point, line_start, line_end):
+        """Return the perpendicular distance from `point` to the line segment
+        defined by `line_start` and `line_end`.
+        point, line_start, line_end are (x, y) tuples.
+        """
+        px, py = point
+        x1, y1 = line_start
+        x2, y2 = line_end
+
+        dx = x2 - x1
+        dy = y2 - y1
+        if dx == 0 and dy == 0:
+            # line_start and line_end are the same point
+            return ((px - x1) ** 2 + (py - y1) ** 2) ** 0.5
+
+        # Project point onto the line segment, computing parameter t
+        t = ((px - x1) * dx + (py - y1) * dy) / (dx * dx + dy * dy)
+        # Clamp t to the segment [0,1]
+        if t < 0:
+            proj_x, proj_y = x1, y1
+        elif t > 1:
+            proj_x, proj_y = x2, y2
+        else:
+            proj_x = x1 + t * dx
+            proj_y = y1 + t * dy
+
+        return ((px - proj_x) ** 2 + (py - proj_y) ** 2) ** 0.5
 
     def simplify_path(
+        self,
+        rdp_epsilon: float = 0.5, # meters, max distance for RDP simplification (higher = fewer points)
+        unwrap_yaw: bool = True, # whether to unwrap yaw angles to prevent discontinuities before smoothing
+        wrap_yaw_to_pi: bool = True, # whether to wrap final yaw angles to [-pi, pi] after smoothing
+        yaw_min_motion_distance: float = 1e-3, # minimum distance between points to consider for computing yaw (prevents unstable headings from tiny motions)
+    ) -> None:
+        """Simplify the recorded path with RDP, then compute yaw from direction and persist."""
+        points = self._path
+        if not points:
+            logger.error(f"No points found in path data.")
+            return
+
+        original_count = len(points)
+        xy_points = [(point.x, point.y) for point in points]
+        simplified_xy = self.rdp(xy_points, epsilon=rdp_epsilon)
+        simplified = [DataPoint(x=float(x), y=float(y), yaw=0.0) for x, y in simplified_xy]
+
+        simplified = self.compute_yaw_from_path(
+            simplified,
+            unwrap=unwrap_yaw,
+            wrap_to_pi=wrap_yaw_to_pi,
+            min_motion_distance=yaw_min_motion_distance,
+        )
+
+        self._path = simplified
+        simplified_count = len(simplified)
+        logger.info(
+            f"Input points: {original_count}; RDP points: {simplified_count}; "
+            f"epsilon: {rdp_epsilon};"
+        )
+        self.save_path_to_db()
+
+        return
+
+    def old_simplify_path(
         self,
         group_distance: float = 0.10, # meters, distance threshold for grouping nearby points before smoothing
         smoothing: float = 0.5, # smoothing factor for B-spline fit (0 = interpolate, higher = smoother)
@@ -118,15 +208,12 @@ class PathCreation(Subsystem):
         wrap_yaw_to_pi: bool = True, # whether to wrap final yaw angles to [-pi, pi] after smoothing
         yaw_min_motion_distance: float = 1e-3, # minimum distance between points to consider for computing yaw (prevents unstable headings from tiny motions)
     ) -> None:
-        """Read px/py/yaw samples, smooth with Savitzky-Golay,
-        fit a B-spline, compute yaw in radians from path direction, then persist.
-        Returns the smoothed list of points.
-        """
+        """Legacy smoothing pipeline: grouping + Savitzky-Golay + B-spline, then yaw recompute."""
         points = self._path
         if not points:
             logger.error(f"No points found in path data.")
             return
-        
+
         original_count = len(points)
         if group_distance is not None and group_distance > 0:
             points = self.group_nearby_points(points, distance_threshold=group_distance)
@@ -141,7 +228,7 @@ class PathCreation(Subsystem):
             self.save_path_to_db()  # Save original points
             return
 
-        # Apply Savitzky-Goyal smoothing before spline fit when possible
+        # Apply Savitzky-Golay smoothing before spline fit when possible
         window_length = savgol_window
         if window_length % 2 == 0:
             window_length += 1
@@ -153,8 +240,7 @@ class PathCreation(Subsystem):
 
         smoothed = self.fit_bspline(spline_input, smoothing=smoothing, num_samples=num_samples)
         smoothed = [DataPoint(x=float(row[0]), y=float(row[1]), yaw=0.0) for row in smoothed]
-        
-        # Compute yaw from the smoothed path direction
+
         # Compute yaw from the smoothed path direction
         smoothed = self.compute_yaw_from_path(
             smoothed,
@@ -162,7 +248,7 @@ class PathCreation(Subsystem):
             wrap_to_pi=wrap_yaw_to_pi,
             min_motion_distance=yaw_min_motion_distance,
         )
-        
+
         self._path = smoothed
         smoothed_count = len(smoothed)
         logger.info(
