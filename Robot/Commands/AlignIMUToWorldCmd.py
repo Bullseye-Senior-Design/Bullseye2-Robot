@@ -25,7 +25,7 @@ class AlignIMUToWorldCmd(Command):
     headings align. The estimator runs until `duration` elapses or the
     residual is stable for several samples.
     """
-    def __init__(self, imu: IMU, uwb: UWB, min_samples: int = 400):
+    def __init__(self, imu: IMU, uwb: UWB, min_samples: int = 100):
         super().__init__()
         # minimum samples before allowing early finish
         self.min_samples = min_samples
@@ -131,7 +131,6 @@ class AlignIMUToWorldCmd(Command):
 
     def end(self, interrupted):
         self._record_yaw_offset_db(time.time(), "end")
-        logger.info(f"AlignIMUToWorldCmd: ended yaw-bias estimation after {self._samples} samples and time of {(self._last_time - self._start_time) if self._last_time and self._start_time else 'N/A'} seconds")
 
         if interrupted:
             logger.info("AlignIMUToWorldCmd interrupted; leaving current IMU yaw offset in place")
