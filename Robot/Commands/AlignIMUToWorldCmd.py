@@ -29,6 +29,7 @@ class AlignIMUToWorldCmd(Command):
         super().__init__()
         # minimum samples before allowing early finish
         self.min_samples = min_samples
+        self._uwb_sample_period_s = 0.1  # 10 Hz
         
         self._uwb = uwb
         self._imu = imu
@@ -37,6 +38,7 @@ class AlignIMUToWorldCmd(Command):
         # runtime state
         self._start_time: float | None = None
         self._last_time: float | None = None
+        self._last_uwb_sample_time: float | None = None
         self._samples = 0
         self._stable_count = 0
         self._bias = 0.0  # radians
@@ -64,6 +66,7 @@ class AlignIMUToWorldCmd(Command):
     def initialize(self):
         self._start_time = time.time()
         self._last_time = self._start_time
+        self._last_uwb_sample_time = time.monotonic() - self._uwb_sample_period_s
         self._last_db_log_time = self._start_time
         self._samples = 0
         self._stable_count = 0
@@ -82,6 +85,12 @@ class AlignIMUToWorldCmd(Command):
 
     def execute(self):
         now = time.time()
+
+        last_uwb_sample_time = self._last_uwb_sample_time
+        monotonic_now = time.monotonic()
+        if last_uwb_sample_time is not None and (monotonic_now - last_uwb_sample_time) < self._uwb_sample_period_s:
+            return
+        self._last_uwb_sample_time = monotonic_now
 
         # Get instantaneous UWB yaw (radians)
         uwb = self._uwb
