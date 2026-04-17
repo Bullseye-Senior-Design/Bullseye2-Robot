@@ -28,9 +28,9 @@ class DefaultMovementCmd(Command):
     def initialize(self):
         """Called once when the command is first scheduled"""
         self._drive_train.reset_pid()  # Reset PID controller for fresh state at start of movement
-        self._drive_train.disengage_backwheel()  # Ensure backwheel is engaged for movement
-        self._drive_train.disengage_frontwheel()  # Ensure frontwheel is engaged for movement
-        self._clutches.disengage_clutches()  # Disengage clutches to allow movement
+        self._drive_train.engage_backwheel()  # Ensure backwheel is engaged for movement
+        self._drive_train.engage_frontwheel()  # Ensure frontwheel is engaged for movement
+        self._clutches.engage_clutches()  # Disengage clutches to allow movement
         self._drive_train.stop()
     
     def execute(self):
