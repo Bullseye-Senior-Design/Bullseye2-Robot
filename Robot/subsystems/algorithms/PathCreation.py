@@ -105,6 +105,11 @@ class PathCreation(Subsystem):
             euler = self.kf.euler  # numpy array [roll, pitch, yaw] in radians
             currentPos.yaw = float(euler[2])
             self._path.append(currentPos)
+
+    def _point_xy(self, point):
+        if hasattr(point, "x") and hasattr(point, "y"):
+            return float(point.x), float(point.y)
+        return float(point[0]), float(point[1])
     
     def rdp(self, points, epsilon):
         if len(points) < 3:
@@ -139,9 +144,9 @@ class PathCreation(Subsystem):
         defined by `line_start` and `line_end`.
         point, line_start, line_end are (x, y) tuples.
         """
-        px, py = point
-        x1, y1 = line_start
-        x2, y2 = line_end
+        px, py = self._point_xy(point)
+        x1, y1 = self._point_xy(line_start)
+        x2, y2 = self._point_xy(line_end)
 
         dx = x2 - x1
         dy = y2 - y1
@@ -165,27 +170,15 @@ class PathCreation(Subsystem):
     def simplify_path(
         self,
         rdp_epsilon: float = 0.25, # meters, max distance for RDP simplification (higher = fewer points)
-        unwrap_yaw: bool = True, # whether to unwrap yaw angles to prevent discontinuities before smoothing
-        wrap_yaw_to_pi: bool = True, # whether to wrap final yaw angles to [-pi, pi] after smoothing
-        yaw_min_motion_distance: float = 1e-3, # minimum distance between points to consider for computing yaw (prevents unstable headings from tiny motions)
     ) -> None:
-        """Simplify the recorded path with RDP, then compute yaw from direction and persist."""
+        """Simplify the recorded path with RDP while preserving the original yaw values."""
         points = self._path
         if not points:
             logger.error(f"No points found in path data.")
             return
 
         original_count = len(points)
-        xy_points = [(point.x, point.y) for point in points]
-        simplified_xy = self.rdp(xy_points, epsilon=rdp_epsilon)
-        simplified = [DataPoint(x=float(x), y=float(y), yaw=0.0) for x, y in simplified_xy]
-
-        simplified = self.compute_yaw_from_path(
-            simplified,
-            unwrap=unwrap_yaw,
-            wrap_to_pi=wrap_yaw_to_pi,
-            min_motion_distance=yaw_min_motion_distance,
-        )
+        simplified = self.rdp(points, epsilon=rdp_epsilon)
 
         self._path = simplified
         simplified_count = len(simplified)

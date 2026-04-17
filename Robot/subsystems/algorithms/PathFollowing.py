@@ -389,6 +389,10 @@ class PathFollowing(Subsystem):
             if self._running:
                 logger.debug("Path following already running")
                 return
+
+            if self._thread is not None and self._thread.is_alive():
+                logger.warning("Path following thread is still shutting down; refusing to start a second control loop")
+                return
             
             if self.path_matrix is None:
                 logger.error("No path set. Call set_path() first.")
@@ -401,18 +405,24 @@ class PathFollowing(Subsystem):
     
     def stop_path_following(self):
         """Stop the MPC path following."""
+        thread_to_join = None
         with self._lock:
             if not self._running:
-                return
-            
-            self._running = False
-            logger.info("MPC path following stopped")
+                thread_to_join = self._thread
+            else:
+                self._running = False
+                logger.info("MPC path following stopped")
+                thread_to_join = self._thread
         
         # Wait for thread to fully exit before returning
-        if self._thread is not None:
-            self._thread.join(timeout=2.0)
-            if self._thread.is_alive():
+        if thread_to_join is not None:
+            thread_to_join.join(timeout=2.0)
+            if thread_to_join.is_alive():
                 logger.warning("MPC control loop thread did not terminate within timeout")
+            else:
+                with self._lock:
+                    if self._thread is thread_to_join:
+                        self._thread = None
         
         # Reset warm start data to prevent incompatibility on restart
         with self._lock:
@@ -509,118 +519,122 @@ class PathFollowing(Subsystem):
         logger.info("MPC control loop started")
         next_time = time.time()
         iteration = 0
-        
-        while True:
-            with self._lock:
-                if not self._running:
-                    break
-            
-            next_time += self.Ts
-            start_time = time.time()
-            iteration += 1
-            
-            try:
-                # Get current state from Kalman filter
-                state = self.state_estimator.get_state()
-                cur_state = np.array([state.pos[0], state.pos[1], 
-                                     self.state_estimator.euler[2]])  # x, y, yaw
-                
-                # Generate reference trajectory
-                refs = self._generate_reference(cur_state)
-                distance_to_goal = self._get_distance_to_goal(cur_state)
-                
-                # Generate speed reference trajectory
+
+        try:
+            while True:
                 with self._lock:
-                    v_nom_current = self.v_nom
+                    if not self._running:
+                        break
                 
-                v_ref = np.zeros(self.p + 1)
-                for i in range(self.p + 1):
-                    if distance_to_goal is not None:
-                        # Estimate distance to goal for this point in the horizon
-                        dist_i = max(0.0, distance_to_goal - (i * self.ds_ref))
-                        
-                        # CHANGED: Smooth deceleration profile within 1.5 meters of the goal
-                        if dist_i < 1.5:
-                            speed_scale = max(0.0, dist_i / 1.5)
-                            # Ensure complete stop by dropping velocity to 0 at extreme proximity
-                            v_ref[i] = v_nom_current * speed_scale if dist_i > 0.05 else 0.0
+                next_time += self.Ts
+                start_time = time.time()
+                iteration += 1
+                
+                try:
+                    # Get current state from Kalman filter
+                    state = self.state_estimator.get_state()
+                    cur_state = np.array([state.pos[0], state.pos[1], 
+                                         self.state_estimator.euler[2]])  # x, y, yaw
+                    
+                    # Generate reference trajectory
+                    refs = self._generate_reference(cur_state)
+                    distance_to_goal = self._get_distance_to_goal(cur_state)
+                    
+                    # Generate speed reference trajectory
+                    with self._lock:
+                        v_nom_current = self.v_nom
+                    
+                    v_ref = np.zeros(self.p + 1)
+                    for i in range(self.p + 1):
+                        if distance_to_goal is not None:
+                            # Estimate distance to goal for this point in the horizon
+                            dist_i = max(0.0, distance_to_goal - (i * self.ds_ref))
+                            
+                            # CHANGED: Smooth deceleration profile within 1.5 meters of the goal
+                            if dist_i < 1.5:
+                                speed_scale = max(0.0, dist_i / 1.5)
+                                # Ensure complete stop by dropping velocity to 0 at extreme proximity
+                                v_ref[i] = v_nom_current * speed_scale if dist_i > 0.05 else 0.0
+                            else:
+                                v_ref[i] = v_nom_current
                         else:
                             v_ref[i] = v_nom_current
-                    else:
-                        v_ref[i] = v_nom_current
-                
-                # Prepare parameters
-                params = np.concatenate([cur_state, self._last_u, refs.flatten(), v_ref])
-                
-                # Solve MPC
-                solver_args = {
-                    'lbx': self.lbx, 
-                    'ubx': self.ubx, 
-                    'lbg': self.lbg, 
-                    'ubg': self.ubg, 
-                    'p': params
-                }
-                # Only use warm start after first few iterations to avoid stale solver state issues
-                if self._x_prev is not None and iteration > 2:
-                    solver_args['x0'] = ca.DM(self._x_prev)
-                
-                res = self.solver(**solver_args)
-                
-                # Verify solver result is valid before using
-                if res is None or 'x' not in res:
-                    logger.error("Solver returned invalid result, zeroing commands")
+                    
+                    # Prepare parameters
+                    params = np.concatenate([cur_state, self._last_u, refs.flatten(), v_ref])
+                    
+                    # Solve MPC
+                    solver_args = {
+                        'lbx': self.lbx, 
+                        'ubx': self.ubx, 
+                        'lbg': self.lbg, 
+                        'ubg': self.ubg, 
+                        'p': params
+                    }
+                    # Only use warm start after first few iterations to avoid stale solver state issues
+                    if self._x_prev is not None and iteration > 2:
+                        solver_args['x0'] = ca.DM(self._x_prev)
+                    
+                    res = self.solver(**solver_args)
+                    
+                    # Verify solver result is valid before using
+                    if res is None or 'x' not in res:
+                        logger.error("Solver returned invalid result, zeroing commands")
+                        with self._lock:
+                            self._v_cmd = 0.0
+                            self._delta_cmd = 0.0
+                        continue
+                    
+                    # Extract control commands
+                    u_offset = self.n_states * (self.p + 1)
+                    u_opt = res['x'][u_offset : u_offset + self.n_controls]
+                    v_cmd = float(u_opt[0])
+                    delta_cmd = float(u_opt[1])
+                    
+                    # Sanity check before applying commands
+                    if not (np.isfinite(v_cmd) and np.isfinite(delta_cmd)):
+                        logger.error("Solver produced non-finite commands: v=%.3f, δ=%.3f, zeroing", v_cmd, delta_cmd)
+                        with self._lock:
+                            self._v_cmd = 0.0
+                            self._delta_cmd = 0.0
+                        continue
+                    
+                    # Update stored values
                     with self._lock:
-                        self._v_cmd = 0.0
-                        self._delta_cmd = 0.0
-                    continue
-                
-                # Extract control commands
-                u_offset = self.n_states * (self.p + 1)
-                u_opt = res['x'][u_offset : u_offset + self.n_controls]
-                v_cmd = float(u_opt[0])
-                delta_cmd = float(u_opt[1])
-                
-                # Sanity check before applying commands
-                if not (np.isfinite(v_cmd) and np.isfinite(delta_cmd)):
-                    logger.error("Solver produced non-finite commands: v=%.3f, δ=%.3f, zeroing", v_cmd, delta_cmd)
-                    with self._lock:
-                        self._v_cmd = 0.0
-                        self._delta_cmd = 0.0
-                    continue
-                
-                # Update stored values
-                with self._lock:
-                    self._v_cmd = v_cmd
-                    self._delta_cmd = delta_cmd
-                    self._last_u = np.array([v_cmd, delta_cmd])
-                    self._x_prev = res['x']
-                
-                if abs(v_cmd) < 0.01 and distance_to_goal is not None and distance_to_goal > 0.25:
+                        self._v_cmd = v_cmd
+                        self._delta_cmd = delta_cmd
+                        self._last_u = np.array([v_cmd, delta_cmd])
+                        self._x_prev = res['x']
+                    
+                    if abs(v_cmd) < 0.01 and distance_to_goal is not None and distance_to_goal > 0.25:
+                        logger.debug(
+                            "MPC commanding zero velocity but not at goal! Distance to goal: %.3f m (tolerance: %.3f m)",
+                            distance_to_goal,
+                            0.25
+                        )
+                    
+                    elapsed = time.time() - start_time
                     logger.debug(
-                        "MPC commanding zero velocity but not at goal! Distance to goal: %.3f m (tolerance: %.3f m)",
-                        distance_to_goal,
-                        0.25
+                        "MPC: V=%.2f m/s | δ=%.1f° | Pos=(%.2f, %.2f) | Time=%.3fs",
+                        v_cmd,
+                        np.degrees(delta_cmd),
+                        cur_state[0],
+                        cur_state[1],
+                        elapsed,
                     )
+                    
+                except Exception:
+                    logger.exception("MPC error")
+                    with self._lock:
+                        self._v_cmd = 0.0
+                        self._delta_cmd = 0.0
                 
-                elapsed = time.time() - start_time
-                logger.debug(
-                    "MPC: V=%.2f m/s | δ=%.1f° | Pos=(%.2f, %.2f) | Time=%.3fs",
-                    v_cmd,
-                    np.degrees(delta_cmd),
-                    cur_state[0],
-                    cur_state[1],
-                    elapsed,
-                )
-                
-            except Exception:
-                logger.exception("MPC error")
-                with self._lock:
-                    self._v_cmd = 0.0
-                    self._delta_cmd = 0.0
-            
-            # Timing control
-            sleep_duration = next_time - time.time()
-            if sleep_duration > 0:
-                time.sleep(sleep_duration)
-        
-        logger.info("MPC control loop stopped")
+                # Timing control
+                sleep_duration = next_time - time.time()
+                if sleep_duration > 0:
+                    time.sleep(sleep_duration)
+        finally:
+            with self._lock:
+                if self._thread is threading.current_thread():
+                    self._thread = None
+            logger.info("MPC control loop stopped")

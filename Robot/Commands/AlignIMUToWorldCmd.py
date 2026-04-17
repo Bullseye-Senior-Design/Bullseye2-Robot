@@ -25,12 +25,8 @@ class AlignIMUToWorldCmd(Command):
     headings align. The estimator runs until `duration` elapses or the
     residual is stable for several samples.
     """
-    def __init__(self, imu: IMU, uwb: UWB, tau: float = 5.0, tol_rad: float = 0.01, min_samples: int = 100):
+    def __init__(self, imu: IMU, uwb: UWB, min_samples: int = 100):
         super().__init__()
-        # time constant (seconds) for bias adaptation
-        self.tau = tau
-        # convergence tolerance on yaw residual (radians)
-        self.tol = tol_rad
         # minimum samples before allowing early finish
         self.min_samples = min_samples
         
@@ -113,7 +109,6 @@ class AlignIMUToWorldCmd(Command):
 
         imu.set_yaw_offset(self._bias)
 
-
         if self._last_db_log_time is None or (now - self._last_db_log_time) >= 30.0:
             # apply bias to IMU (degrees)
             logger.debug(f"AlignIMUToWorldCmd: applying yaw offset {math.degrees(self._bias):.3f} deg")
@@ -123,11 +118,6 @@ class AlignIMUToWorldCmd(Command):
 
         # bookkeeping
         self._samples += 1
-        if abs(residual) < self.tol:
-            self._stable_count += 1
-        else:
-            self._stable_count = 0
-
         self._last_time = now
 
     def end(self, interrupted):
@@ -140,9 +130,6 @@ class AlignIMUToWorldCmd(Command):
 
     def is_finished(self) -> bool:
         # shouldn't happen, but guard against None
-        if self._start_time is None:
-            return True
-        
-        if self._samples >= self.min_samples and self._stable_count >= 10:
+        if self._samples >= self.min_samples:
             return True
         return False
