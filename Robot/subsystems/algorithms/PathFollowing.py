@@ -269,6 +269,7 @@ class PathFollowing(Subsystem):
         # Find closest point on path to current state
         distances = np.sqrt((x_wp - cur_state[0])**2 + (y_wp - cur_state[1])**2)
         closest_idx = np.argmin(distances)
+        logger.debug(f"Closest waypoint: x={x_wp[closest_idx]:.2f}, y={y_wp[closest_idx]:.2f}, theta={theta_wp[closest_idx]:.2f} rad")
         self.closest_point_idx = closest_idx  # Store closest point index for potential use in determining path completion
         
         # Interpolate arc-length at robot's position for better accuracy
