@@ -2,6 +2,7 @@ from Robot.Commands.TestingFollowPathCmd import TestingFollowPathCmd
 from structure.commands.Command import Command
 from Robot.subsystems.sensors.IMU import IMU
 import numpy as np
+from Robot.MathUtil import MathUtil
 from Robot.Commands.FollowPathCmd import FollowPathCmd
 from Robot.subsystems.DriveTrain import DriveTrain
 
@@ -9,11 +10,11 @@ from Robot.subsystems.algorithms.PathFollowing import PathFollowing
 
 
 class ZeroIMUCmd(Command):
-    """Command that sets the IMU yaw offset so the current heading becomes zero.
+    """Command that sets the IMU yaw offset so the current Kalman-relevant heading becomes zero.
 
     Behavior:
-        - Collect up to `sample_count` heading samples (radians) via
-            `IMU.get_angle()` and compute a circular-safe median by unwrapping.
+        - Collect up to `sample_count` raw quaternion yaw samples (radians) and
+            compute a circular-safe median by unwrapping.
         - Apply yaw offset = -median_heading (radians) using
       `IMU.set_yaw_offset()` and finish.
     """
@@ -41,12 +42,11 @@ class ZeroIMUCmd(Command):
         if self._applied:
             return
 
-        euler = self._imu.get_angle()
-
-        if not euler or len(euler) < 1:
+        raw_quat = self._imu.get_raw_quaternion()
+        if not raw_quat or len(raw_quat) < 4:
             return
 
-        heading_rad = float(euler[2])
+        heading_rad = float(MathUtil.quat_to_euler(np.asarray(raw_quat, dtype=float))[2])
 
         # store sample
         self._samples.append(heading_rad)
