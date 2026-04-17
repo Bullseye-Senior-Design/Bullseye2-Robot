@@ -46,13 +46,11 @@ class UWB:
         if start_immediately:
             self.bootup()
     
-    def get_positions(self) -> List[Position]:
-        """Get latest position from all connected tags."""
-        positions: List[Position] = []
+    def get_positions(self) -> List[Optional[Position]]:
+        """Get latest position from all tags, returning None for unavailable/stale tags."""
+        positions: List[Optional[Position]] = []
         for tag in self.tags:
-            pos = tag.get_latest_position()
-            if pos is not None:
-                positions.append(pos)
+            positions.append(tag.get_latest_position())
         return positions
     
     def get_angle(self) -> float | None:
@@ -60,14 +58,18 @@ class UWB:
 
         Returns robot yaw in radians ([-pi, pi]). Requires at least two tags.
         """
-        positions = self.get_positions()
-        # need at least two tags to compute heading
-        if len(positions) < 2:
+        if len(self.tags) < 2:
+            return None
+
+        pos0 = self.tags[0].get_latest_position()
+        pos1 = self.tags[1].get_latest_position()
+        # need two valid tag positions to compute heading
+        if pos0 is None or pos1 is None:
             return None
         
         # instantaneous vector between tags in world frame
-        dx = positions[1].x - positions[0].x
-        dy = positions[1].y - positions[0].y
+        dx = pos1.x - pos0.x
+        dy = pos1.y - pos0.y
         yaw_inst = math.atan2(dy, dx)  # heading of tag-to-tag vector (world)
 
         # read tag offsets (body-frame) from UWBTag objects, fallback to zero

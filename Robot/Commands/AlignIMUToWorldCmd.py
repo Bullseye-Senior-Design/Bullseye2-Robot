@@ -5,6 +5,7 @@ import numpy as np
 from collections import deque
 from helpers.dbConstants import YAW_OFFSET_TABLE
 from helpers.sqllib import SQLiteFileManager
+from Robot.MathUtil import MathUtil
 from Robot.subsystems.sensors.IMU import IMU
 from Robot.subsystems.sensors.UWB import UWB
 import logging
@@ -24,7 +25,7 @@ class AlignIMUToWorldCmd(Command):
     headings align. The estimator runs until `duration` elapses or the
     residual is stable for several samples.
     """
-    def __init__(self, imu: IMU, uwb: UWB, min_samples: int = 200):
+    def __init__(self, imu: IMU, uwb: UWB, min_samples: int = 400):
         super().__init__()
         # minimum samples before allowing early finish
         self.min_samples = min_samples
@@ -93,16 +94,16 @@ class AlignIMUToWorldCmd(Command):
         # Get IMU yaw in radians (IMU.get_angle returns (roll, pitch, yaw) in radians)
         imu = self._imu
         imu_yaw_rad = float(imu.get_angle()[2])
-        imu_raw_yaw_rad = float(imu.get_raw_angle()[2])
+        imu_raw_q_yaw_rad = float(MathUtil.quat_to_euler(np.asarray(imu.get_raw_quaternion(), dtype=float))[2])
         imu_offset_deg = math.degrees(imu.yaw_offset_rad)
 
         logger.debug(f"AlignIMUToWorldCmd: UWB yaw = {math.degrees(uwb_yaw):.3f} deg")
-        logger.debug(f"AlignIMUToWorldCmd: IMU raw yaw = {math.degrees(imu_raw_yaw_rad):.3f} deg (before offset)")
+        logger.debug(f"AlignIMUToWorldCmd: IMU raw quaternion yaw = {math.degrees(imu_raw_q_yaw_rad):.3f} deg (before offset)")
         logger.debug(f"AlignIMUToWorldCmd: IMU yaw = {math.degrees(imu_yaw_rad):.3f} deg (with offset {imu_offset_deg:.3f} deg)")
 
         # Drive IMU yaw to UWB-referenced zero error:
         # error = imu_yaw - uwb_yaw, target error = 0.
-        residual = _wrap_angle(uwb_yaw - imu_raw_yaw_rad)
+        residual = _wrap_angle(uwb_yaw - imu_raw_q_yaw_rad)
         self.residuals_window.append(residual)
         self._bias = float(np.median(self.residuals_window))
 
@@ -121,6 +122,7 @@ class AlignIMUToWorldCmd(Command):
 
     def end(self, interrupted):
         self._record_yaw_offset_db(time.time(), "end")
+        logger.info(f"AlignIMUToWorldCmd: ended yaw-bias estimation after {self._samples} samples and time of {(self._last_time - self._start_time) if self._last_time and self._start_time else 'N/A'} seconds")
 
         if interrupted:
             logger.info("AlignIMUToWorldCmd interrupted; leaving current IMU yaw offset in place")

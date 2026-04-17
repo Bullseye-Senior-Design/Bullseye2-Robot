@@ -77,6 +77,9 @@ class UWBTag:
         
         self.position_lock = threading.RLock()
         self.last_position: Optional[Position] = None
+        # If we do not receive a fresh position update within 1/20 s, report None.
+        self.position_stale_timeout_s = 1.0 / 20.0
+        self._last_position_rx_time: float = 0.0
         
         # Statistics for debugging
         self._stats_reads = 0
@@ -227,12 +230,17 @@ class UWBTag:
                     process_update = False
                     
                     with self.position_lock:
+                        now = time.time()
+                        prev_position = self.last_position
+                        self._last_position_rx_time = now
+
                         # 2. Check if data is STALE (Duplicate)
                         # We compare X, Y, Z. If they are identical to the last read,
                         # the tag has not updated its calculation yet.
                         logger.debug(f"Comparing positions for tag {self.id}: Last={self.last_position} vs New={loc_data.position}")
-                        if (self.last_position is None) or (loc_data.position != self.last_position):
-                            self.last_position = loc_data.position
+                        self.last_position = loc_data.position
+
+                        if (prev_position is None) or (loc_data.position != prev_position):
                             process_update = True
                     
                     # 3. Only update EKF if the data is NEW
@@ -265,5 +273,17 @@ class UWBTag:
             self.read_thread.join(timeout=1.0)
     
     def get_latest_position(self) -> Optional[Position]:
+        """Gets the latest position from UWB. If it has been greater than 0.05s since last UWB position it returns None
+
+        Returns:
+            Optional[Position]: Position object if fresh data is available, otherwise None.
+        """
         with self.position_lock:
+            if self.last_position is None:
+                return None
+
+            # Surface stale UWB data as unavailable to downstream consumers.
+            if (time.time() - self._last_position_rx_time) > self.position_stale_timeout_s:
+                return None
+
             return self.last_position
