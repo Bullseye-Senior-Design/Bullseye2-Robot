@@ -129,24 +129,6 @@ class IMU:
                     self.gyro = (gx, gy, gz)
                     self.last_update_time = time.time()
 
-            elif pkt_type == 0x53:  # Euler angles (Roll, Pitch, Yaw)
-                roll_deg  = struct.unpack('<h', data[0:2])[0] / 32768.0 * 180.0
-                pitch_deg = struct.unpack('<h', data[2:4])[0] / 32768.0 * 180.0
-                yaw_deg   = struct.unpack('<h', data[4:6])[0] / 32768.0 * 180.0
-                roll = math.radians(roll_deg)
-                pitch = math.radians(pitch_deg)
-                yaw = math.radians(yaw_deg)
-                with self._lock:
-                    self.raw_angle = (roll, pitch, yaw)
-                    self.angle = self._apply_yaw_offset_to_euler(self.raw_angle)
-                    logger.debug(
-                        "IMU Euler angles updated: Roll=%.2f deg, Pitch=%.2f deg, Yaw=%.2f deg",
-                        roll_deg,
-                        pitch_deg,
-                        yaw_deg,
-                    )
-                    self.last_update_time = time.time()
-
             elif pkt_type == 0x54:  # Magnetometer
                 mx = float(struct.unpack('<h', data[0:2])[0])
                 my = float(struct.unpack('<h', data[2:4])[0])
@@ -164,7 +146,11 @@ class IMU:
                 qz = struct.unpack('<h', data[6:8])[0] / 32768.0
                 with self._lock:
                     self.raw_quaternion = (qx, qy, qz, qw)
+                    self.raw_angle = self._quat_to_euler(self.raw_quaternion)
+                    self.angle = self._apply_yaw_offset_to_euler(self.raw_angle)
                     self.quaternion = self._apply_yaw_offset_to_quaternion(self.raw_quaternion)
+                    
+                    logger.debug(f"Current Angle (with offset): roll={math.degrees(self.angle[0]):.2f} deg, pitch={math.degrees(self.angle[1]):.2f} deg, yaw={math.degrees(self.angle[2]):.2f} deg")
                     self.last_update_time = time.time()
 
             elif pkt_type == 0x5A:  # Calibration status
@@ -247,14 +233,17 @@ class IMU:
         corrected_yaw = MathUtil.wrap_to_pi(yaw_rad + self.yaw_offset_rad)
         return (float(roll_rad), float(pitch_rad), float(corrected_yaw))
 
-    def _apply_yaw_offset_to_quaternion(self, quat: Tuple[float, float, float, float]) -> Tuple[float, float, float, float]:
+    def _quat_to_euler(self, quat: Tuple[float, float, float, float]) -> Tuple[float, float, float]:
         q = np.asarray(quat, dtype=float)
         if not np.all(np.isfinite(q)):
-            return (0.0, 0.0, 0.0, 1.0)
+            return (0.0, 0.0, 0.0)
 
         euler = MathUtil.quat_to_euler(q)
-        euler[2] = MathUtil.wrap_to_pi(e=float(euler[2]) + self.yaw_offset_rad)
-        q_corrected = MathUtil.euler_to_quat(euler)
+        return (float(euler[0]), float(euler[1]), float(euler[2]))
+
+    def _apply_yaw_offset_to_quaternion(self, quat: Tuple[float, float, float, float]) -> Tuple[float, float, float, float]:
+        euler = self._apply_yaw_offset_to_euler(self._quat_to_euler(quat))
+        q_corrected = MathUtil.euler_to_quat(np.asarray(euler, dtype=float))
         return (
             float(q_corrected[0]),
             float(q_corrected[1]),
