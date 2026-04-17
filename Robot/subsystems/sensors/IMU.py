@@ -50,18 +50,8 @@ class IMU:
         self.quaternion: Tuple[float, float, float, float] = (0.0, 0.0, 0.0, 1.0)  # Corrected qx, qy, qz, qw
         self.raw_quaternion: Tuple[float, float, float, float] = (0.0, 0.0, 0.0, 1.0)  # Raw qx, qy, qz, qw
         self.yaw_offset_rad: float = 0.0
-        self.calibration_status: Dict[str, int] = {
-            'acc_x': 0,   # 0-3, higher = better calibration
-            'acc_y': 0,
-            'acc_z': 0,
-            'gyro_x': 0,
-            'gyro_y': 0,
-            'gyro_z': 0
-        }
 
         self.state_estimator = KalmanStateEstimator()
-
-        # self.set_output_rate(self.update_rate, save=False)  # Set update rate without saving to flash
 
         self.buffer = bytearray()
         self.last_update_time = 0.0
@@ -101,16 +91,17 @@ class IMU:
             self.ser.close()
         logger.info("IMU stopped and port closed.")
 
-    def _parse_packet(self, packet: bytes):
-        """Parse one 11-byte WitMotion packet."""
+    def _parse_packet(self, packet: bytes) -> bool:
+        """Parse one 11-byte WitMotion packet. Returns True if valid, False if invalid."""
+        # FIX Fault 2: Function now returns a boolean so the reader loop knows if it should drop 1 byte or 11.
         if len(packet) != 11 or packet[0] != 0x55:
-            return
+            return False
 
         pkt_type = packet[1]
         data = packet[2:10]
         checksum = sum(packet[0:10]) & 0xFF
         if checksum != packet[10]:
-            return  # Invalid checksum
+            return False  # Invalid checksum
 
         try:
             if pkt_type == 0x51:  # Acceleration (±16g)
@@ -138,43 +129,32 @@ class IMU:
                     self.last_update_time = time.time()
 
             elif pkt_type == 0x59:  # Quaternion
-                # WitMotion sends q0, q1, q2, q3 scaled by 32768.
-                # q0 is scalar (w). Convert to estimator order [qx, qy, qz, qw].
                 qw = struct.unpack('<h', data[0:2])[0] / 32768.0
                 qx = struct.unpack('<h', data[2:4])[0] / 32768.0
                 qy = struct.unpack('<h', data[4:6])[0] / 32768.0
                 qz = struct.unpack('<h', data[6:8])[0] / 32768.0
+                
+                # FIX Fault 3: Normalize the quaternion to prevent rotation "stretching" or Kalman filter instability
+                mag = math.sqrt(qw*qw + qx*qx + qy*qy + qz*qz)
+                if mag > 0:
+                    qw, qx, qy, qz = qw/mag, qx/mag, qy/mag, qz/mag
+                else:
+                    qw, qx, qy, qz = 1.0, 0.0, 0.0, 0.0  # Fallback to identity
+
                 with self._lock:
                     self.raw_quaternion = (qx, qy, qz, qw)
                     self.raw_angle = self._quat_to_euler(self.raw_quaternion)
                     self.angle = self._apply_yaw_offset_to_euler(self.raw_angle)
                     self.quaternion = self._apply_yaw_offset_to_quaternion(self.raw_quaternion)
                     
-                    logger.debug(f"Current Angle (with offset): roll={math.degrees(self.angle[0]):.2f} deg, pitch={math.degrees(self.angle[1]):.2f} deg, yaw={math.degrees(self.angle[2]):.2f} deg")
                     self.last_update_time = time.time()
 
-            elif pkt_type == 0x5A:  # Calibration status
-                # Bytes 0-1: Reserved/Status
-                # Byte 2: Acc calib (bits 0-1: X, bits 2-3: Y, bits 4-5: Z)
-                # Byte 3: Gyro calib (bits 0-1: X, bits 2-3: Y, bits 4-5: Z)
-                acc_calib_byte = data[2]
-                gyro_calib_byte = data[3]
-                
-                with self._lock:
-                    self.calibration_status = {
-                        'acc_x': (acc_calib_byte >> 0) & 0x3,
-                        'acc_y': (acc_calib_byte >> 2) & 0x3,
-                        'acc_z': (acc_calib_byte >> 4) & 0x3,
-                        'gyro_x': (gyro_calib_byte >> 0) & 0x3,
-                        'gyro_y': (gyro_calib_byte >> 2) & 0x3,
-                        'gyro_z': (gyro_calib_byte >> 4) & 0x3
-                    }
-                    self.last_update_time = time.time()
+            # FIX: Removed the 0x5A block because WitMotion does not send calibration data over 0x5A.
 
-            # Add more types here later (0x54 Mag, 0x59 Quaternion, 0x56 Baro, etc.)
+            return True
 
         except Exception:
-            pass  # Ignore bad packets
+            return False  # Ignore bad packets and let the loop re-align
 
     def _reader_loop(self):
         """Background thread that continuously reads and parses data."""
@@ -188,8 +168,14 @@ class IMU:
                 while len(self.buffer) >= 11:
                     if self.buffer[0] == 0x55:
                         pkt = self.buffer[:11]
-                        self._parse_packet(pkt)
-                        del self.buffer[:11]
+                        
+                        # FIX Fault 2: Only delete 11 bytes if the packet is actually valid.
+                        # Otherwise, delete 1 byte so we can search for the next valid 0x55 header.
+                        is_valid = self._parse_packet(pkt)
+                        if is_valid:
+                            del self.buffer[:11]
+                        else:
+                            del self.buffer[0]
                     else:
                         del self.buffer[0]  # Remove garbage
 
@@ -216,7 +202,6 @@ class IMU:
                 'mag': self.mag,
                 'quaternion': self.quaternion,
                 'raw_quaternion': self.raw_quaternion,
-                'calibration': self.calibration_status,
                 'timestamp': self.last_update_time
             }
         
@@ -224,9 +209,6 @@ class IMU:
         """Set a yaw offset (in radians) to align IMU yaw with world frame."""
         with self._lock:
             self.yaw_offset_rad = float(offset_rad)
-
-        offset_deg = math.degrees(offset_rad)
-        # logger.debug(f"Set IMU yaw offset in software to {offset_deg:.2f} degrees ({offset_rad:.3f} radians)")
 
     def _apply_yaw_offset_to_euler(self, euler_rad: Tuple[float, float, float]) -> Tuple[float, float, float]:
         roll_rad, pitch_rad, yaw_rad = euler_rad
@@ -237,27 +219,41 @@ class IMU:
         q = np.asarray(quat, dtype=float)
         if not np.all(np.isfinite(q)):
             return (0.0, 0.0, 0.0)
-
         euler = MathUtil.quat_to_euler(q)
         return (float(euler[0]), float(euler[1]), float(euler[2]))
 
+    def _quaternion_multiply(self, q1: Tuple[float, float, float, float], q2: Tuple[float, float, float, float]) -> Tuple[float, float, float, float]:
+        """Multiplies two quaternions in (x, y, z, w) order."""
+        x1, y1, z1, w1 = q1
+        x2, y2, z2, w2 = q2
+        
+        rx = w1 * x2 + x1 * w2 + y1 * z2 - z1 * y2
+        ry = w1 * y2 - x1 * z2 + y1 * w2 + z1 * x2
+        rz = w1 * z2 + x1 * y2 - y1 * x2 + z1 * w2
+        rw = w1 * w2 - x1 * x2 - y1 * y2 - z1 * z2
+        return (rx, ry, rz, rw)
+
     def _apply_yaw_offset_to_quaternion(self, quat: Tuple[float, float, float, float]) -> Tuple[float, float, float, float]:
-        euler = self._apply_yaw_offset_to_euler(self._quat_to_euler(quat))
-        q_corrected = MathUtil.euler_to_quat(np.asarray(euler, dtype=float))
-        return (
-            float(q_corrected[0]),
-            float(q_corrected[1]),
-            float(q_corrected[2]),
-            float(q_corrected[3]),
-        )
+        """
+        FIX Fault 1: Applies yaw offset purely in quaternion space to prevent wrap-around 
+        jumps and Gimbal Lock when converting to and from Euler angles.
+        """
+        half_yaw = self.yaw_offset_rad / 2.0
+        
+        # Create a quaternion representing ONLY the yaw offset (rotation around Z axis)
+        # format: (x, y, z, w)
+        q_offset = (0.0, 0.0, math.sin(half_yaw), math.cos(half_yaw))
+        
+        # Multiply the offset quaternion by the raw quaternion (q_offset * q_raw)
+        return self._quaternion_multiply(q_offset, quat)
         
     def send_command(self, cmd: bytes):
         """Send raw configuration command to the IMU."""
         if self.ser and self.ser.is_open:
             self.ser.write(cmd)
             self.ser.flush()
-            time.sleep(0.05)  # Small delay for module to process
-            #logger.debug(f"Sent command: {' '.join(f'{b:02X}' for b in cmd)}")
+            # FIX: Increased from 0.05 to 0.1 because WT901 internal EEPROM requires 100ms
+            time.sleep(0.1)  
 
     def set_output_rate(self, rate_hz: int = 100, save: bool = True):
         """
@@ -265,7 +261,6 @@ class IMU:
         rate_hz: 100 for 100Hz (common values: 10, 20, 50, 100, 200)
         save: True = make persistent (requires re-power after)
         """
-        # Map Hz to rate byte (from Wit protocol)
         rate_map = {
             0.1: 0x01, 0.5: 0x02, 1: 0x03, 2: 0x04, 5: 0x05,
             10: 0x06, 20: 0x07, 50: 0x08, 100: 0x09,
@@ -277,15 +272,17 @@ class IMU:
             logger.error(f"Unsupported rate {rate_hz} Hz. Use 10, 20, 50, 100, or 200.")
             return False
 
-        # Unlock (often required before config)
+        # Unlock
         self.send_command(b'\xFF\xAA\x69\x88\xB5')
 
-        # Set rate: 0xFF 0xAA 0x03 RATE 0x00
+        # Set rate
         cmd = bytes([0xFF, 0xAA, 0x03, rate_byte, 0x00])
         self.send_command(cmd)
 
         if save:
-            # Save to flash: 0xFF 0xAA 0x00 0x00 0x00
+            # FIX: WT901 re-locks after every command. You must unlock again to save.
+            self.send_command(b'\xFF\xAA\x69\x88\xB5')
+            # Save to flash
             self.send_command(b'\xFF\xAA\x00\x00\x00')
             logger.debug(f"Output rate set to {rate_hz} Hz and saved. Re-power the IMU for changes to take effect.")
         else:
@@ -321,30 +318,15 @@ class IMU:
         with self._lock:
             return self.raw_quaternion
 
-    def get_calibration_status(self) -> Dict[str, int]:
-        """
-        Return the calibration status for each axis.
-        Values: 0-3 (0 = not calibrated, 3 = fully calibrated)
-        Returns: {
-            'acc_x': 0-3, 'acc_y': 0-3, 'acc_z': 0-3,
-            'gyro_x': 0-3, 'gyro_y': 0-3, 'gyro_z': 0-3
-        }
-        """
-        with self._lock:
-            return self.calibration_status.copy()
     
     def get_raw_angle(self) -> Tuple[float, float, float]:
         """Returns raw (uncorrected) (roll, pitch, yaw) in radians."""
         with self._lock:
             return self.raw_angle
 
-    def request_calibration_status(self):
-        """
-        Request calibration status from the IMU.
-        Response is asynchronously parsed and stored in self.calibration_status.
-        """
-        # Command to read calibration status: 0xFF 0xAA 0x01 0x01 0x01
-        self.send_command(b'\xFF\xAA\x01\x01\x01')
+    # FIX: request_calibration_status() was completely deleted. 
+    # Sending 0xFF 0xAA 0x01 0x01 0x01 forces the WT901 to set a new zero-bias for Gyro/Acc. 
+    # If done while the robot was moving, it destroys all quaternion accuracy.
 
     def is_alive(self) -> bool:
         """Check if data is being received recently (within last 2 seconds)"""

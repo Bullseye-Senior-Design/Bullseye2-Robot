@@ -85,8 +85,8 @@ class FollowPathCmd(Command):
         # v_cmd is in m/s, delta_cmd is in radians
         # Convert velocity to percentage (assuming top speed m/s = 1)
         self.speed = (v_cmd / Constants.rear_motor_top_speed)
-        angle = delta_cmd
-
+        angle = -delta_cmd # Negating seems to required to match the direction of steering commands with the robot's response. This may be due to differences in coordinate conventions between the path following algorithm and the robot's control system.
+        
         logger.debug(f"Robot position: x,y,yaw={KalmanStateEstimator().get_robot_pose()}")
         logger.debug(f"FollowPathCmd: v_cmd={v_cmd:.2f} m/s, delta_cmd={delta_cmd:.2f} rad -> speed={self.speed}%, angle={angle} rad")
 
