@@ -69,7 +69,7 @@ class PathFollowing(Subsystem):
         self.Q_diag = np.array([10.0, 15.0]) # Cross Track and heading
         self.Q_terminal_diag = np.array([0.0, 0.0, 0.0]) # [lateral, heading, longitudinal] terminal (last point) weights
         self.R_diag = np.array([0.1, 0.1]) # Discourages large values
-        self.Rd_diag = np.array([3.0, 5.0]) # Smoothness 
+        self.Rd_diag = np.array([3.0, 10.0]) # Smoothness 
         self.V_weight = 20.0  
         
         # Constraints
