@@ -42,8 +42,8 @@ class DriveHomeCmd(Command):
         start_pose = [float(current_state.pos[0]), float(current_state.pos[1]), float(self._kalman_estimator.euler[2])]
         path_matrix = self._path_following.generate_path(start_pose, home_pose)
         self._path_following.set_path(path_matrix)
-        self._path_following.start_path_following()
         self._path_following.set_drive_direction(DriveDirection.REVERSE) # set drive direction to reverse for driving back to home position
+        self._path_following.start_path_following()
     
     def execute(self):
         """Poll navigation system and send motor commands."""
@@ -54,7 +54,7 @@ class DriveHomeCmd(Command):
         # Convert to motor commands
         # v_cmd is in m/s, delta_cmd is in radians
         # Convert velocity to percentage (assuming top speed m/s = 1)
-        self.speed = int((v_cmd / Constants.rear_motor_top_speed))
+        self.speed = (v_cmd / Constants.rear_motor_top_speed)
         angle = delta_cmd
 
         logger.debug(f"FollowPathCmd: v_cmd={v_cmd:.2f} m/s, delta_cmd={delta_cmd:.2f} rad -> speed={self.speed}%, angle={angle} rad")
