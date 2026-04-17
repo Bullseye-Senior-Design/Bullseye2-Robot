@@ -24,7 +24,7 @@ class AlignIMUToWorldCmd(Command):
     headings align. The estimator runs until `duration` elapses or the
     residual is stable for several samples.
     """
-    def __init__(self, imu: IMU, uwb: UWB, min_samples: int = 100):
+    def __init__(self, imu: IMU, uwb: UWB, min_samples: int = 200):
         super().__init__()
         # minimum samples before allowing early finish
         self.min_samples = min_samples
