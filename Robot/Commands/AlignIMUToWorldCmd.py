@@ -11,7 +11,7 @@ from Robot.subsystems.sensors.UWB import UWB
 import logging
 
 logger = logging.getLogger(f"{__name__}.AlignIMUToWorldCmd")
-logger.setLevel(logging.INFO)
+logger.setLevel(logging.DEBUG)
 
 def _wrap_angle(a: float) -> float:
     return (a + math.pi) % (2.0 * math.pi) - math.pi
