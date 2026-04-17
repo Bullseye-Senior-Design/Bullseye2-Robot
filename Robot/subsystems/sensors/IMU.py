@@ -147,6 +147,8 @@ class IMU:
                     self.angle = self._apply_yaw_offset_to_euler(self.raw_angle)
                     self.quaternion = self._apply_yaw_offset_to_quaternion(self.raw_quaternion)
                     
+                    logger.debug(f"Angle: roll={math.degrees(self.angle[0]):.2f}°, pitch={math.degrees(self.angle[1]):.2f}°, yaw={math.degrees(self.angle[2]):.2f}°")
+                    
                     self.last_update_time = time.time()
 
             # FIX: Removed the 0x5A block because WitMotion does not send calibration data over 0x5A.
