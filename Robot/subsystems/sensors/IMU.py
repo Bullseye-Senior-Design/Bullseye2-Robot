@@ -129,11 +129,11 @@ class IMU:
                     self.last_update_time = time.time()
 
             elif pkt_type == 0x59:  # Quaternion
-                qw = struct.unpack('<h', data[0:2])[0] / 32768.0
-                qx = struct.unpack('<h', data[2:4])[0] / 32768.0
-                qy = struct.unpack('<h', data[4:6])[0] / 32768.0
-                qz = struct.unpack('<h', data[6:8])[0] / 32768.0
-                
+                qx = struct.unpack('<h', data[0:2])[0] / 32768.0
+                qy = struct.unpack('<h', data[2:4])[0] / 32768.0
+                qz = struct.unpack('<h', data[4:6])[0] / 32768.0
+                qw = struct.unpack('<h', data[6:8])[0] / 32768.0
+
                 # FIX Fault 3: Normalize the quaternion to prevent rotation "stretching" or Kalman filter instability
                 mag = math.sqrt(qw*qw + qx*qx + qy*qy + qz*qz)
                 if mag > 0:
