@@ -67,8 +67,8 @@ class Constants:
     # For the tag offsets:
     # +x : tag is forward of the robot center
     # +y : tag is to the robot's left side
-    uwb_tag_data = [ UWBTagInfo(port="/dev/ttyACM0", id=0, offset=(0.0, -91.44 / 100, 0.0)), # back left tag in Meters
-                     UWBTagInfo(port="/dev/ttyACM1", id=1, offset=(0.0, 22.86 / 100, 0.0)) ] # front right tag
+    uwb_tag_data = [ UWBTagInfo(port="/dev/ttyACM0", id=0, offset=(-91.44 / 100, 0.0, 0.0)), # back left tag in Meters
+                     UWBTagInfo(port="/dev/ttyACM1", id=1, offset=(22.86 / 100, 0.0, 0.0)) ] # front right tag
 
     # Status LED Constants
     status_led_green = 13
