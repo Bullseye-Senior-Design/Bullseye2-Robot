@@ -212,6 +212,8 @@ class PlotStateCmd(Command):
         uwb_x_list = []
         uwb_y_list = []
         for uwb_pos in uwb_positions:
+            if uwb_pos is None:
+                continue
             # prefer attribute access (uwb_pos.x, uwb_pos.y)
             ux = float(uwb_pos.x)
             uy = float(uwb_pos.y)

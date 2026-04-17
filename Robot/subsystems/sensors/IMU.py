@@ -327,6 +327,11 @@ class IMU:
         with self._lock:
             return self.quaternion
 
+    def get_raw_quaternion(self) -> Tuple[float, float, float, float]:
+        """Returns raw (uncorrected) quaternion as (qx, qy, qz, qw)."""
+        with self._lock:
+            return self.raw_quaternion
+
     def get_calibration_status(self) -> Dict[str, int]:
         """
         Return the calibration status for each axis.

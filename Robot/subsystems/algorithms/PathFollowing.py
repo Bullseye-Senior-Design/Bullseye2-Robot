@@ -66,18 +66,17 @@ class PathFollowing(Subsystem):
         
         # Weights (Q for state, R for input, Rd for rate of change, V for speed tracking)
         # CHANGED: Lowered lateral weight slightly so it doesn't fight the forward progress as violently
-        self.Q_diag = np.array([10.0, 15.0]) 
-        # TODO - Test removing terminal weight to see if it prevents stalling
+        self.Q_diag = np.array([10.0, 15.0]) # Cross Track and heading
         self.Q_terminal_diag = np.array([0.0, 0.0, 0.0]) # [lateral, heading, longitudinal] terminal (last point) weights
-        self.R_diag = np.array([0.1, 0.1]) 
-        self.Rd_diag = np.array([3.0, 5.0]) 
+        self.R_diag = np.array([0.1, 1.0]) # Discourages large values [velocity, steering]
+        self.Rd_diag = np.array([3.0, 15.0]) # Smoothness  [velocity change, steering change]
         self.V_weight = 20.0  
         
         # Constraints
         # CHANGED: Default to forward-only to prevent backwards/forwards oscillation traps
         self.lower_speed_limit = 0.5
         self.upper_speed_limit = 0.6
-        self.v_bounds = [Constants.rear_motor_top_speed*self.lower_speed_limit, Constants.rear_motor_top_speed*self.upper_speed_limit] 
+        self.v_bounds = [Constants.rear_motor_top_speed*self.lower_speed_limit, Constants.rear_motor_top_speed*self.upper_speed_limit]
         self.delta_bounds = [-Constants.steering_angle_limit_rads, Constants.steering_angle_limit_rads]
 
         # State bounds

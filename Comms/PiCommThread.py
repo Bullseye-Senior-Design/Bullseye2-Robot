@@ -123,6 +123,7 @@ class CommData:
         self.state_last_update = 0.0
 
 
+
 class PiCommThread:
     """
     Central coordinator for the Bullseye-2 robot system.
@@ -151,6 +152,9 @@ class PiCommThread:
         self._update_threads = []
         self._running = True
         self._data_lock = threading.Lock()
+
+        #watchdog enable
+        self.activate_watchdog = False
 
         # Serial connection for receiving from ControllerMessager (Steam Deck XBee).
         # Assigned inside _receive_controller_commands once the port opens so that
@@ -303,6 +307,9 @@ class PiCommThread:
         while self._running:
             time.sleep(SUBSYSTEM_UPDATE_RATE)
 
+            if not self.activate_watchdog:   #if the watchdog was not activated, skips skips the loop
+                continue
+
             idle = time.time() - self._last_rx_time
             if idle < Constants.connection_idle_timeout:
                 continue  # Still hearing from the Deck — nothing to do.
@@ -324,6 +331,7 @@ class PiCommThread:
                 # No response within the ack window — disable the robot.
                 logger.error("No ping_ack received — disabling robot due to lost connection")
                 self._handle_state_change(State.DISABLED)
+                self.send_error("Controller timeout, pi disabled")
                 # Reset the timer so we don't spam disables every loop tick.
                 self._last_rx_time = time.time()
 
@@ -358,6 +366,7 @@ class PiCommThread:
             # Steam Deck is checking for a connection.
             # Respond with ping_ack including current SoC so the Deck can
             # update its battery display on first connect.
+            self.activate_watchdog = True #Enables the watchdog after the controller has connected
             self._send_ping_ack()
 
         elif packet.type == "set_boundary":
