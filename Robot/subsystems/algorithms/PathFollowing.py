@@ -77,7 +77,7 @@ class PathFollowing(Subsystem):
         # CHANGED: Default to forward-only to prevent backwards/forwards oscillation traps
         self.lower_speed_limit = 0.5
         self.upper_speed_limit = 0.6
-        self.v_bounds = [Constants.rear_motor_top_speed*self.lower_speed_limit, Constants.rear_motor_top_speed*self.upper_speed_limit] 
+        self.v_bounds = [Constants.rear_motor_top_speed*self.lower_speed_limit, Constants.rear_motor_top_speed*self.upper_speed_limit]
         self.delta_bounds = [-Constants.steering_angle_limit_rads, Constants.steering_angle_limit_rads]
 
         # State bounds
