@@ -78,7 +78,7 @@ class AlignIMUToWorldCmd(Command):
             self._bias = 0.0
         self.residuals_window.clear()
 
-        logger.info(f"AlignIMUToWorldCmd: starting yaw-bias estimation (tau={self.tau}s, tol={math.degrees(self.tol):.2f} deg, min_samples={self.min_samples})")
+        logger.info(f"AlignIMUToWorldCmd: starting yaw-bias estimation min_samples={self.min_samples})")
 
     def execute(self):
         now = time.time()
