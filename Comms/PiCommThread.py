@@ -324,7 +324,6 @@ class PiCommThread:
                 # No response within the ack window — disable the robot.
                 logger.error("No ping_ack received — disabling robot due to lost connection")
                 self._handle_state_change(State.DISABLED)
-                self.send_error("Controller timeout, pi disabled")
                 # Reset the timer so we don't spam disables every loop tick.
                 self._last_rx_time = time.time()
 
