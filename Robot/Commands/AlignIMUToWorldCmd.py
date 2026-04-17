@@ -129,6 +129,6 @@ class AlignIMUToWorldCmd(Command):
 
     def is_finished(self) -> bool:
         # shouldn't happen, but guard against None
-        if self._samples >= self.min_samples:
+        if self._samples > self.min_samples:
             return True
         return False
