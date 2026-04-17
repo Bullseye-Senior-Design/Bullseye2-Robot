@@ -240,7 +240,7 @@ class IMU:
             self.yaw_offset_rad = float(offset_rad)
 
         offset_deg = math.degrees(offset_rad)
-        logger.debug(f"Set IMU yaw offset in software to {offset_deg:.2f} degrees ({offset_rad:.3f} radians)")
+        # logger.debug(f"Set IMU yaw offset in software to {offset_deg:.2f} degrees ({offset_rad:.3f} radians)")
 
     def _apply_yaw_offset_to_euler(self, euler_rad: Tuple[float, float, float]) -> Tuple[float, float, float]:
         roll_rad, pitch_rad, yaw_rad = euler_rad
