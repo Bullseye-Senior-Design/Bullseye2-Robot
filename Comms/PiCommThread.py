@@ -159,6 +159,10 @@ class PiCommThread:
 
         # Timestamp of the last packet received from the Steam Deck (used by watchdog).
         self._last_rx_time = time.time()
+        
+        # Flag to track if we've received the first packet from the GUI.
+        # The watchdog won't run until this is True, giving the GUI time to connect on startup.
+        self._first_packet_received = False
 
         # KFXController is created here but NOT started yet – we start it in
         # start() so that pi_ser is guaranteed to be assigned before KFX needs
@@ -281,6 +285,10 @@ class PiCommThread:
                         if not line:
                             continue
                         self._last_rx_time = time.time()
+                        # Mark that we've received the first packet (allows watchdog to start monitoring)
+                        if not self._first_packet_received:
+                            self._first_packet_received = True
+                            logger.info("First packet received from controller — watchdog monitoring enabled")
                         try:
                             self._process_packet(self.pi_ser, line)
                         except Exception as e:
@@ -299,9 +307,16 @@ class PiCommThread:
         Steam Deck.  If silence exceeds connection_idle_timeout, sends a ping.
         If no ping_ack arrives within connection_ack_timeout, disables the robot.
         Runs in its own daemon thread; exits when self._running is False.
+        
+        Note: The watchdog only starts monitoring after the first packet is received,
+        giving the GUI adequate time to connect on startup without triggering a timeout.
         """
         while self._running:
             time.sleep(SUBSYSTEM_UPDATE_RATE)
+
+            # Skip watchdog checks until first packet is received (startup grace period)
+            if not self._first_packet_received:
+                continue
 
             idle = time.time() - self._last_rx_time
             if idle < Constants.connection_idle_timeout:
@@ -324,6 +339,7 @@ class PiCommThread:
                 # No response within the ack window — disable the robot.
                 logger.error("No ping_ack received — disabling robot due to lost connection")
                 self._handle_state_change(State.DISABLED)
+                self.send_error("Controller timeout, pi disabled")
                 # Reset the timer so we don't spam disables every loop tick.
                 self._last_rx_time = time.time()
 
