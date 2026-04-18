@@ -133,7 +133,7 @@ class IMU:
                 qx = struct.unpack('<h', data[2:4])[0] / 32768.0
                 qy = struct.unpack('<h', data[4:6])[0] / 32768.0
                 qz = struct.unpack('<h', data[6:8])[0] / 32768.0
-                
+
                 # FIX Fault 3: Normalize the quaternion to prevent rotation "stretching" or Kalman filter instability
                 mag = math.sqrt(qw*qw + qx*qx + qy*qy + qz*qz)
                 if mag > 0:
@@ -146,6 +146,8 @@ class IMU:
                     self.raw_angle = self._quat_to_euler(self.raw_quaternion)
                     self.angle = self._apply_yaw_offset_to_euler(self.raw_angle)
                     self.quaternion = self._apply_yaw_offset_to_quaternion(self.raw_quaternion)
+                    
+                    logger.debug(f"Angle: roll={math.degrees(self.angle[0]):.2f}°, pitch={math.degrees(self.angle[1]):.2f}°, yaw={math.degrees(self.angle[2]):.2f}°")
                     
                     self.last_update_time = time.time()
 
