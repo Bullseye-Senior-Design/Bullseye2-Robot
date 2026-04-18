@@ -149,8 +149,6 @@ class IMU:
                     
                     self.last_update_time = time.time()
 
-            # FIX: Removed the 0x5A block because WitMotion does not send calibration data over 0x5A.
-
             return True
 
         except Exception:
