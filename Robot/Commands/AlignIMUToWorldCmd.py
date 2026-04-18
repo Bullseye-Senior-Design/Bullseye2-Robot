@@ -25,10 +25,12 @@ class AlignIMUToWorldCmd(Command):
     headings align. The estimator runs until `duration` elapses or the
     residual is stable for several samples.
     """
-    def __init__(self, imu: IMU, uwb: UWB, min_samples: int = 100):
+    def __init__(self, imu: IMU, uwb: UWB, min_samples: int = 200, max_duration_s: float = 30.0):
         super().__init__()
         # minimum samples before allowing early finish
         self.min_samples = min_samples
+        # maximum duration to prevent command from running indefinitely
+        self.max_duration_s = max_duration_s
         self._uwb_sample_period_s = 0.1  # 10 Hz
         
         self._uwb = uwb
@@ -44,6 +46,7 @@ class AlignIMUToWorldCmd(Command):
         self._bias = 0.0  # radians
         self.residuals_window = deque(maxlen=100)
         self._last_db_log_time: float | None = None
+        self._offset_applied = False  # Flag to track if offset has been applied to prevent runtime drift
 
         self._yaw_offset_table = YAW_OFFSET_TABLE
 
@@ -70,20 +73,25 @@ class AlignIMUToWorldCmd(Command):
         self._last_db_log_time = self._start_time
         self._samples = 0
         self._stable_count = 0
+        self._offset_applied = False
         imu = self._imu
 
         saved_offset_deg = self._read_last_logged_yaw_offset_deg()
         if saved_offset_deg is not None:
             self._bias = math.radians(saved_offset_deg)
             imu.set_yaw_offset(self._bias)
-            logger.info(f"AlignIMUToWorldCmd: restored yaw offset from SQLite: {saved_offset_deg:.3f} deg")
+            logger.info(f"AlignIMUToWorldCmd.initialize(): restored yaw offset from SQLite: {saved_offset_deg:.3f} deg")
         else:
             self._bias = 0.0
         self.residuals_window.clear()
 
-        logger.info(f"AlignIMUToWorldCmd: starting yaw-bias estimation min_samples={self.min_samples})")
+        logger.info(f"AlignIMUToWorldCmd.initialize(): starting yaw-bias estimation (min_samples={self.min_samples}, max_duration={self.max_duration_s}s)")
 
     def execute(self):
+        # If offset has been finalized, don't continue updating it during runtime
+        if self._offset_applied:
+            return
+        
         now = time.time()
 
         last_uwb_sample_time = self._last_uwb_sample_time
@@ -106,9 +114,9 @@ class AlignIMUToWorldCmd(Command):
         imu_raw_q_yaw_rad = float(MathUtil.quat_to_euler(np.asarray(imu.get_raw_quaternion(), dtype=float))[2])
         imu_offset_deg = math.degrees(imu.yaw_offset_rad)
 
-        logger.debug(f"AlignIMUToWorldCmd: UWB yaw = {math.degrees(uwb_yaw):.3f} deg")
-        logger.debug(f"AlignIMUToWorldCmd: IMU raw quaternion yaw = {math.degrees(imu_raw_q_yaw_rad):.3f} deg (before offset)")
-        logger.debug(f"AlignIMUToWorldCmd: IMU yaw = {math.degrees(imu_yaw_rad):.3f} deg (with offset {imu_offset_deg:.3f} deg)")
+        logger.debug(f"AlignIMUToWorldCmd.execute(): UWB yaw = {math.degrees(uwb_yaw):.3f} deg")
+        logger.debug(f"AlignIMUToWorldCmd.execute(): IMU raw quaternion yaw = {math.degrees(imu_raw_q_yaw_rad):.3f} deg (before offset)")
+        logger.debug(f"AlignIMUToWorldCmd.execute(): IMU yaw = {math.degrees(imu_yaw_rad):.3f} deg (with offset {imu_offset_deg:.3f} deg)")
 
         # Drive IMU yaw to UWB-referenced zero error:
         # error = imu_yaw - uwb_yaw, target error = 0.
@@ -120,7 +128,7 @@ class AlignIMUToWorldCmd(Command):
 
         if self._last_db_log_time is None or (now - self._last_db_log_time) >= 30.0:
             # apply bias to IMU (degrees)
-            logger.debug(f"AlignIMUToWorldCmd: applying yaw offset {math.degrees(self._bias):.3f} deg")
+            logger.debug(f"AlignIMUToWorldCmd.execute(): applying yaw offset {math.degrees(self._bias):.3f} deg")
             self._record_yaw_offset_db(now, "execute")
             self._last_db_log_time = now
           
@@ -130,15 +138,32 @@ class AlignIMUToWorldCmd(Command):
         self._last_time = now
 
     def end(self, interrupted):
+        # Mark that offset has been applied to prevent further updates
+        if not interrupted:
+            self._offset_applied = True
+            logger.info(f"AlignIMUToWorldCmd.end(): FINALIZING offset - no more updates during runtime!")
+        
         self._record_yaw_offset_db(time.time(), "end")
 
         if interrupted:
-            logger.info("AlignIMUToWorldCmd interrupted; leaving current IMU yaw offset in place")
+            logger.warning(f"AlignIMUToWorldCmd.end(): interrupted after {self._samples} samples; leaving current IMU yaw offset in place")
         else:
-            logger.info(f"AlignIMUToWorldCmd completed: applied yaw offset {math.degrees(self._bias):.3f} deg")
+            logger.info(f"AlignIMUToWorldCmd.end(): completed after {self._samples} samples; applied yaw offset {math.degrees(self._bias):.3f} deg")
 
     def is_finished(self) -> bool:
-        # shouldn't happen, but guard against None
+        # Guard against None
+        if self._start_time is None:
+            return False
+        
+        elapsed = time.time() - self._start_time
+        
+        # Timeout check: forcefully finish if max duration exceeded
+        if elapsed >= self.max_duration_s:
+            logger.warning(f"AlignIMUToWorldCmd.is_finished(): timeout! Exceeded max_duration of {self.max_duration_s}s after {self._samples} samples")
+            return True
+        
+        # Normal finish: once enough samples collected
         if self._samples > self.min_samples:
             return True
+        
         return False
