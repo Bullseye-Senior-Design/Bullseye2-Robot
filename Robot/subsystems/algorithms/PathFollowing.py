@@ -55,7 +55,7 @@ class PathFollowing(Subsystem):
         self.L = Constants.wheel_base_width  # Wheelbase of the robot (meters) - must be set in Constants.py
         self.clutch_disengage_threshold = Constants.inside_clutch_angle_threshold_rads
         # crusing speed for reference trajectory generation, can be adjusted via set_nominal_speed() method
-        self.v_nom = Constants.rear_motor_top_speed*0.5
+        self.v_nom = Constants.rear_motor_top_speed*0.6
         
         # Track direction as enum (not bool/string)
         self._drive_direction = DriveDirection.FORWARD

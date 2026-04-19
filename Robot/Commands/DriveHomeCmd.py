@@ -44,6 +44,8 @@ class DriveHomeCmd(Command):
         self._path_following.set_path(path_matrix)
         self._path_following.set_drive_direction(DriveDirection.REVERSE) # set drive direction to reverse for driving back to home position
         self._path_following.start_path_following()
+        self._drive_train.engage_backwheel()
+        self._drive_train.engage_frontwheel()
     
     def execute(self):
         """Poll navigation system and send motor commands."""
