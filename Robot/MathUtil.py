@@ -62,6 +62,14 @@ class MathUtil:
 
     @staticmethod
     def quat_to_euler(q: np.ndarray) -> np.ndarray:
+        """Change a quanterion (qx, qy, qz, qw) to a ueler angle (roll, pitch yaw)
+
+        Args:
+            q (np.ndarray): quaternion in the form [qx, qy, qz, qw]
+
+        Returns:
+            np.ndarray: Euler angles in radians as [roll, pitch, yaw]
+        """
         # Convert quaternion to Euler angles (roll, pitch, yaw)
         qx, qy, qz, qw = q
         # roll (x-axis rotation)

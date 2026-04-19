@@ -55,7 +55,7 @@ class PathFollowing(Subsystem):
         self.L = Constants.wheel_base_width  # Wheelbase of the robot (meters) - must be set in Constants.py
         self.clutch_disengage_threshold = Constants.inside_clutch_angle_threshold_rads
         # crusing speed for reference trajectory generation, can be adjusted via set_nominal_speed() method
-        self.v_nom = Constants.rear_motor_top_speed*0.4
+        self.v_nom = Constants.rear_motor_top_speed*0.5
         
         # Track direction as enum (not bool/string)
         self._drive_direction = DriveDirection.FORWARD
@@ -70,7 +70,7 @@ class PathFollowing(Subsystem):
         self.Q_terminal_diag = np.array([0.0, 0.0, 0.0]) # [lateral, heading, longitudinal] terminal (last point) weights
         self.R_diag = np.array([0.1, 1.0]) # Discourages large values [velocity, steering]
         self.Rd_diag = np.array([3.0, 15.0]) # Smoothness  [velocity change, steering change]
-        self.V_weight = 20.0  
+        self.V_weight = 20.0  # encourages following the desired speed profile along the path
         
         # Constraints
         # CHANGED: Default to forward-only to prevent backwards/forwards oscillation traps
