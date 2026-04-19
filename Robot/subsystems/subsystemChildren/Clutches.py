@@ -21,11 +21,13 @@ class Clutches(Subsystem):
 
     def engage_clutches(self):
         """Engage both clutches."""
+        logger.debug("Engaging both clutches")
         self.engage_left_clutch()
         self.engage_right_clutch()
 
     def disengage_clutches(self):
         """Disengage both clutches."""
+        logger.debug("Disengaging both clutches")
         self.disengage_left_clutch()
         self.disengage_right_clutch()
     

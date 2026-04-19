@@ -20,7 +20,6 @@ from Robot.subsystems.algorithms.PathCreation import PathCreation
 import time
 
 from Robot.subsystems.sensors.BackWheelEncoder import BackWheelEncoder
-from Robot.subsystems.Clutches import Clutches
 from Robot.subsystems.HeaderHealerSwitches import HeaderHealerSwitches
 from Robot.subsystems.algorithms.ParkingController import ParkingController
 
@@ -43,7 +42,6 @@ class RobotContainer:
         self.uwb = UWB()
         self.back_Wheel_encoder = BackWheelEncoder()
         self.imu = IMU()
-        self.clutches = Clutches()
         self.path_following = PathFollowing()
         self.parking_controller = ParkingController()
         self.path_creation = PathCreation()
@@ -74,7 +72,7 @@ class RobotContainer:
     def begin_data_log(self):
         logger.info("Starting data logging")
         LogDataCmd(self.path_following).schedule()
-        #MotorMovementExampleCmd(self.drive_train, self.clutches, self.header_healer_switches, self.pcb_leds).schedule()
+        #MotorMovementExampleCmd(self.drive_train, self.header_healer_switches, self.pcb_leds).schedule()
         
     def start_parking(self):
         logger.info("Starting parking sequence")
@@ -95,16 +93,16 @@ class RobotContainer:
     def start_teleop(self):
         logger.info("Starting teleop control")
 
-        DefaultMovementCmd(self.drive_train, self.clutches,
+        DefaultMovementCmd(self.drive_train,
                             lambda: self.comm_thread.get_controller_data().left_y, 
                             lambda: self.comm_thread.get_controller_data().right_x).schedule()
         
         InputScheduler(lambda: self.comm_thread.get_controller_data().btn_Y).on_true(
-            StopMovementCmd(self.drive_train, self.clutches)
+            StopMovementCmd(self.drive_train)
         )
 
         InputScheduler(lambda: self.comm_thread.get_controller_data().btn_X).on_true(
-            DefaultMovementCmd(self.drive_train, self.clutches,
+            DefaultMovementCmd(self.drive_train,
                             lambda: self.comm_thread.get_controller_data().left_y, 
                             lambda: self.comm_thread.get_controller_data().right_x)
         )
@@ -112,7 +110,7 @@ class RobotContainer:
     def start_path_creation(self):
         logger.info("Starting path creation mode")
 
-        DefaultMovementCmd(self.drive_train, self.clutches,
+        DefaultMovementCmd(self.drive_train,
                             lambda: self.comm_thread.get_controller_data().left_y, 
                             lambda: self.comm_thread.get_controller_data().right_x).schedule()
 
@@ -124,10 +122,9 @@ class RobotContainer:
         logger.info("Robot disabled, stopping all movement")
         if self.path_cmd is not None:
             self.path_cmd.cancel()
-        StopMovementCmd(self.drive_train, self.clutches).schedule()
+        StopMovementCmd(self.drive_train).schedule()
 
     def shutdown(self):
-        self.clutches.close()
         self.uwb.close_all()
         self.drive_train.stop()
         self.drive_train.close()

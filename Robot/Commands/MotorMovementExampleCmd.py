@@ -1,5 +1,5 @@
 from Robot.subsystems.HeaderHealerSwitches import HeaderHealerSwitches
-from Robot.subsystems.Clutches import Clutches
+from Robot.subsystems.subsystemChildren.Clutches import Clutches
 from Robot.subsystems.DriveTrain import DriveTrain
 from Robot.subsystems.PCBLEDs import PCBLEDs
 from structure.commands.Command import Command
@@ -11,16 +11,14 @@ logger = logging.getLogger("MotorMovementExampleCmd")
 logger.setLevel(level=logging.INFO)
 
 class MotorMovementExampleCmd(Command):
-    def __init__(self, drive_train: DriveTrain, clutches: Clutches, header_healer_switches: HeaderHealerSwitches, PCBLEDs: PCBLEDs):
+    def __init__(self, drive_train: DriveTrain, header_healer_switches: HeaderHealerSwitches, PCBLEDs: PCBLEDs):
         super().__init__()
         
         self.drive_train = drive_train
-        self.clutches = clutches
         self.header_healer_switches = header_healer_switches
         self.pcb_leds = PCBLEDs
         self.add_requirement(self.drive_train)
         self.add_requirement(self.header_healer_switches)
-        self.add_requirement(self.clutches)
         self.add_requirement(self.pcb_leds)
 
         
@@ -28,7 +26,7 @@ class MotorMovementExampleCmd(Command):
         logger.debug("Starting MotorMovementExampleCmd: Cycling motor speed and steering angle while toggling LEDs")
         self.start_time = time.time()
         self.speed = 0
-        self.clutches.disengage_clutches()
+        self.drive_train.clutches.disengage_clutches()
 
     def execute(self):
         elapsed_time = time.time() - self.start_time
@@ -60,8 +58,8 @@ class MotorMovementExampleCmd(Command):
         self.pcb_leds.set_green_status_led(False)
 
         self.drive_train.stop()
-        self.clutches.disengage_left_clutch()
-        self.clutches.disengage_right_clutch()
+        self.drive_train.clutches.disengage_left_clutch()
+        self.drive_train.clutches.disengage_right_clutch()
         self.drive_train.disengage_backwheel()
         self.drive_train.disengage_frontwheel()
     

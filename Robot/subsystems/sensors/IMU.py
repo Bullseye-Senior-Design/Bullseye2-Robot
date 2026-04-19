@@ -12,7 +12,7 @@ from Robot.MathUtil import MathUtil
 from Robot.subsystems.algorithms.KalmanStateEstimator import KalmanStateEstimator
 
 logger = logging.getLogger(f"{__name__}.IMU")
-logger.setLevel(logging.DEBUG)  # Set to INFO for high-level events, DEBUG for detailed parsing info
+logger.setLevel(logging.INFO)  # Set to INFO for high-level events, DEBUG for detailed parsing info
 
 # Using Hiwonder IMU (WitMotion WT901) as the primary IMU. Communicates over serial with a custom binary protocol.
 class IMU:
@@ -147,7 +147,7 @@ class IMU:
                     self.angle = self._apply_yaw_offset_to_euler(self.raw_angle)
                     self.quaternion = self._apply_yaw_offset_to_quaternion(self.raw_quaternion)
                     
-                    logger.debug(f"Angle: roll={math.degrees(self.angle[0]):.2f}°, pitch={math.degrees(self.angle[1]):.2f}°, yaw={math.degrees(self.angle[2]):.2f}°")
+                    logger.debug(f"Angle: roll={math.degrees(self.raw_angle[0]):.2f}°, pitch={math.degrees(self.raw_angle[1]):.2f}°, yaw={math.degrees(self.raw_angle[2]):.2f}°")
                     
                     self.last_update_time = time.time()
 

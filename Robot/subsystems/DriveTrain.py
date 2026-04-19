@@ -3,6 +3,7 @@
 from turtle import speed
 from typing import Optional
 
+from Robot.subsystems.subsystemChildren.Clutches import Clutches
 from structure.Subsystem import Subsystem
 from Robot.subsystems.algorithms.KalmanStateEstimator import KalmanStateEstimator
 from Robot.Constants import Constants
@@ -29,6 +30,7 @@ class DriveTrain(Subsystem):
         try:
             self._dac = DAC()
             self._front_encoder = FrontWheelEncoder()
+            self.clutches = Clutches()
             self._backwheel_forward_ssr_pin = Constants.backwheel_forward_ssr_pin
             self._backwheel_reverse_ssr_pin = Constants.backwheel_reverse_ssr_pin
             self._backwheel_power_ssr_pin = Constants.backwheel_power_ssr_pin
@@ -48,10 +50,9 @@ class DriveTrain(Subsystem):
             GPIO.setup(self._left_clutch_pin, GPIO.OUT)
             GPIO.setup(self._right_clutch_pin, GPIO.OUT)
             
-            GPIO.output(self._backwheel_power_ssr_pin, GPIO.HIGH)
-            GPIO.output(self._frontwheel_power_ssr_pin, GPIO.HIGH)
-            GPIO.output(self._left_clutch_pin, GPIO.HIGH)
-            GPIO.output(self._right_clutch_pin, GPIO.HIGH)
+            GPIO.output(self._backwheel_power_ssr_pin, GPIO.LOW)
+            GPIO.output(self._frontwheel_power_ssr_pin, GPIO.LOW)
+            self.clutches.disengage_clutches()
             
             self.shutdown = False
             self.is_reversing = False
@@ -279,16 +280,15 @@ class DriveTrain(Subsystem):
         """Disengage inside rear clutch when steering exceeds threshold."""
         if steering_angle_rads > self._inside_clutch_angle_threshold_rads:
             # Left turn: left wheel is inside turn radius.
-            self._set_left_clutch(False)
-            self._set_right_clutch(True)
+            self.clutches.disengage_left_clutch()
+            self.clutches.engage_right_clutch()
         elif steering_angle_rads < -self._inside_clutch_angle_threshold_rads:
             # Right turn: right wheel is inside turn radius.
-            self._set_left_clutch(True)
-            self._set_right_clutch(False)
+            self.clutches.engage_left_clutch()
+            self.clutches.disengage_right_clutch()
         else:
             # Near straight steering, keep both rear clutches engaged.
-            self._set_left_clutch(True)
-            self._set_right_clutch(True)
+            self.clutches.engage_clutches()
     
     def reset_pid(self):
         """Reset the front wheel PID controller.
@@ -305,6 +305,7 @@ class DriveTrain(Subsystem):
                 self.shutdown = True
                 self._dac.close()
                 self._front_encoder.close()
+                self.clutches.close()
                 GPIO.cleanup(self._backwheel_forward_ssr_pin)
                 GPIO.cleanup(self._backwheel_reverse_ssr_pin)
                 GPIO.cleanup(self._backwheel_power_ssr_pin)
