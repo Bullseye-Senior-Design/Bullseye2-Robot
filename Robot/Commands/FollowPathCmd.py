@@ -72,6 +72,8 @@ class FollowPathCmd(Command):
         self._last_update_time = time.time()
         logger.info("FollowPathCmd: Path following initialized")
         self.drive_train.reset_pid()  # Reset PID controller for fresh state at start of movement
+        self.drive_train.engage_backwheel()
+        self.drive_train.engage_frontwheel()
 
     
 
