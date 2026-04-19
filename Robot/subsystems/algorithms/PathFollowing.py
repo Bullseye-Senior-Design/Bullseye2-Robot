@@ -455,7 +455,9 @@ class PathFollowing(Subsystem):
             
             # Also consider the path complete if our current point is near the end of the path, to prevent stalling at the end if the robot overshoots slightly.
             is_nearest_point_end_of_path = self.closest_point_idx is not None and self.closest_point_idx >= len(self.path_matrix) - 2
-            return is_close_enough or is_nearest_point_end_of_path # type: ignore
+            if is_close_enough or is_nearest_point_end_of_path:
+                logger.info(f"At goal check: distance_to_goal={distance_to_goal:.2f}, closest_point_idx={self.closest_point_idx}, is_at_goal={is_close_enough}, is_near_end={is_nearest_point_end_of_path}")
+            return is_close_enough # type: ignore
     
     def get_distance_to_goal(self):
         """Get the current distance to the end of the path."""
