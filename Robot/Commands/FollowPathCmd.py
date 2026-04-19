@@ -63,7 +63,7 @@ class FollowPathCmd(Command):
         self._last_update_time = 0.0
         
         self.path_following.set_path(self.path_data)
-        self.path_following.set_nominal_speed(self.path_speed)
+        # self.path_following.set_nominal_speed(self.path_speed)
         self.path_following.set_drive_direction(DriveDirection.FORWARD) # set drive direction to forward for while following a user path
         self.speed = 0.0
         self.is_approaching_boundary = False
