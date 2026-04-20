@@ -10,6 +10,7 @@ from helpers.sqllib import SQLiteFileManager
 
 
 logger = logging.getLogger(f"{__name__}.DriveHomeCmd")
+logger.setLevel(logging.DEBUG)  # Set to DEBUG for detailed output
 
 class DriveHomeCmd(Command):
     def __init__(self, drive_train : DriveTrain, path_following : PathFollowing):
@@ -57,10 +58,10 @@ class DriveHomeCmd(Command):
         self.speed = (v_cmd / Constants.rear_motor_top_speed)
         angle = delta_cmd
 
-        logger.debug(f"FollowPathCmd: v_cmd={v_cmd:.2f} m/s, delta_cmd={delta_cmd:.2f} rad -> speed={self.speed}%, angle={angle} rad")
+        logger.debug(f"DriveHomeCmd: v_cmd={v_cmd:.2f} m/s, delta_cmd={delta_cmd:.2f} rad -> speed={self.speed}%, angle={angle} rad")
 
         # Send to motors via DriveTrain subsystem
-        self._drive_train.set_speed_angle(self.speed, angle)
+        # self._drive_train.set_speed_angle(self.speed, angle)
     
     def end(self, interrupted):
         self._path_following.stop_path_following()

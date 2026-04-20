@@ -64,6 +64,7 @@ class FollowPathCmd(Command):
         
         self.path_following.set_path(self.path_data)
         self.path_following.set_nominal_speed(self.path_speed)
+        logger.debug(f"FollowPathCmd: Starting to follow path {self.path_id} at speed {self.path_speed} m/s")
         self.path_following.set_drive_direction(DriveDirection.FORWARD) # set drive direction to forward for while following a user path
         self.speed = 0.0
         self.is_approaching_boundary = False
@@ -91,7 +92,7 @@ class FollowPathCmd(Command):
         logger.debug(f"FollowPathCmd: v_cmd={v_cmd:.2f} m/s, delta_cmd={delta_cmd:.2f} rad -> speed={self.speed}%, angle={angle} rad")
 
         # Send to motors via DriveTrain subsystem
-        self.drive_train.set_speed_angle(self.speed, angle)
+        # self.drive_train.set_speed_angle(self.speed, angle)
 
     def end(self, interrupted):
         """Stop path following and clean up."""
