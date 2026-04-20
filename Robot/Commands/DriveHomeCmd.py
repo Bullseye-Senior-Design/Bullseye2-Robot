@@ -42,6 +42,8 @@ class DriveHomeCmd(Command):
         current_state = self._kalman_estimator.get_state()
         start_pose = [float(current_state.pos[0]), float(current_state.pos[1]), float(self._kalman_estimator.euler[2])]
         path_matrix = self._path_following.generate_path(start_pose, home_pose)
+        logger.info(f"DriveHomeCmd: Generated path from {start_pose} to {home_pose} with {len(path_matrix)} points")
+        logger.debug(f"DriveHomeCmd: Path points:\n{path_matrix}")
         self._path_following.set_path(path_matrix)
         self._path_following.set_drive_direction(DriveDirection.REVERSE) # set drive direction to reverse for driving back to home position
         self._path_following.start_path_following()
