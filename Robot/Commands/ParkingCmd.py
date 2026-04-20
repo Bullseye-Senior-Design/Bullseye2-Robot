@@ -57,7 +57,8 @@ class ParkingCmd(Command):
         
         if self.is_approaching_boundary:
             #TODO - Send an error packet up to the steam deck
-            logger.warning("ParkingCmd ended due to approaching boundary. Stopping robot to prevent collision.")
+            pass
+            # logger.warning("ParkingCmd ended due to approaching boundary. Stopping robot to prevent collision.")
     
     def is_finished(self):
         current_state = self._kalman_estimator.get_state()
