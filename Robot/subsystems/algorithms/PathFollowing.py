@@ -12,7 +12,7 @@ import math
 from enum import Enum
 
 logger = logging.getLogger(f"{__name__}.PathFollowing")
-logger.setLevel(logging.DEBUG)
+logger.setLevel(logging.INFO)
 
 class DriveDirection(Enum):
     FORWARD = "forward"
