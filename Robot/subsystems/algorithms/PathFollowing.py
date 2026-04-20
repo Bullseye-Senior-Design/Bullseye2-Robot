@@ -329,16 +329,15 @@ class PathFollowing(Subsystem):
             logger.debug("Drive direction set to %s (v_nom=%.3f)", self._drive_direction.value, self.v_nom)
             return True
     
-    def set_nominal_speed(self, speed_percent):
+    def set_nominal_speed(self, speed):
         """Set the desired nominal speed for path following.
         
         Args:
-            speed_percent: Speed as a percentage of maximum (0-100).
-                          Negative values indicate reverse direction.
+            speed: Speed as a value of [-1, 1]. Negative values indicate reverse direction.
         """
         with self._lock:
-            clamped_percent = np.clip(speed_percent, -100, 100)
-            self.v_nom = (clamped_percent / 100.0) * Constants.rear_motor_top_speed
+            clamped_percent = np.clip(speed, -1, 1)
+            self.v_nom = (clamped_percent) * Constants.rear_motor_top_speed
             
             # Keep enum direction synchronized with speed sign
             self._drive_direction = (
@@ -358,7 +357,7 @@ class PathFollowing(Subsystem):
             
             logger.debug(
                 "Set nominal speed: %s%% -> %.3f m/s (%s)",
-                speed_percent,
+                speed,
                 self.v_nom,
                 self._drive_direction.value,
             )

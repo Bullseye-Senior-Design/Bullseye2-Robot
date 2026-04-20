@@ -125,6 +125,17 @@ class CommData:
 
 
 class PiCommThread:
+    _instance = None
+
+    # When a new instance is created, sets it to the same global instance
+    def __new__(cls):
+        # If the instance is None, create a new instance
+        # Otherwise, return already created instance
+        if cls._instance is None:
+            cls._instance = super().__new__(cls)
+            cls._instance._start()
+        return cls._instance
+
     """
     Central coordinator for the Bullseye-2 robot system.
 
@@ -135,7 +146,7 @@ class PiCommThread:
     - Thread-safe access to shared data
     """
 
-    def __init__(self, bms=None):
+    def _start(self):
         """
         Initialize PiCommThread with references to subsystems
 
@@ -143,7 +154,6 @@ class PiCommThread:
             kalmanStateEstimator: Instance of KalmanStateEstimator
             bms: BMS subsystem instance
         """
-        self.bms = bms
         self.kalman_estimator = KalmanStateEstimator()
         self.comm_data = CommData()
         self.robot_state = RobotState()  # Additional state tracking if needed
@@ -177,7 +187,10 @@ class PiCommThread:
 
         logger.info("PiCommThread initialized")
 
-    def start(self):
+
+    def begin_communication(self, bms=None):
+        self.bms = bms
+
         # Start controller receiver thread.
         # This also opens pi_ser; once that succeeds _receive_controller_commands
         # updates self.kfx.pi_ser so KFX ack packets can reach the Steam Deck.

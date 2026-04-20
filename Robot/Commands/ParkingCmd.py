@@ -34,6 +34,9 @@ class ParkingCmd(Command):
         self.speed = 0.0
         self.is_approaching_boundary = False
         self._drive_train.reset_pid()  # Reset PID controller for fresh state at start of movement
+        self._drive_train.engage_backwheel()
+        self._drive_train.engage_frontwheel()
+        self._drive_train.clutches.engage_clutches()
 
         if self.home_pose is None:
             position = self._kalman_estimator.pos

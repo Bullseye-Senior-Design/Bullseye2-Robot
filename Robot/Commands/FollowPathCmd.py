@@ -65,7 +65,7 @@ class FollowPathCmd(Command):
         
         self.path_following.set_path(self.path_data)
         self.path_following.set_nominal_speed(self.path_speed)
-        logger.debug(f"FollowPathCmd: Starting to follow path {self.path_id} at speed {self.path_speed} m/s")
+        logger.debug(f"FollowPathCmd: Starting to follow path {self.path_id} at speed {self.path_speed} -1/1")
         self.path_following.set_drive_direction(DriveDirection.FORWARD) # set drive direction to forward for while following a user path
         self.speed = 0.0
         self.is_approaching_boundary = False
@@ -76,6 +76,7 @@ class FollowPathCmd(Command):
         self.drive_train.reset_pid()  # Reset PID controller for fresh state at start of movement
         self.drive_train.engage_backwheel()
         self.drive_train.engage_frontwheel()
+        self.drive_train.clutches.engage_clutches()
 
     
 
