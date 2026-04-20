@@ -10,7 +10,7 @@ from helpers.SavedPathsHelper import SavedPathsHelper
 from Comms.PiCommThread import PiCommThread
 
 logger = logging.getLogger(f"{__name__}.FollowPathCmd")
-logger.setLevel(logging.INFO)  # Set to DEBUG for detailed output
+logger.setLevel(logging.DEBUG)  # Set to DEBUG for detailed output
 
 class FollowPathCmd(Command):
     """Command that uses MPCNavigator to follow a path.

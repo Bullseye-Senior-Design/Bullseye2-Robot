@@ -408,27 +408,31 @@ class PathFollowing(Subsystem):
         """Stop the MPC path following."""
         thread_to_join = None
         with self._lock:
-            if not self._running:
+            if self._running:
+                self._running = False
+                logger.info("MPC path following stop requested")
                 thread_to_join = self._thread
             else:
-                self._running = False
-                logger.info("MPC path following stopped")
+                # Already stopped, but capture thread in case it's still shutting down
                 thread_to_join = self._thread
         
-        # Wait for thread to fully exit before returning
+        # Wait for thread to fully exit before returning (responsive due to 10ms checks)
         if thread_to_join is not None:
-            thread_to_join.join(timeout=2.0)
+            thread_to_join.join(timeout=3.0)
             if thread_to_join.is_alive():
-                logger.warning("MPC control loop thread did not terminate within timeout")
+                logger.warning("MPC control loop thread did not terminate within timeout; may still be in solver")
             else:
                 with self._lock:
                     if self._thread is thread_to_join:
                         self._thread = None
+                logger.info("MPC path following thread terminated cleanly")
         
         # Reset warm start data to prevent incompatibility on restart
         with self._lock:
             self._x_prev = None
             self._last_u = np.array([0.0, 0.0])
+            self._v_cmd = 0.0
+            self._delta_cmd = 0.0
             logger.info("MPC state reset for clean restart")
     
     def get_current_commands(self):
@@ -543,6 +547,11 @@ class PathFollowing(Subsystem):
                     refs = self._generate_reference(cur_state)
                     distance_to_goal = self._get_distance_to_goal(cur_state)
                     
+                    # Check if stop was requested before expensive operations
+                    with self._lock:
+                        if not self._running:
+                            break
+                    
                     # Generate speed reference trajectory
                     with self._lock:
                         v_nom_current = self.v_nom
@@ -579,6 +588,11 @@ class PathFollowing(Subsystem):
                         solver_args['x0'] = ca.DM(self._x_prev)
                     
                     res = self.solver(**solver_args)
+                    
+                    # Check if stop was requested after solver (long operation)
+                    with self._lock:
+                        if not self._running:
+                            break
                     
                     # Verify solver result is valid before using
                     if res is None or 'x' not in res:
@@ -632,10 +646,24 @@ class PathFollowing(Subsystem):
                         self._v_cmd = 0.0
                         self._delta_cmd = 0.0
                 
-                # Timing control
+                # Timing control - check stop flag during sleep
                 sleep_duration = next_time - time.time()
                 if sleep_duration > 0:
-                    time.sleep(sleep_duration)
+                    # Break sleep into small chunks to respond quickly to stop signal
+                    sleep_end = time.time() + sleep_duration
+                    while time.time() < sleep_end:
+                        with self._lock:
+                            if not self._running:
+                                break
+                        # Sleep in small increments to be responsive to stop signal
+                        chunk_sleep = min(0.01, sleep_end - time.time())
+                        if chunk_sleep > 0:
+                            time.sleep(chunk_sleep)
+                    
+                    # Final check before next iteration
+                    with self._lock:
+                        if not self._running:
+                            break
         finally:
             with self._lock:
                 if self._thread is threading.current_thread():
