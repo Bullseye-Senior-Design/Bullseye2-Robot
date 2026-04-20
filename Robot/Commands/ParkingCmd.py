@@ -6,6 +6,7 @@ import logging
 
 from helpers.dbConstants import HOME_POSITION_TABLE
 from helpers.sqllib import SQLiteFileManager
+from Comms.PiCommThread import PiCommThread
 
 logger = logging.getLogger(f"{__name__}.ParkingCmd")
 logger.setLevel(logging.DEBUG)  # Set to DEBUG for detailed output
@@ -54,6 +55,7 @@ class ParkingCmd(Command):
     def end(self, interrupted):
         self._drive_train.stop()
         logger.info("ParkingCmd: Stopped drive train at end of command.")
+        PiCommThread().send_route_finished("home")
         
         if self.is_approaching_boundary:
             #TODO - Send an error packet up to the steam deck
