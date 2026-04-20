@@ -104,4 +104,5 @@ class Constants:
     difference_in_heading_to_home_threshold = math.radians(30)  # radians, how close our heading needs to be to consider ourselves "at home"
 
 
-    #test
+    #Path following constants
+    is_at_end_tolerance = 0.5 # meters, how close we need to be to the end of the path to consider ourselves "at the end"

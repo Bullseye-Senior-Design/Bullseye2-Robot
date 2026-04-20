@@ -118,4 +118,4 @@ class FollowPathCmd(Command):
         """Command runs until cancelled."""
         # self.is_approaching_boundary = self.drive_train.is_approaching_boundary(self.speed)
         
-        return self.path_following.is_at_goal(0.5) # or self.is_approaching_boundary
+        return self.path_following.is_at_goal(Constants().is_at_end_tolerance) # or self.is_approaching_boundary

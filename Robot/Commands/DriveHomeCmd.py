@@ -68,6 +68,7 @@ class DriveHomeCmd(Command):
     def end(self, interrupted):
         self._path_following.stop_path_following()
         self._drive_train.stop()
+        logger.info("DriveHomeCmd ended" + (" due to interruption." if interrupted else "."))
     
     def is_finished(self):
-        return self._path_following.is_at_goal(0.1)
+        return self._path_following.is_at_goal(Constants().is_at_end_tolerance)
