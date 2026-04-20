@@ -73,4 +73,4 @@ class DriveHomeCmd(Command):
         logger.info("DriveHomeCmd ended" + (" due to interruption." if interrupted else "."))
     
     def is_finished(self):
-        return self._path_following.is_at_goal(Constants().is_at_end_tolerance)
+        return self._path_following.is_at_goal(Constants().is_at_end_tolerance + 1.0) # Adding extra tolerance for reaching home position
