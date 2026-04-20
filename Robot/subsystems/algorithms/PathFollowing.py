@@ -501,10 +501,15 @@ class PathFollowing(Subsystem):
             step_size=step_size,
         )
         
-        # Extract the waypoints into a numpy array
+        # Extract waypoints as numeric [x, y, yaw] rows.
+        # rsplan may return custom Waypoint objects, which cannot be cast directly to float.
         waypoints = path.waypoints()
-            
-        return np.array(waypoints)
+
+        numeric_waypoints: list[list[float]] = []
+        for wp in waypoints:
+            numeric_waypoints.append([float(wp.x), float(wp.y), float(wp.yaw)])
+
+        return np.array(numeric_waypoints, dtype=float)
     
     def _get_distance_to_goal(self, current_state) -> float | None:
         """Helper function to compute distance to goal from a given state."""
