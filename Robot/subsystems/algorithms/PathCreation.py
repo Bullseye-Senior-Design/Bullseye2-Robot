@@ -12,6 +12,7 @@ from scipy.signal import savgol_filter
 import numpy as np
 from helpers.sqllib import ROBOT_DATA_DB_FILENAME
 from helpers.SavedPathsHelper import SavedPathsHelper
+from Comms.PiCommThread import PiCommThread
 
 logger = logging.getLogger(f"{__name__}.PathFollowing")
 logger.setLevel(logging.INFO)
@@ -28,6 +29,7 @@ class PathCreation(Subsystem):
         self.kf = KalmanStateEstimator()
         self.logs_dir = Constants.path_file_directory
         self.path_helper = SavedPathsHelper()
+        self.Pi_CommThread = PiCommThread()
 
     def start_path_creation(self):
         logger.info("Path creation started")
@@ -41,6 +43,7 @@ class PathCreation(Subsystem):
             return self.current_path_number
         else:
             logger.error("No path points were recorded, nothing to save.")
+            self.Pi_CommThread.send_error("No path points were recorded, nothing to save.")
             return None
 
     def save_path_to_db(self):

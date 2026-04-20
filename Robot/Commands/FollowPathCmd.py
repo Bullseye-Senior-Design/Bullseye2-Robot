@@ -10,7 +10,7 @@ from helpers.SavedPathsHelper import SavedPathsHelper
 from Comms.PiCommThread import PiCommThread
 
 logger = logging.getLogger(f"{__name__}.FollowPathCmd")
-logger.setLevel(logging.DEBUG)  # Set to DEBUG for detailed output
+logger.setLevel(logging.INFO)  # Set to DEBUG for detailed output
 
 class FollowPathCmd(Command):
     """Command that uses MPCNavigator to follow a path.
@@ -39,12 +39,13 @@ class FollowPathCmd(Command):
         
         # Load path using SavedPathsHelper
         self.path_helper = SavedPathsHelper()
+        self._pi_comm_thread = PiCommThread()
         self.is_approaching_boundary = False
 
         
     def initialize(self):
         """Start path following."""
-        self.path_speed, self.path_id = PiCommThread().get_path_data()
+        self.path_speed, self.path_id = self._pi_comm_thread.get_path_data()
         if self.path_id is None or self.path_speed is None:
             logger.warning("No path data received from PiCommThread, using defaults")
             self.path_id = 1  # Default path ID
@@ -73,6 +74,8 @@ class FollowPathCmd(Command):
         self._last_update_time = time.time()
         logger.info("FollowPathCmd: Path following initialized")
         self.drive_train.reset_pid()  # Reset PID controller for fresh state at start of movement
+        self.drive_train.engage_backwheel()
+        self.drive_train.engage_frontwheel()
 
     
 
@@ -98,17 +101,20 @@ class FollowPathCmd(Command):
         """Stop path following and clean up."""
         # Stop navigation
         self.path_following.stop_path_following()
-        
         # Stop motors
         self.drive_train.stop()
         
+        message = "Path following completed successfully." if not interrupted else "Path following interrupted."
+
         if self.is_approaching_boundary:
             # TODO - Send an error packet up to the steam deck
             logger.warning("FollowPathCmd ended due to approaching boundary. Stopping robot to prevent collision.")
-                
+            message = "Path following stopped: approaching boundary. Robot stopped to prevent collision."
+
+        self._pi_comm_thread.send_route_finished(message)
 
     def is_finished(self):
         """Command runs until cancelled."""
         # self.is_approaching_boundary = self.drive_train.is_approaching_boundary(self.speed)
         
-        return self.path_following.is_at_goal(0.1) # or self.is_approaching_boundary
+        return self.path_following.is_at_goal(0.5) # or self.is_approaching_boundary

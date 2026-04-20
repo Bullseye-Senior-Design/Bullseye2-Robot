@@ -12,7 +12,7 @@ import math
 from enum import Enum
 
 logger = logging.getLogger(f"{__name__}.PathFollowing")
-logger.setLevel(logging.DEBUG)
+logger.setLevel(logging.INFO)
 
 class DriveDirection(Enum):
     FORWARD = "forward"
@@ -55,7 +55,7 @@ class PathFollowing(Subsystem):
         self.L = Constants.wheel_base_width  # Wheelbase of the robot (meters) - must be set in Constants.py
         self.clutch_disengage_threshold = Constants.inside_clutch_angle_threshold_rads
         # crusing speed for reference trajectory generation, can be adjusted via set_nominal_speed() method
-        self.v_nom = Constants.rear_motor_top_speed*0.5
+        self.v_nom = Constants.rear_motor_top_speed*0.8
         
         # Track direction as enum (not bool/string)
         self._drive_direction = DriveDirection.FORWARD
@@ -75,7 +75,7 @@ class PathFollowing(Subsystem):
         # Constraints
         # CHANGED: Default to forward-only to prevent backwards/forwards oscillation traps
         self.lower_speed_limit = 0.5
-        self.upper_speed_limit = 0.6
+        self.upper_speed_limit = 0.8
         # expects positive steering angles to the left, negative to the right (standard convention)
         self.v_bounds = [Constants.rear_motor_top_speed*self.lower_speed_limit, Constants.rear_motor_top_speed*self.upper_speed_limit]
         self.delta_bounds = [-Constants.steering_angle_limit_rads, Constants.steering_angle_limit_rads]

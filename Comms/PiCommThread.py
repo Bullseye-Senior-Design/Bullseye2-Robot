@@ -344,6 +344,7 @@ class PiCommThread:
         if packet.type == "state":
             state_data = StateData.model_validate_json(packet.json_data)
             self._handle_state_change(state_data.state)
+            logger.debug(f"State change command received: {state_data.state}, path_speed={state_data.path_speed}, path_id={state_data.path_id}")
             self.comm_data.state_data = state_data
 
         elif packet.type == "c":
@@ -551,7 +552,6 @@ class PiCommThread:
         logger.info(f"Sent error: {errstr}")
 
     def send_route_finished(self, message: str):
-        #TODO: Add route finished notification logic. Route completed or Returned to home string. (NAV)
         """Notify the Steam Deck that a KFX route or return-to-home maneuver completed."""
         payload = json.dumps({"message": message})
         packet = DataPacket(type="route_finished", json_data=payload)
