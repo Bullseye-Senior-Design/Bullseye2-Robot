@@ -76,6 +76,7 @@ class FollowPathCmd(Command):
         self.drive_train.reset_pid()  # Reset PID controller for fresh state at start of movement
         self.drive_train.engage_backwheel()
         self.drive_train.engage_frontwheel()
+        self.drive_train.clutches.engage_clutches()
 
     
 
