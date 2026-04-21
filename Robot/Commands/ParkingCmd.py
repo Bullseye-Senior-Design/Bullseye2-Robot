@@ -50,7 +50,7 @@ class ParkingCmd(Command):
         speed, angle = self._parking_controller.compute_commands(current_pos, self.home_pose)
         self.speed = speed
         logger.debug(f"ParkingCmd: speed={speed}, angle={angle}")
-        # self._drive_train.set_speed_angle(speed, angle)
+        self._drive_train.set_speed_angle(speed, angle)
             
     def end(self, interrupted):
         self._drive_train.stop()
