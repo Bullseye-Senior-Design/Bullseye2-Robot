@@ -96,7 +96,7 @@ class FollowPathCmd(Command):
         logger.debug(f"FollowPathCmd: v_cmd={v_cmd:.2f} m/s, delta_cmd={delta_cmd:.2f} rad -> speed={self.speed}%, angle={angle} rad")
 
         # Send to motors via DriveTrain subsystem
-        self.drive_train.set_speed_angle(self.speed, angle)
+        # self.drive_train.set_speed_angle(self.speed, angle)
 
     def end(self, interrupted):
         """Stop path following and clean up."""
@@ -113,6 +113,7 @@ class FollowPathCmd(Command):
             message = "Path following stopped: approaching boundary. Robot stopped to prevent collision."
 
         self._pi_comm_thread.send_route_finished(message)
+        logger.info(f"FollowPathCmd set message to steam deck: {message}")
 
     def is_finished(self):
         """Command runs until cancelled."""
