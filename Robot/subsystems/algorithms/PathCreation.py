@@ -39,7 +39,7 @@ class PathCreation(Subsystem):
     def stop_path_creation(self):
         logger.info("Path creation stopped")
         if len(self._path) > 0:
-            self.simplify_path()
+            self.old_simplify_path()
             return self.current_path_number
         else:
             logger.error("No path points were recorded, nothing to save.")
