@@ -10,7 +10,7 @@ class ParkingController:
         # Kinematic parameters
         self.L = Constants.wheel_base_width
         self.max_v = 0.5 # IMPORTANT: Limit max velocity for better stability during parking
-        self.min_v = 0.0  # Minimum normalized drive command to keep the drivetrain moving through deadband.
+        self.min_v = 0.1  # Minimum normalized drive command to keep the drivetrain moving through deadband.
         self.max_delta = Constants.steering_angle_limit_rads
         
         # Controller Gains (TUNE THESE)
