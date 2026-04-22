@@ -10,6 +10,8 @@ from Robot.Constants import Constants
 import rsplan
 import math
 from enum import Enum
+from typing import Tuple
+
 
 logger = logging.getLogger(f"{__name__}.PathFollowing")
 logger.setLevel(logging.INFO)
@@ -434,7 +436,7 @@ class PathFollowing(Subsystem):
             self._delta_cmd = 0.0
             logger.info("MPC state reset for clean restart")
     
-    def get_current_commands(self):
+    def get_current_commands(self) -> Tuple[float, float]:
         """Get the current velocity and steering commands."""
         with self._lock:
             return self._v_cmd, self._delta_cmd

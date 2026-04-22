@@ -71,7 +71,10 @@ class KalmanStateEstimator:
         q_pos = 1e-2
         q_vel = 1e-3
         q_att = 1e-1
-        self.Qc = block_diag(np.eye(3) * q_pos, np.eye(3) * q_vel, np.eye(3) * q_att)
+        self.Qc: np.ndarray = np.asarray(
+            block_diag(np.eye(3) * q_pos, np.eye(3) * q_vel, np.eye(3) * q_att),
+            dtype=float,
+        )
 
         # Measurement noise templates
         self.R_uwb_range = 0.1 ** 2  # 10 cm sigma default (variance)
@@ -594,8 +597,8 @@ class KalmanStateEstimator:
         
         # Measurement covariance (block diagonal)
         n_meas = len(z_list)
-        R_single = np.eye(3) * self.R_uwb_range
-        R_stacked = block_diag(*[R_single for _ in range(n_meas)])
+        R_single = np.eye(3, dtype=float) * float(self.R_uwb_range)
+        R_stacked = np.asarray(block_diag(*[R_single for _ in range(n_meas)]), dtype=float)
         
         # Kalman update
         S = H_stacked @ self.P @ H_stacked.T + R_stacked

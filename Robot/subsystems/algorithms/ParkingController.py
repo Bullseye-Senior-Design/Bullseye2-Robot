@@ -1,6 +1,7 @@
 import math
 import numpy as np
 from Robot.Constants import Constants
+from typing import Tuple
 
 class ParkingController:
     """Lyapunov-based kinematic controller for precise goal alignment."""
@@ -9,6 +10,7 @@ class ParkingController:
         # Kinematic parameters
         self.L = Constants.wheel_base_width
         self.max_v = 0.5 # IMPORTANT: Limit max velocity for better stability during parking
+        self.min_v = 0.25  # Minimum normalized drive command to keep the drivetrain moving through deadband.
         self.max_delta = Constants.steering_angle_limit_rads
         
         # Controller Gains (TUNE THESE)
@@ -19,7 +21,7 @@ class ParkingController:
         self.k_alpha = 1.5 
         self.k_beta = -0.5 # Usually negative in Astolfi/Lyapunov proofs
         
-    def compute_commands(self, current_pose, goal_pose):
+    def compute_commands(self, current_pose, goal_pose) -> Tuple[float, float]:
         """
         Calculates Velocity and Steering Angle to park at the goal.
         
@@ -58,11 +60,18 @@ class ParkingController:
         # 4. Lyapunov Control Law
         # Command linear velocity (v)
         v_cmd = direction * self.k_rho * rho
+
+        # Keep moving while we still need to correct yaw; otherwise the drivetrain can stall
+        # before the heading error is resolved.
+        if abs(v_cmd) < self.min_v:
+            v_cmd = direction * self.min_v
         
         # Command angular velocity (omega)
         w_cmd = self.k_alpha * alpha + self.k_beta * beta
         
         # 5. Convert Unicycle Omega to Ackermann Steering Angle (Delta)
+        # Positive delta means left steering and negative delta means right steering,
+        # which matches the drivetrain's convention.
         # Formula: w = (v / L) * tan(delta)  -->  delta = atan(w * L / v)
         if abs(v_cmd) > 0.01:
             delta_cmd = math.atan((w_cmd * self.L) / v_cmd)
@@ -76,11 +85,11 @@ class ParkingController:
         
         return v_cmd, delta_cmd
     
-    def normalize_angle(self, angle):
+    def normalize_angle(self, angle) -> float:
         """Keep angle between -pi and pi."""
         return (angle + np.pi) % (2 * np.pi) - np.pi
     
-    def is_at_goal(self, current_pose, goal_pose, pos_threshold=0.3, angle_threshold_rads=0.1):
+    def is_at_goal(self, current_pose, goal_pose, pos_threshold: float, angle_threshold_rads: float) -> bool:
         """Check if we are close enough to the goal pose."""
         x, y, th = current_pose
         gx, gy, gth = goal_pose

@@ -294,8 +294,8 @@ class PathCreation(Subsystem):
         y = np.array([point.y for point in points], dtype=float)
 
         # Smooth x and y independently
-        x_smooth = savgol_filter(x, window_length, polyorder)
-        y_smooth = savgol_filter(y, window_length, polyorder)
+        x_smooth = np.asarray(savgol_filter(x, window_length, polyorder), dtype=float).tolist()
+        y_smooth = np.asarray(savgol_filter(y, window_length, polyorder), dtype=float).tolist()
 
         return [DataPoint(x=float(x_val), y=float(y_val), yaw=point.yaw)
                 for x_val, y_val, point in zip(x_smooth, y_smooth, points)]
