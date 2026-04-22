@@ -1,4 +1,3 @@
-All programing should only have to be done in the Robot and transmission folders
 
 # you will need to manually install the library to get gpio work on the venv. 
 create with this:
