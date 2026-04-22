@@ -460,7 +460,7 @@ class PathFollowing(Subsystem):
             is_nearest_point_end_of_path = self.closest_point_idx is not None and self.closest_point_idx >= len(self.path_matrix) - 2
             if is_close_enough or is_nearest_point_end_of_path:
                 logger.info(f"At goal check: distance_to_goal={distance_to_goal:.2f}, closest_point_idx={self.closest_point_idx}, is_at_goal={is_close_enough}, is_near_end={is_nearest_point_end_of_path}")
-            return is_close_enough # type: ignore
+            return is_close_enough or is_nearest_point_end_of_path # type: ignore
     
     def get_distance_to_goal(self):
         """Get the current distance to the end of the path."""
@@ -500,10 +500,15 @@ class PathFollowing(Subsystem):
             step_size=step_size,
         )
         
-        # Extract the waypoints into a numpy array
+        # Extract waypoints as numeric [x, y, yaw] rows.
+        # rsplan may return custom Waypoint objects, which cannot be cast directly to float.
         waypoints = path.waypoints()
-            
-        return np.array(waypoints)
+
+        numeric_waypoints: list[list[float]] = []
+        for wp in waypoints:
+            numeric_waypoints.append([float(wp.x), float(wp.y), float(wp.yaw)])
+
+        return np.array(numeric_waypoints, dtype=float)
     
     def _get_distance_to_goal(self, current_state) -> float | None:
         """Helper function to compute distance to goal from a given state."""

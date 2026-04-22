@@ -8,7 +8,7 @@ class ParkingController:
     def __init__(self):
         # Kinematic parameters
         self.L = Constants.wheel_base_width
-        self.max_v = 0.3 # IMPORTANT: Limit max velocity for better stability during parking
+        self.max_v = 0.5 # IMPORTANT: Limit max velocity for better stability during parking
         self.max_delta = Constants.steering_angle_limit_rads
         
         # Controller Gains (TUNE THESE)

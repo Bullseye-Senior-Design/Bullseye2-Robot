@@ -113,9 +113,10 @@ class FollowPathCmd(Command):
             message = "Path following stopped: approaching boundary. Robot stopped to prevent collision."
 
         self._pi_comm_thread.send_route_finished(message)
+        logger.info(f"FollowPathCmd set message to steam deck: {message}")
 
     def is_finished(self):
         """Command runs until cancelled."""
         # self.is_approaching_boundary = self.drive_train.is_approaching_boundary(self.speed)
         
-        return self.path_following.is_at_goal(0.5) # or self.is_approaching_boundary
+        return self.path_following.is_at_goal(Constants().is_at_end_tolerance) # or self.is_approaching_boundary

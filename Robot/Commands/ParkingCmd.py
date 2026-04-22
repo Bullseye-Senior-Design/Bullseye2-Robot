@@ -6,8 +6,10 @@ import logging
 
 from helpers.dbConstants import HOME_POSITION_TABLE
 from helpers.sqllib import SQLiteFileManager
+from Comms.PiCommThread import PiCommThread
 
 logger = logging.getLogger(f"{__name__}.ParkingCmd")
+logger.setLevel(logging.DEBUG)  # Set to DEBUG for detailed output
 
 
 class ParkingCmd(Command):
@@ -47,18 +49,22 @@ class ParkingCmd(Command):
         current_pos = [float(current_state.pos[0]), float(current_state.pos[1]), float(self._kalman_estimator.euler[2])]
         speed, angle = self._parking_controller.compute_commands(current_pos, self.home_pose)
         self.speed = speed
-        # self._drive_train.set_speed_angle(speed, angle)
+        logger.debug(f"ParkingCmd: speed={speed}, angle={angle}")
+        self._drive_train.set_speed_angle(speed, angle)
             
     def end(self, interrupted):
         self._drive_train.stop()
+        logger.info("ParkingCmd: Stopped drive train at end of command.")
+        PiCommThread().send_route_finished("home")
         
         if self.is_approaching_boundary:
             #TODO - Send an error packet up to the steam deck
-            logger.warning("ParkingCmd ended due to approaching boundary. Stopping robot to prevent collision.")
+            pass
+            # logger.warning("ParkingCmd ended due to approaching boundary. Stopping robot to prevent collision.")
     
     def is_finished(self):
         current_state = self._kalman_estimator.get_state()
         current_pos = [float(current_state.pos[0]), float(current_state.pos[1]), float(self._kalman_estimator.euler[2])]
         
         self.is_approaching_boundary = self._drive_train.is_approaching_boundary(self.speed)
-        return self._parking_controller.is_at_goal(current_pos, self.home_pose) or self.is_approaching_boundary
+        return self._parking_controller.is_at_goal(current_pos, self.home_pose, ) # or self.is_approaching_boundary

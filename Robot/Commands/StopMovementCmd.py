@@ -21,4 +21,4 @@ class StopMovementCmd(Command):
         pass
     
     def is_finished(self):
-        return False
+        return True

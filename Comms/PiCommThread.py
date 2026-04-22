@@ -63,6 +63,10 @@ SUBSYSTEM_UPDATE_RATE = Constants.controller_update_rate  # ~10 Hz for subsystem
 BATTERY_SOC_THRESHOLD = 0.5  # Send battery data when SOC drops by this %
 BATTERY_CHECK_RATE = 5.0     # How often to poll SOC for threshold change (seconds)
 
+# Set to True to log malformed-packet errors (with timestamp + raw data) to packet_errors.log
+LOG_PACKET_ERRORS = True
+_PACKET_ERROR_LOG = "packet_errors.log"
+
 # ==== CONNECTION WATCHDOG ====
 # Set to False to disable the idle-timeout / connection-check behaviour entirely.
 ENABLE_CONNECTION_WATCHDOG = True
@@ -302,6 +306,9 @@ class PiCommThread:
                             self._process_packet(self.pi_ser, line)
                         except Exception as e:
                             logger.error(f"Error processing packet: {e}")
+                            if LOG_PACKET_ERRORS:
+                                with open(_PACKET_ERROR_LOG, "a") as _f:
+                                    _f.write(f"{time.strftime('%Y-%m-%d %H:%M:%S')} error={e} raw={line!r}\n")
 
                 except Exception as e:
                     logger.error(f"Error reading controller command: {e}")
