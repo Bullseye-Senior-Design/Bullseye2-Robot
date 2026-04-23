@@ -58,6 +58,8 @@ class RobotContainer:
         self.uwb.start(uwb_tag_data=Constants.uwb_tag_data, anchors_pos=None)
         self.back_Wheel_encoder.start()
 
+        self.pcb_leds.set_green_status_led(True) 
+
         self.path_cmd = None  # To keep track of the path creation command for cancellation if needed
         
         # InputScheduler(lambda: self.comm_thread.get_controller_data().btn_A).on_true(
@@ -72,9 +74,9 @@ class RobotContainer:
     def begin_data_log(self):
         logger.info("Starting data logging")
         LogDataCmd(self.path_following).schedule()
-        #MotorMovementExampleCmd(self.drive_train, self.header_healer_switches, self.pcb_leds).schedule()
         
     def start_parking(self):
+        self.pcb_leds.set_red_status_led(False)
         logger.info("Starting parking sequence")
 
         return_home_cmd = SequentialCommandGroup()
@@ -85,12 +87,13 @@ class RobotContainer:
         return_home_cmd.schedule()
         
     def start_path_following(self):
+        self.pcb_leds.set_red_status_led(False)
         logger.info("Starting path following mode")
         self.path_following = PathFollowing.reset_instance()  # Get fresh instance
-        # TestingFollowPathCmd(self.drive_train, self.path_following).schedule()
         FollowPathCmd(self.drive_train, self.path_following).schedule()
 
     def start_teleop(self):
+        self.pcb_leds.set_red_status_led(False)
         logger.info("Starting teleop control")
 
         DefaultMovementCmd(self.drive_train,
@@ -108,6 +111,7 @@ class RobotContainer:
         )
     
     def start_path_creation(self):
+        self.pcb_leds.set_red_status_led(False)
         logger.info("Starting path creation mode")
 
         DefaultMovementCmd(self.drive_train,
@@ -119,6 +123,7 @@ class RobotContainer:
 
     
     def disabled_init(self):
+        self.pcb_leds.set_red_status_led(True)
         logger.info("Robot disabled, stopping all movement")
         if self.path_cmd is not None:
             self.path_cmd.cancel()
