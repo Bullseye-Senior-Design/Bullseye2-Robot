@@ -25,12 +25,11 @@ class AlignIMUToWorldCmd(Command):
     headings align. The estimator runs until `duration` elapses or the
     residual is stable for several samples.
     """
-    def __init__(self, imu: IMU, uwb: UWB, min_samples: int = 200, max_duration_s: float = 30.0):
+    def __init__(self, imu: IMU, uwb: UWB, min_samples: int = 200):
         super().__init__()
         # minimum samples before allowing early finish
         self.min_samples = min_samples
         # maximum duration to prevent command from running indefinitely
-        self.max_duration_s = max_duration_s
         self._uwb_sample_period_s = 0.1  # 10 Hz
         
         self._uwb = uwb
@@ -151,19 +150,15 @@ class AlignIMUToWorldCmd(Command):
             logger.info(f"AlignIMUToWorldCmd.end(): completed after {self._samples} samples; applied yaw offset {math.degrees(self._bias):.3f} deg")
 
     def is_finished(self) -> bool:
-        # Guard against None
-        if self._start_time is None:
-            return False
+        # never finish continously calibrate
+        # # Guard against None
+        # if self._start_time is None:
+        #     return False
         
-        elapsed = time.time() - self._start_time
+        # elapsed = time.time() - self._start_time
         
-        # Timeout check: forcefully finish if max duration exceeded
-        if elapsed >= self.max_duration_s:
-            logger.warning(f"AlignIMUToWorldCmd.is_finished(): timeout! Exceeded max_duration of {self.max_duration_s}s after {self._samples} samples")
-            return True
-        
-        # Normal finish: once enough samples collected
-        if self._samples > self.min_samples:
-            return True
+        # # Normal finish: once enough samples collected
+        # if self._samples > self.min_samples:
+        #     return True
         
         return False
