@@ -267,11 +267,14 @@ class PiCommThread:
                 # Example: Button 8 triggers return to home
                 self._handle_state_change(State.RETURN_TO_HOME)
             else:
+
                 self.comm_data.state_data.path_id = self.kfx.config.get(str(button))  # Look up assigned function for this button (if any)
                 self.comm_data.state_data.path_speed = self.comm_data.kfx_speed  # Set path speed to current KFX speed setting
-                self._handle_state_change(State.AUTONOMOUS)
+                if(self._check_is_at_home()):  # Check if we're at home to determine whether to allow path following or require return to home first
+                    self._handle_state_change(State.AUTONOMOUS)
+                else:
+                    self.send_error("Cannot follow kfx path: not at home")
 
-             
     def _receive_controller_commands(self):
         """
         Continuously receive commands from ControllerMessager over serial.
@@ -505,12 +508,28 @@ class PiCommThread:
         """
         Respond to record_home_check with whether the robot is at home.
         """
+        at_home = self._check_is_at_home()
+        
+        result = HomeCheckResult(ok=at_home)
+        packet = DataPacket(type="record_home_check_result",
+                            json_data=result.model_dump_json())
+        self._send(packet)
+        logger.info(f"Sent record_home_check_result: ok={result.ok}")
+
+    def _check_is_at_home(self) -> bool:
+        """
+        Check if the robot is currently at the home position.
+
+        Returns:
+            bool: True if at home, False otherwise
+        """
         current_pos = self.kalman_estimator.get_robot_pose()
         home_pos = HomePositionManager().get_home_position()
         
         if home_pos is None:
             logger.warning("No home position set; cannot perform home check")
-            result = HomeCheckResult(ok=False)
+            self.send_error("Home check failed: no home position set")
+            return False
             
         at_home = False
             
@@ -519,12 +538,8 @@ class PiCommThread:
             yaw_diff = abs((current_pos[2] - home_pos.yaw + math.pi) % (2 * math.pi) - math.pi)
             threshold = Constants.distance_to_home_threshold
             at_home = (distance < threshold) and (yaw_diff < Constants.difference_in_heading_to_home_threshold)
-        
-        result = HomeCheckResult(ok=at_home)
-        packet = DataPacket(type="record_home_check_result",
-                            json_data=result.model_dump_json())
-        self._send(packet)
-        logger.info(f"Sent record_home_check_result: ok={result.ok}")
+
+        return at_home
 
     def _send_battery_now(self):
         """
