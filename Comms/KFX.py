@@ -99,7 +99,7 @@ class KFXController:
         self._running     = True
         self._config_lock = threading.Lock()   # Separate lock – config can update while
                                                # data_lock is held for state changes
-        self._config: dict[str, int | None] = self._load_config()
+        self.config: dict[str, int | None] = self._load_config()
 
         self.kfx_button_data = KFXButtonData(
             btn_1=False,
@@ -119,7 +119,7 @@ class KFXController:
             logger.error("KFX: could not open %s: %s", KFX_PORT, e)
             return None
 
-        logger.info("KFXController initialised – config: %s", self._config)
+        logger.info("KFXController initialized – config: %s", self.config)
 
     # ── Public API ────────────────────────────────────────────────────────────
 
@@ -138,10 +138,10 @@ class KFXController:
         """
         with self._config_lock:
             for btn in ("3", "4", "5", "6", "7", "8"):
-                self._config[btn] = new_config.get(btn)   # None if key absent
+                self.config[btn] = new_config.get(btn)   # None if key absent
             self._save_config()
 
-        logger.info("KFX config updated: %s", self._config)
+        logger.info("KFX config updated: %s", self.config)
 
         # Acknowledge back to Steam Deck – must arrive before the Deck
         # unlocks its local config save so both sides always match.
@@ -181,7 +181,7 @@ class KFXController:
         """
         try:
             with open(KFX_CONFIG_FILE, "w") as f:
-                json.dump(self._config, f, indent=2)
+                json.dump(self.config, f, indent=2)
         except Exception as e:
             logger.error("Could not save kfx_config.json: %s", e)
 
@@ -248,7 +248,7 @@ class KFXController:
                       or silently ignored if the button is unassigned.
         """
 
-        logger.debug(f"Dispatching KFX button {button} with current config: {self._config}")
+        logger.debug(f"Dispatching KFX button {button} with current config: {self.config}")
 
         if button == 1:
             self.kfx_button_data.btn_1 = True

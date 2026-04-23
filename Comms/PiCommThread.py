@@ -126,8 +126,6 @@ class CommData:
         self.controller_last_update = 0.0
         self.state_last_update = 0.0
 
-
-
 class PiCommThread:
     _instance = None
 
@@ -265,6 +263,11 @@ class PiCommThread:
             elif button == 8:
                 # Example: Button 8 triggers return to home
                 self._handle_state_change(State.RETURN_TO_HOME)
+            else:
+                self.comm_data.state_data.path_id = self.kfx.config.get(str(button))  # Look up assigned function for this button (if any)
+                self.comm_data.state_data.path_speed = self.comm_data.kfx_speed  # Set path speed to current KFX speed setting
+                self._handle_state_change(State.AUTONOMOUS)
+
              
     def _receive_controller_commands(self):
         """
