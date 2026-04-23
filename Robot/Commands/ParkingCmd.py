@@ -7,6 +7,7 @@ import logging
 from helpers.dbConstants import HOME_POSITION_TABLE
 from helpers.sqllib import SQLiteFileManager
 from Comms.PiCommThread import PiCommThread
+import math
 
 logger = logging.getLogger(f"{__name__}.ParkingCmd")
 logger.setLevel(logging.DEBUG)  # Set to DEBUG for detailed output
@@ -45,8 +46,7 @@ class ParkingCmd(Command):
             self.home_pose = [float(position[0]), float(position[1]), float(self._kalman_estimator.euler[2])]
     
     def execute(self):
-        current_state = self._kalman_estimator.get_state()
-        current_pos = [float(current_state.pos[0]), float(current_state.pos[1]), float(self._kalman_estimator.euler[2])]
+        current_pos = self._kalman_estimator.get_robot_pose()
         speed, angle = self._parking_controller.compute_commands(current_pos, self.home_pose)
         self.speed = speed
         logger.debug(f"ParkingCmd: speed={speed}, angle={angle}")
@@ -55,7 +55,7 @@ class ParkingCmd(Command):
     def end(self, interrupted):
         self._drive_train.stop()
         logger.info("ParkingCmd: Stopped drive train at end of command.")
-        PiCommThread().send_route_finished("home")
+        PiCommThread().send_route_finished("Robot has parked at home position.")
         
         if self.is_approaching_boundary:
             #TODO - Send an error packet up to the steam deck
@@ -63,8 +63,7 @@ class ParkingCmd(Command):
             # logger.warning("ParkingCmd ended due to approaching boundary. Stopping robot to prevent collision.")
     
     def is_finished(self):
-        current_state = self._kalman_estimator.get_state()
-        current_pos = [float(current_state.pos[0]), float(current_state.pos[1]), float(self._kalman_estimator.euler[2])]
+        current_pos = self._kalman_estimator.get_robot_pose()
         
         self.is_approaching_boundary = self._drive_train.is_approaching_boundary(self.speed)
-        return self._parking_controller.is_at_goal(current_pos, self.home_pose, ) # or self.is_approaching_boundary
+        return self._parking_controller.is_at_goal(current_pos, self.home_pose, 0.3, math.radians(5)) # or self.is_approaching_boundary
