@@ -118,6 +118,9 @@ class CommData:
         # KFX run speed (0.0–1.0); updated by 'kfx_speed' packets from Steam Deck
         self.kfx_speed: float = 0.5
 
+        # Teleop drive speed limit (0.0–1.0); updated by 'bullseye_speed' packets from Steam Deck
+        self.bullseye_speed: float = 0.5
+
         # Last received command
         self.last_command = "None"
 
@@ -427,6 +430,14 @@ class PiCommThread:
             logger.info(f"KFX speed updated to {speed_data.speed:.2f}")
             self._send_kfx_speed_ack()
 
+        elif packet.type == "bullseye_speed":
+            #TODO: SET MAX SPEED LIMIT FOR TELEOP (NAV)
+            # Steam Deck is setting the teleop drive speed limit.
+            speed_data = KFXSpeedData.model_validate_json(packet.json_data)
+            self.comm_data.bullseye_speed = speed_data.speed
+            logger.info(f"Bullseye speed updated to {speed_data.speed:.2f}")
+            self._send_bullseye_speed_ack()
+
         elif packet.type == "record_start":
             # Steam Deck is starting a path recording session.
             logger.info("record_start received — beginning path recording")
@@ -529,6 +540,12 @@ class PiCommThread:
         packet = DataPacket(type="kfx_speed_ack", json_data="{}")
         self._send(packet)
         logger.info("Sent kfx_speed_ack")
+
+    def _send_bullseye_speed_ack(self):
+        """Acknowledge that the bullseye teleop speed update was received and applied."""
+        packet = DataPacket(type="bullseye_speed_ack", json_data="{}")
+        self._send(packet)
+        logger.info("Sent bullseye_speed_ack")
 
     def _send_battery_data(self):
         """
