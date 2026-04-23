@@ -84,7 +84,7 @@ class AlignIMUToWorldCmd(Command):
             self._bias = 0.0
         self.residuals_window.clear()
 
-        logger.info(f"AlignIMUToWorldCmd.initialize(): starting yaw-bias estimation (min_samples={self.min_samples}, max_duration={self.max_duration_s}s)")
+        logger.info(f"AlignIMUToWorldCmd.initialize(): starting yaw-bias estimation (min_samples={self.min_samples})")
 
     def execute(self):
         # If offset has been finalized, don't continue updating it during runtime
