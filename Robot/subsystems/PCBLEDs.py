@@ -36,6 +36,8 @@ class PCBLEDs(Subsystem):
         if GPIO is not None:
             # Don't call GPIO.cleanup() globally to avoid affecting other users; only cleanup pin
             try:
+                self.set_green_status_led(False)
+                self.set_red_status_led(False)
                 GPIO.cleanup(self.status_pin_green)
                 GPIO.cleanup(self.status_pin_red)
             except Exception:

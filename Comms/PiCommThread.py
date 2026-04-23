@@ -118,6 +118,9 @@ class CommData:
         # KFX run speed (0.0–1.0); updated by 'kfx_speed' packets from Steam Deck
         self.kfx_speed: float = 0.5
 
+        # Teleop drive speed limit (0.0–1.0); updated by 'bullseye_speed' packets from Steam Deck
+        self.bullseye_speed: float = 0.5
+
         # Last received command
         self.last_command = "None"
 
@@ -125,8 +128,6 @@ class CommData:
         self.battery_last_update = 0.0
         self.controller_last_update = 0.0
         self.state_last_update = 0.0
-
-
 
 class PiCommThread:
     _instance = None
@@ -265,7 +266,15 @@ class PiCommThread:
             elif button == 8:
                 # Example: Button 8 triggers return to home
                 self._handle_state_change(State.RETURN_TO_HOME)
-             
+            else:
+
+                self.comm_data.state_data.path_id = self.kfx.config.get(str(button))  # Look up assigned function for this button (if any)
+                self.comm_data.state_data.path_speed = self.comm_data.kfx_speed  # Set path speed to current KFX speed setting
+                if(self._check_is_at_home()):  # Check if we're at home to determine whether to allow path following or require return to home first
+                    self._handle_state_change(State.AUTONOMOUS)
+                else:
+                    self.send_error("Cannot follow kfx path: not at home")
+
     def _receive_controller_commands(self):
         """
         Continuously receive commands from ControllerMessager over serial.
@@ -427,6 +436,14 @@ class PiCommThread:
             logger.info(f"KFX speed updated to {speed_data.speed:.2f}")
             self._send_kfx_speed_ack()
 
+        elif packet.type == "bullseye_speed":
+            #TODO: SET MAX SPEED LIMIT FOR TELEOP (NAV)
+            # Steam Deck is setting the teleop drive speed limit.
+            speed_data = KFXSpeedData.model_validate_json(packet.json_data)
+            self.comm_data.bullseye_speed = speed_data.speed
+            logger.info(f"Bullseye speed updated to {speed_data.speed:.2f}")
+            self._send_bullseye_speed_ack()
+
         elif packet.type == "record_start":
             # Steam Deck is starting a path recording session.
             logger.info("record_start received — beginning path recording")
@@ -491,12 +508,28 @@ class PiCommThread:
         """
         Respond to record_home_check with whether the robot is at home.
         """
+        at_home = self._check_is_at_home()
+        
+        result = HomeCheckResult(ok=at_home)
+        packet = DataPacket(type="record_home_check_result",
+                            json_data=result.model_dump_json())
+        self._send(packet)
+        logger.info(f"Sent record_home_check_result: ok={result.ok}")
+
+    def _check_is_at_home(self) -> bool:
+        """
+        Check if the robot is currently at the home position.
+
+        Returns:
+            bool: True if at home, False otherwise
+        """
         current_pos = self.kalman_estimator.get_robot_pose()
         home_pos = HomePositionManager().get_home_position()
         
         if home_pos is None:
             logger.warning("No home position set; cannot perform home check")
-            result = HomeCheckResult(ok=False)
+            self.send_error("Home check failed: no home position set")
+            return False
             
         at_home = False
             
@@ -505,12 +538,8 @@ class PiCommThread:
             yaw_diff = abs((current_pos[2] - home_pos.yaw + math.pi) % (2 * math.pi) - math.pi)
             threshold = Constants.distance_to_home_threshold
             at_home = (distance < threshold) and (yaw_diff < Constants.difference_in_heading_to_home_threshold)
-        
-        result = HomeCheckResult(ok=at_home)
-        packet = DataPacket(type="record_home_check_result",
-                            json_data=result.model_dump_json())
-        self._send(packet)
-        logger.info(f"Sent record_home_check_result: ok={result.ok}")
+
+        return at_home
 
     def _send_battery_now(self):
         """
@@ -529,6 +558,12 @@ class PiCommThread:
         packet = DataPacket(type="kfx_speed_ack", json_data="{}")
         self._send(packet)
         logger.info("Sent kfx_speed_ack")
+
+    def _send_bullseye_speed_ack(self):
+        """Acknowledge that the bullseye teleop speed update was received and applied."""
+        packet = DataPacket(type="bullseye_speed_ack", json_data="{}")
+        self._send(packet)
+        logger.info("Sent bullseye_speed_ack")
 
     def _send_battery_data(self):
         """

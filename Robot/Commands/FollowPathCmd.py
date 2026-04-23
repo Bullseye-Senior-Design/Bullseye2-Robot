@@ -96,7 +96,7 @@ class FollowPathCmd(Command):
         logger.debug(f"FollowPathCmd: v_cmd={v_cmd:.2f} m/s, delta_cmd={delta_cmd:.2f} rad -> speed={self.speed}%, angle={angle} rad")
 
         # Send to motors via DriveTrain subsystem
-        # self.drive_train.set_speed_angle(self.speed, angle)
+        self.drive_train.set_speed_angle(self.speed, angle)
 
     def end(self, interrupted):
         """Stop path following and clean up."""
@@ -117,6 +117,6 @@ class FollowPathCmd(Command):
 
     def is_finished(self):
         """Command runs until cancelled."""
-        # self.is_approaching_boundary = self.drive_train.is_approaching_boundary(self.speed)
+        self.is_approaching_boundary = self.drive_train.is_approaching_boundary(self.speed)
         
-        return self.path_following.is_at_goal(Constants().is_at_end_tolerance) # or self.is_approaching_boundary
+        return self.path_following.is_at_goal(Constants().is_at_end_tolerance) or self.is_approaching_boundary

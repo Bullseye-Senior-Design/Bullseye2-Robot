@@ -24,8 +24,8 @@ def main():
 
     pi_comm_thread = PiCommThread()
 
-    robot.robot_init()
-    try: 
+    try:
+        robot.robot_init()
         while True:        
             # Run periodic functions
             robot.robot_periodic()
@@ -78,10 +78,15 @@ def main():
             
             # Add a small delay to prevent high CPU usage
             time.sleep(0.01)
-    
+    except KeyboardInterrupt:
+        print("Keyboard interrupt received. Shutting down robot...")
     except Exception as e:
         print(f"An error occurred: {e}")
-        robot.shutdown()
+    finally:
+        try:
+            robot.shutdown()
+        except Exception as shutdown_error:
+            print(f"Error during shutdown: {shutdown_error}")
         
 
         
