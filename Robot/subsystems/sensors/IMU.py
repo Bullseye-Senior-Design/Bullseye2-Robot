@@ -147,7 +147,7 @@ class IMU:
                     self.angle = self._apply_yaw_offset_to_euler(self.raw_angle)
                     self.quaternion = self._apply_yaw_offset_to_quaternion(self.raw_quaternion)
                     
-                    logger.debug(f"Angle: roll={math.degrees(self.raw_angle[0]):.2f}°, pitch={math.degrees(self.raw_angle[1]):.2f}°, yaw={math.degrees(self.raw_angle[2]):.2f}°")
+                    logger.debug(f"Angle: roll={math.degrees(self.raw_angle[0]):.2f}°, pitch={math.degrees(self.raw_angle[1]):.2f}°, yaw={math.degrees(self.angle[2]):.2f}°")
                     
                     self.last_update_time = time.time()
 
