@@ -52,7 +52,7 @@ class RobotContainer:
         # Start subsystems
         self.bms = BMS()
         self.comm_thread = PiCommThread()
-        self.comm_thread.begin_communication(bms=self.bms)  # Start communication thread with BMS reference for data access
+        self.comm_thread.begin_communication(bms=self.bms, drive_train=self.drive_train)  # Start communication thread with BMS reference for data access
             
         # Start subsystems
         self.uwb.start(uwb_tag_data=Constants.uwb_tag_data, anchors_pos=None)

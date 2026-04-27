@@ -35,6 +35,7 @@ from Comms.Models.PingAckData import PingAckData
 from Comms.Models.KFXSpeedData import KFXSpeedData
 from Comms.KFX import KFXController
 from Robot.Constants import Constants
+from Robot.subsystems.DriveTrain import DriveTrain
 from Robot.subsystems.algorithms.KalmanStateEstimator import KalmanStateEstimator
 from structure.RobotState import RobotState
 
@@ -193,8 +194,9 @@ class PiCommThread:
         logger.info("PiCommThread initialized")
 
 
-    def begin_communication(self, bms=None):
+    def begin_communication(self, bms=None, drive_train=DriveTrain):
         self.bms = bms
+        self.drive_train = drive_train
 
         # Start controller receiver thread.
         # This also opens pi_ser; once that succeeds _receive_controller_commands
@@ -441,6 +443,7 @@ class PiCommThread:
             # Steam Deck is setting the teleop drive speed limit.
             speed_data = KFXSpeedData.model_validate_json(packet.json_data)
             self.comm_data.bullseye_speed = speed_data.speed
+            self.drive_train.set_power_scale_factor(scale_factor=self.comm_data.bullseye_speed)  # Update drive train speed limit immediately
             logger.info(f"Bullseye speed updated to {speed_data.speed:.2f}")
             self._send_bullseye_speed_ack()
 

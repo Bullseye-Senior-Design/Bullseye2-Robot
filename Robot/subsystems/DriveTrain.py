@@ -298,6 +298,18 @@ class DriveTrain(Subsystem):
         """
         self.front_wheel_pid.reset()
         logger.info("Front wheel PID controller reset")
+
+    def set_power_scale_factor(self, scale_factor: float):
+        """Set the power scale factor for the back wheel.
+        
+        Args:
+            scale_factor (float): New scale factor to apply to back wheel speed commands. Should be between 0 and 1.
+        """
+        if 0 <= scale_factor <= 1:
+            self._backwheel_power_scale_factor = scale_factor
+            logger.info(f"Back wheel power scale factor set to {scale_factor:.2f}")
+        else:
+            logger.warning(f"Invalid power scale factor: {scale_factor}. Must be between 0 and 1.")
     
     def close(self):
         if not self.shutdown:
