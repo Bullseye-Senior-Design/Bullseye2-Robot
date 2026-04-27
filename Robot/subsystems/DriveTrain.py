@@ -63,7 +63,7 @@ class DriveTrain(Subsystem):
             
             # Pitch PID controller
             self.front_wheel_pid = PID(
-                1.1, 0.1, 0.0, 
+                0.8, 0.1, 0.0, 
                 setpoint=0,
                 error_map=MathUtil.wrap_to_pi  # Wrap error to [-pi, pi]
             )
