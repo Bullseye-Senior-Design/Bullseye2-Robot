@@ -224,13 +224,20 @@ class DriveTrain(Subsystem):
             speed (float): Current commanded speed, used to calculate stopping distance. Expected to be in range [-1, 1], where 1 corresponds to max speed defined in Constants.
 
         Returns:
-            bool: True if the robot should stop to avoid crossing the boundary, False otherwise. If boundary information is unavailable, returns True to be safe.
+            bool: True if the robot should stop to avoid crossing the boundary, False otherwise.
+            If boundary information is unavailable, returns False to preserve the existing fallback.
         """
         Constants().distance_to_stop_from_full_speed
         distance_from_boundary = self.get_distance_from_boundary()
         if distance_from_boundary == -1.0:
             logger.debug("Boundary information unavailable, treating as if at boundary to be safe")
             return False  # Boundary not set, ignore boundary limit (might want to return True to be safe)
+
+        if distance_from_boundary < 0.0:
+            logger.debug(
+                f"Robot is outside the arena boundary by {abs(distance_from_boundary):.2f} m; stopping"
+            )
+            return True
         
         # Calculate stopping distance based on current speed. Scale speed to actual velocity using rear_motor_top_speed.
         stopping_distance = abs(speed) * (Constants().distance_to_stop_from_full_speed)

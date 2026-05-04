@@ -34,6 +34,21 @@ class ArenaBoundary:
             (self.x4, self.y4)
         ]
 
+    def _ordered_corners(self) -> list[tuple[float, float]]:
+        """Return corners ordered around the centroid.
+
+        This makes edge traversal and point-in-polygon checks stable even if
+        the stored corners are provided in an arbitrary order.
+        """
+        corners = self.get_corners()
+        centroid_x = sum(x for x, _ in corners) / len(corners)
+        centroid_y = sum(y for _, y in corners) / len(corners)
+
+        return sorted(
+            corners,
+            key=lambda corner: math.atan2(corner[1] - centroid_y, corner[0] - centroid_x),
+        )
+
     @staticmethod
     def _cross(o: tuple[float, float], a: tuple[float, float], b: tuple[float, float]) -> float:
         """2D cross product of OA and OB vectors."""
@@ -67,11 +82,13 @@ class ArenaBoundary:
 
     def shortest_distance_to_edge(self, x: float, y: float) -> float:
         """
-        Return shortest distance from a point to the nearest rectangle edge.
+        Return signed distance from a point to the nearest boundary edge.
 
-        If the point is outside the rectangle, returns 0.0.
+        Positive values mean the point is inside the boundary.
+        Negative values mean the point is outside the boundary.
+        Zero means the point lies on an edge.
         """
-        corners = self.get_corners()
+        corners = self._ordered_corners()
         p = (x, y)
 
         # For a convex quadrilateral with ordered corners, point is inside iff
@@ -82,8 +99,7 @@ class ArenaBoundary:
         ]
         has_pos = any(v > 0 for v in signs)
         has_neg = any(v < 0 for v in signs)
-        if has_pos and has_neg:
-            return 0.0
+        is_outside = has_pos and has_neg
 
         distances = [
             self._distance_point_to_segment(
@@ -96,7 +112,8 @@ class ArenaBoundary:
             )
             for i in range(4)
         ]
-        return min(distances)
+        distance = min(distances)
+        return -distance if is_outside else distance
 
 
 class ArenaBoundaryManager:
