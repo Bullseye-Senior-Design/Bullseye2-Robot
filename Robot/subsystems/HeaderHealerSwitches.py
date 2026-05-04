@@ -18,7 +18,7 @@ class HeaderHealerSwitches(Subsystem):
 		try:
 			self.header_switch_pin = Constants.header_limit_switch_pin
 			self.healer_switch_pin = Constants.healer_limit_switch_pin
-			self.header_switch_reader = LimitSwitchReader(pin=self.header_switch_pin, active_high=True, pull_up=True, debounce_ms=1, edge='both')
+			self.header_switch_reader = LimitSwitchReader(pin=self.header_switch_pin, active_high=False, pull_up=True, debounce_ms=1, edge='both')
 			self.healer_switch_reader = LimitSwitchReader(pin=self.healer_switch_pin, active_high=True, pull_up=True, debounce_ms=1, edge='both')
 			self.header_switch_reader.start()
 			self.healer_switch_reader.start()
