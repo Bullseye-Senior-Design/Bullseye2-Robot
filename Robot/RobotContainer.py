@@ -90,7 +90,7 @@ class RobotContainer:
         self.pcb_leds.set_red_status_led(False)
         logger.info("Starting path following mode")
         self.path_following = PathFollowing.reset_instance()  # Get fresh instance
-        FollowPathCmd(self.drive_train, self.path_following).schedule()
+        FollowPathCmd(self.drive_train, self.header_healer_switches, self.path_following).schedule()
 
     def start_teleop(self):
         self.pcb_leds.set_red_status_led(False)
