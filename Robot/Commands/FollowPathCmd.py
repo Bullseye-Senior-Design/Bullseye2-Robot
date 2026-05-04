@@ -1,3 +1,4 @@
+from Robot.subsystems.HeaderHealerSwitches import HeaderHealerSwitches
 from structure.commands.Command import Command
 import time
 import numpy as np
@@ -22,6 +23,7 @@ class FollowPathCmd(Command):
     def __init__(
         self,
         drive_train: DriveTrain,
+        header_healer_limit_switches: HeaderHealerSwitches,
         path_following: PathFollowing,
     ):
         """Initialize FollowPathCmd with a saved path.
@@ -33,8 +35,10 @@ class FollowPathCmd(Command):
         """
         super().__init__()
         self.drive_train = drive_train
+        self.header_healer_limit_switches = header_healer_limit_switches
         self.path_following = path_following
         self.add_requirement(drive_train)
+        self.add_requirement(header_healer_limit_switches)
         self.add_requirement(path_following)
         
         # Load path using SavedPathsHelper
@@ -112,6 +116,12 @@ class FollowPathCmd(Command):
             logger.warning("FollowPathCmd ended due to approaching boundary. Stopping robot to prevent collision.")
             message = "Path following stopped: approaching boundary. Robot stopped to prevent collision."
 
+        is_switch_triggered = self.header_healer_limit_switches.get_header_switch_triggered() or self.header_healer_limit_switches.get_healer_switch_triggered()
+
+        if is_switch_triggered:
+            logger.info("FollowPathCmd ended due to header or healer switch trigger. Stopping robot.")
+            message = "Path following stopped: header or healer switch triggered. Robot stopped."
+
         self._pi_comm_thread.send_route_finished(message)
         logger.info(f"FollowPathCmd set message to steam deck: {message}")
 
@@ -119,4 +129,7 @@ class FollowPathCmd(Command):
         """Command runs until cancelled."""
         self.is_approaching_boundary = self.drive_train.is_approaching_boundary(self.speed)
         
-        return self.path_following.is_at_goal(Constants().is_at_end_tolerance) or self.is_approaching_boundary
+        is_switch_triggered = self.header_healer_limit_switches.get_header_switch_triggered() or self.header_healer_limit_switches.get_healer_switch_triggered()
+
+
+        return self.path_following.is_at_goal(Constants().is_at_end_tolerance) or self.is_approaching_boundary or is_switch_triggered
