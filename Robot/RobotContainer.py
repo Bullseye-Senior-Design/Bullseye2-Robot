@@ -82,7 +82,7 @@ class RobotContainer:
         return_home_cmd = SequentialCommandGroup()
         return_home_cmd.add_commands(
             DriveHomeCmd(self.drive_train, self.path_following),
-            ParkingCmd(self.drive_train, self.parking_controller)
+            # ParkingCmd(self.drive_train, self.parking_controller)
         )
         return_home_cmd.schedule()
         

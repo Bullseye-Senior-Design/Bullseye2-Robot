@@ -19,6 +19,7 @@ logger.setLevel(logging.INFO)
 class DriveDirection(Enum):
     FORWARD = "forward"
     REVERSE = "reverse"
+    PARKING = "parking" 
 
 class PathFollowing(Subsystem):
     """Model Predictive Control Navigator for path following.
@@ -77,7 +78,8 @@ class PathFollowing(Subsystem):
         # Constraints
         # CHANGED: Default to forward-only to prevent backwards/forwards oscillation traps
         self.lower_speed_limit = 0.5
-        self.upper_speed_limit = 0.8
+        self.upper_speed_limit = 1.0
+        self.parking_speed_limit = 0.6  # Max speed when in parking mode (slow and careful)
         # expects positive steering angles to the left, negative to the right (standard convention)
         self.v_bounds = [Constants.rear_motor_top_speed*self.lower_speed_limit, Constants.rear_motor_top_speed*self.upper_speed_limit]
         self.delta_bounds = [-Constants.steering_angle_limit_rads, Constants.steering_angle_limit_rads]
@@ -321,8 +323,10 @@ class PathFollowing(Subsystem):
 
             if direction == DriveDirection.FORWARD:
                 self.v_bounds = [Constants.rear_motor_top_speed*self.lower_speed_limit, Constants.rear_motor_top_speed*self.upper_speed_limit]
-            else:
+            elif direction == DriveDirection.REVERSE:
                 self.v_bounds = [-Constants.rear_motor_top_speed*self.upper_speed_limit, -Constants.rear_motor_top_speed*self.lower_speed_limit]
+            else:  # PARKING 
+                self.v_bounds = [-Constants.rear_motor_top_speed*self.parking_speed_limit, Constants.rear_motor_top_speed*self.parking_speed_limit]
 
             self.ds = abs(self.v_nom) * self.Ts
             self.ds_ref = abs(self.v_nom) * self.Ts
@@ -446,7 +450,7 @@ class PathFollowing(Subsystem):
         with self._lock:
             return self._running
     
-    def is_at_goal(self, tolerance : float) -> bool:
+    def is_at_goal(self, tolerance : float, use_end_point : bool = True) -> bool:
         """Check if the robot has reached the end of the path."""
         with self._lock:
             if self.path_matrix is None:
@@ -462,7 +466,7 @@ class PathFollowing(Subsystem):
             is_nearest_point_end_of_path = self.closest_point_idx is not None and self.closest_point_idx >= len(self.path_matrix) - 2
             if is_close_enough or is_nearest_point_end_of_path:
                 logger.info(f"At goal check: distance_to_goal={distance_to_goal:.2f}, closest_point_idx={self.closest_point_idx}, is_at_goal={is_close_enough}, is_near_end={is_nearest_point_end_of_path}")
-            return is_close_enough or is_nearest_point_end_of_path # type: ignore
+            return is_close_enough or (is_nearest_point_end_of_path and use_end_point) # type: ignore
     
     def get_distance_to_goal(self):
         """Get the current distance to the end of the path."""

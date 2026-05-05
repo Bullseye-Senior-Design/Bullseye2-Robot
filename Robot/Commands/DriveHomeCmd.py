@@ -31,9 +31,7 @@ class DriveHomeCmd(Command):
 
         return [float(row["x"]), float(row["y"]), float(row["yaw"])]
         
-    def initialize(self):
-        self._drive_train.reset_pid()  # Reset PID controller for fresh state at start of movement
-        
+    def initialize(self):        
         home_pose = self._read_home_position()
         if home_pose is None:
             position = self._kalman_estimator.pos
@@ -46,7 +44,7 @@ class DriveHomeCmd(Command):
         logger.debug(f"DriveHomeCmd: Path points:\n{path_matrix}")
         self._path_following.set_path(path_matrix)
         self._path_following.set_nominal_speed(0.6)
-        self._path_following.set_drive_direction(DriveDirection.REVERSE) # set drive direction to reverse for driving back to home position
+        self._path_following.set_drive_direction(DriveDirection.PARKING) # set drive direction to reverse for driving back to home position
         self._path_following.start_path_following()
         self._drive_train.reset_pid()  # Reset PID controller for fresh state at start of movement
         self._drive_train.engage_backwheel()
@@ -63,13 +61,13 @@ class DriveHomeCmd(Command):
         # Convert to motor commands
         # v_cmd is in m/s, delta_cmd is in radians
         # Convert velocity to percentage (assuming top speed m/s = 1)
-        self.speed = (v_cmd / Constants.rear_motor_top_speed)
+        speed = (v_cmd / Constants.rear_motor_top_speed)
         angle = delta_cmd
 
-        logger.debug(f"DriveHomeCmd: v_cmd={v_cmd:.2f} m/s, delta_cmd={delta_cmd:.2f} rad -> speed={self.speed}%, angle={angle} rad")
+        # logger.debug(f"DriveHomeCmd: v_cmd={v_cmd:.2f} m/s, delta_cmd={delta_cmd:.2f} rad -> speed={self.speed}%, angle={angle} rad")
 
         # Send to motors via DriveTrain subsystem
-        self._drive_train.set_speed_angle(self.speed, angle)
+        self._drive_train.set_speed_angle(speed, angle)
     
     def end(self, interrupted):
         self._path_following.stop_path_following()
@@ -77,4 +75,4 @@ class DriveHomeCmd(Command):
         logger.info("DriveHomeCmd ended" + (" due to interruption." if interrupted else "."))
     
     def is_finished(self):
-        return self._path_following.is_at_goal(Constants().is_at_end_tolerance + 0.5) # Adding extra tolerance for reaching home position
+        return self._path_following.is_at_goal(Constants.is_at_end_tolerance, use_end_point=False) # Adding extra tolerance for reaching home position
