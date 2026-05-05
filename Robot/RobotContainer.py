@@ -25,10 +25,7 @@ from Robot.subsystems.algorithms.ParkingController import ParkingController
 
 from Robot.Commands.LogDataCmd import LogDataCmd
 from Robot.Commands.PlotStateCmd import PlotStateCmd
-from Robot.Commands.MotorMovementExampleCmd import MotorMovementExampleCmd
 from Robot.Commands.AlignIMUToWorldCmd import AlignIMUToWorldCmd
-from Robot.Commands.ZeroIMUCmd import ZeroIMUCmd
-from Robot.Commands.TestingFollowPathCmd import TestingFollowPathCmd
 from Comms.PiCommThread import PiCommThread
 from Robot.Commands.ParkingCmd import ParkingCmd
 from Robot.Commands.DriveHomeCmd import DriveHomeCmd
@@ -52,7 +49,7 @@ class RobotContainer:
         # Start subsystems
         self.bms = BMS()
         self.comm_thread = PiCommThread()
-        self.comm_thread.begin_communication(bms=self.bms, drive_train=self.drive_train)  # Start communication thread with BMS reference for data access
+        self.comm_thread.begin_communication(drive_train=self.drive_train, bms=self.bms)  # Start communication thread with BMS reference for data access
             
         # Start subsystems
         self.uwb.start(uwb_tag_data=Constants.uwb_tag_data, anchors_pos=None)

@@ -194,7 +194,7 @@ class PiCommThread:
         logger.info("PiCommThread initialized")
 
 
-    def begin_communication(self, bms=None, drive_train=DriveTrain):
+    def begin_communication(self, drive_train: DriveTrain,  bms=None, ):
         self.bms = bms
         self.drive_train = drive_train
 
