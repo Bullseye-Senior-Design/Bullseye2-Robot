@@ -266,7 +266,9 @@ class PathFollowing(Subsystem):
         # Create interpolators for x, y, and theta as functions of arc-length
         interp_x = interp1d(s_wp, x_wp, kind=interp_kind, fill_value='extrapolate') # type: ignore
         interp_y = interp1d(s_wp, y_wp, kind=interp_kind, fill_value='extrapolate') # type: ignore
-        interp_theta = interp1d(s_wp, theta_wp, kind=interp_kind, fill_value='extrapolate') # type: ignore
+        # Interpolate sin/cos of theta and recompute angle to avoid wrap discontinuities
+        interp_sin = interp1d(s_wp, np.sin(theta_wp), kind=interp_kind, fill_value='extrapolate') # type: ignore
+        interp_cos = interp1d(s_wp, np.cos(theta_wp), kind=interp_kind, fill_value='extrapolate') # type: ignore
         
         # Find closest point on path to current state
         distances = np.sqrt((x_wp - cur_state[0])**2 + (y_wp - cur_state[1])**2)
@@ -287,7 +289,11 @@ class PathFollowing(Subsystem):
         ref = np.zeros((self.p + 1, 3))
         for i in range(self.p + 1):
             s_f = min(s_cur + i * self.ds_ref, s_wp[-1])
-            ref[i, :] = [interp_x(s_f), interp_y(s_f), interp_theta(s_f)]
+            # Recompose theta from interpolated sin/cos to handle +/-pi wrap
+            sin_f = float(interp_sin(s_f))
+            cos_f = float(interp_cos(s_f))
+            theta_f = math.atan2(sin_f, cos_f)
+            ref[i, :] = [interp_x(s_f), interp_y(s_f), theta_f]
         return ref
     
     def set_path(self, path_matrix: np.ndarray):
