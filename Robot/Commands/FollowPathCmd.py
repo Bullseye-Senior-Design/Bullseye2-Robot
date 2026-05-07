@@ -92,7 +92,7 @@ class FollowPathCmd(Command):
 
         # Convert to motor commands
         # v_cmd is in m/s, delta_cmd is in radians
-        # Convert velocity to percentage (assuming top speed m/s = 1)
+        # Convert velocity to percentage (assuming top speed m/s = rear_motor_top_speed)
         self.speed = (v_cmd / Constants.rear_motor_top_speed)
         angle = delta_cmd # Negating seems to required to match the direction of steering commands with the robot's response. This may be due to differences in coordinate conventions between the path following algorithm and the robot's control system.
         
