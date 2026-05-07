@@ -184,7 +184,8 @@ class PathFollowing(Subsystem):
             cost_fn += ca.mtimes([con.T, np.diag(self.R_diag), con])
             
             # Speed tracking cost (track desired speed reference)
-            cost_fn += self.V_weight * (con[0] - v_ref[k])**2
+            # Track speed magnitude so parking can favor either forward or reverse motion.
+            cost_fn += self.V_weight * (ca.fabs(con[0]) - v_ref[k])**2
             
             # Smoothness cost
             u_compare = u_prev if k == 0 else U[:, k-1]
@@ -319,14 +320,16 @@ class PathFollowing(Subsystem):
 
             # Keep speed magnitude, flip sign to match direction
             speed_mag = abs(self.v_nom)
-            self.v_nom = speed_mag if direction == DriveDirection.FORWARD else -speed_mag
 
             if direction == DriveDirection.FORWARD:
                 self.v_bounds = [Constants.rear_motor_top_speed*self.lower_speed_limit, Constants.rear_motor_top_speed*self.upper_speed_limit]
+                self.v_nom = speed_mag
             elif direction == DriveDirection.REVERSE:
                 self.v_bounds = [-Constants.rear_motor_top_speed*self.upper_speed_limit, -Constants.rear_motor_top_speed*self.lower_speed_limit]
+                self.v_nom = -speed_mag
             else:  # PARKING 
                 self.v_bounds = [-Constants.rear_motor_top_speed*self.parking_speed_limit, Constants.rear_motor_top_speed*self.parking_speed_limit]
+                
 
             self.ds = abs(self.v_nom) * self.Ts
             self.ds_ref = abs(self.v_nom) * self.Ts
@@ -373,16 +376,6 @@ class PathFollowing(Subsystem):
         with self._lock:
             speed_percent = (self.v_nom / Constants.rear_motor_top_speed) * 100.0
             return self.v_nom, speed_percent
-    
-    def set_speed_tracking_weight(self, weight):
-        """Set the weight for speed tracking in the MPC cost function."""
-        if weight <= 0:
-            logger.warning(f"Speed tracking weight must be positive. Got {weight}, ignoring.")
-            return
-        
-        with self._lock:
-            self.V_weight = weight
-            logger.debug(f"Set speed tracking weight: {weight}")
     
     def get_path(self):
         """Get the current reference path."""
@@ -565,6 +558,7 @@ class PathFollowing(Subsystem):
                     # Generate speed reference trajectory
                     with self._lock:
                         v_nom_current = self.v_nom
+                        speed_ref_mag = abs(v_nom_current)
                     
                     v_ref = np.zeros(self.p + 1)
                     for i in range(self.p + 1):
@@ -576,14 +570,14 @@ class PathFollowing(Subsystem):
                             if dist_i < 1.5:
                                 speed_scale = max(0.0, dist_i / 1.5)
                                 # Ensure complete stop by dropping velocity to 0 at extreme proximity
-                                v_ref[i] = v_nom_current * speed_scale if dist_i > 0.05 else 0.0
+                                v_ref[i] = speed_ref_mag * speed_scale if dist_i > 0.05 else 0.0
                             else:
-                                v_ref[i] = v_nom_current
+                                v_ref[i] = speed_ref_mag
                         else:
-                            v_ref[i] = v_nom_current
+                            v_ref[i] = speed_ref_mag
                     
                     # Prepare parameters
-                    params = np.concatenate([cur_state, self._last_u, refs.flatten(), v_ref])
+                    params = np.concatenate([cur_state, self._last_u, refs.flatten(), v_ref, [self.V_weight]])
                     
                     # Solve MPC
                     solver_args = {
