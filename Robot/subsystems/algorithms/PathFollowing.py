@@ -567,6 +567,26 @@ class PathFollowing(Subsystem):
                     # Generate speed reference trajectory
                     with self._lock:
                         v_nom_current = self.v_nom
+
+                    # Debug: show key reference info before solving
+                    try:
+                        logger.debug(
+                            "MPC debug: cur=(%.3f,%.3f,%.3f) closest_idx=%s ds_ref=%.3f v_nom=%.3f refs0=(%.3f,%.3f,%.3f) refs1=(%.3f,%.3f,%.3f)",
+                            cur_state[0],
+                            cur_state[1],
+                            cur_state[2],
+                            str(self.closest_point_idx),
+                            self.ds_ref,
+                            v_nom_current,
+                            float(refs[0, 0]),
+                            float(refs[0, 1]),
+                            float(refs[0, 2]),
+                            float(refs[1, 0]) if refs.shape[0] > 1 else 0.0,
+                            float(refs[1, 1]) if refs.shape[0] > 1 else 0.0,
+                            float(refs[1, 2]) if refs.shape[0] > 1 else 0.0,
+                        )
+                    except Exception:
+                        logger.exception("Failed to log MPC debug refs")
                     
                     v_ref = np.zeros(self.p + 1)
                     for i in range(self.p + 1):
@@ -612,6 +632,7 @@ class PathFollowing(Subsystem):
                         with self._lock:
                             self._v_cmd = 0.0
                             self._delta_cmd = 0.0
+                        logger.debug("MPC debug: invalid solver result: %s", res)
                         continue
                     
                     # Extract control commands
@@ -619,6 +640,20 @@ class PathFollowing(Subsystem):
                     u_opt = res['x'][u_offset : u_offset + self.n_controls]
                     v_cmd = float(u_opt[0])
                     delta_cmd = float(u_opt[1])
+
+                    # Debug: show solver outputs and speed reference
+                    try:
+                        logger.debug(
+                            "MPC debug: v_cmd=%.3f delta_cmd=%.3f v_ref0=%.3f v_nom=%.3f v_bounds=(%.3f,%.3f)",
+                            v_cmd,
+                            delta_cmd,
+                            float(v_ref[0]) if len(v_ref) > 0 else 0.0,
+                            v_nom_current,
+                            self.v_bounds[0],
+                            self.v_bounds[1],
+                        )
+                    except Exception:
+                        logger.exception("Failed to log MPC solver outputs")
                     
                     # Sanity check before applying commands
                     if not (np.isfinite(v_cmd) and np.isfinite(delta_cmd)):
