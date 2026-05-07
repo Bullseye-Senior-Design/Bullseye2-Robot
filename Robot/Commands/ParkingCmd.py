@@ -10,7 +10,7 @@ from Comms.PiCommThread import PiCommThread
 import math
 
 logger = logging.getLogger(f"{__name__}.ParkingCmd")
-logger.setLevel(logging.DEBUG)  # Set to DEBUG for detailed output
+logger.setLevel(logging.INFO)  # Set to DEBUG for detailed output
 
 
 class ParkingCmd(Command):

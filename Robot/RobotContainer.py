@@ -32,7 +32,7 @@ from Robot.Commands.DriveHomeCmd import DriveHomeCmd
 from Robot.Commands.FollowPathCmd import FollowPathCmd
 
 logger = logging.getLogger(f"{__name__}.RobotContainer")
-logger.setLevel(logging.DEBUG)  # Set to DEBUG for detailed output
+logger.setLevel(logging.INFO)  # Set to DEBUG for detailed output
 
 class RobotContainer:
     def __init__(self):

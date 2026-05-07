@@ -22,7 +22,6 @@ class Robot:
     
     def teleop_init(self):
         self.robot_container.start_teleop()
-        pass
             
     def teleop_periodic(self):
         pass
@@ -31,7 +30,6 @@ class Robot:
         self.robot_container.start_path_creation()
 
     def path_creation_periodic(self):
-        
         pass
 
     def return_to_home_init(self):
