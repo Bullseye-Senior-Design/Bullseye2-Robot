@@ -62,6 +62,10 @@ class FollowPathCmd(Command):
             self.path_id = 1  # Default path ID
             self.path_speed = 0.0  # Default speed in m/s
 
+        # Reset the MPC command log for each newly driven path.
+        self.db_manager.setup_file(MPC_COMMANDS_TABLE, replace_existing=True)
+        logger.info(f"Reset MPC command log for path {self.path_id}")
+
         # Load the path data
         raw_path_data = self.path_helper.load_path_by_id(self.path_id)
 
