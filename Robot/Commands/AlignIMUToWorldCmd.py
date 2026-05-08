@@ -121,8 +121,14 @@ class AlignIMUToWorldCmd(Command):
         # error = imu_yaw - uwb_yaw, target error = 0.
         residual = _wrap_angle(uwb_yaw - imu_raw_q_yaw_rad)
         self.residuals_window.append(residual)
-        self._bias = float(np.median(self.residuals_window))
-
+        
+        # Use Circular Mean instead of linear median to prevent 180-degree wrap failures
+        window_arr = np.array(self.residuals_window)
+        mean_sin = np.mean(np.sin(window_arr))
+        mean_cos = np.mean(np.cos(window_arr))
+        self._bias = float(np.arctan2(mean_sin, mean_cos))
+        
+        imu.set_yaw_offset(self._bias)
         imu.set_yaw_offset(self._bias)
 
         if self._last_db_log_time is None or (now - self._last_db_log_time) >= 30.0:
