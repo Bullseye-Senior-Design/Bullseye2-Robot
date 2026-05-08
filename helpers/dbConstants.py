@@ -243,6 +243,28 @@ class PathPointsTable(Table):
 		return PathPointRow(id=path_id, points=points, home_position=home_position)
 
 
+class _MPCCommandsTable(Table):
+	def __init__(self, name: str = "mpc_commands"):
+		super().__init__(name, ["timestamp", "path_id", "velocity_cmd_mps", "steering_angle_cmd_rad", "steering_angle_cmd_deg"])
+
+	@classmethod
+	def build_row(
+		cls,
+		timestamp: float,
+		path_id: SQLiteScalar,
+		velocity_cmd_mps: SQLiteScalar,
+		steering_angle_cmd_rad: SQLiteScalar,
+		steering_angle_cmd_deg: SQLiteScalar,
+	) -> MPCCommandRow:
+		return MPCCommandRow(
+			timestamp=timestamp,
+			path_id=path_id,
+			velocity_cmd_mps=velocity_cmd_mps,
+			steering_angle_cmd_rad=steering_angle_cmd_rad,
+			steering_angle_cmd_deg=steering_angle_cmd_deg,
+		)
+
+
 UWB_POSITIONS_TABLE = _UWBPositionsTable()
 UWB_ANCHORS_TABLE = _UWBAnchorsTable()
 STATE_ESTIMATOR_TABLE = _StateEstimatorTable()
@@ -254,6 +276,7 @@ YAW_OFFSET_TABLE = _YawOffsetTable()
 HOME_POSITION_TABLE = _HomePositionTable()
 ARENA_BOUNDARY_TABLE = _ArenaBoundaryTable()
 PATH_POINTS_TABLE = PathPointsTable()
+MPC_COMMANDS_TABLE = _MPCCommandsTable()
 
 
 class IMUOrientationRow(TypedDict):
@@ -353,3 +376,11 @@ class PathPointRow(TypedDict):
 	id: SQLiteScalar
 	points: SQLiteScalar
 	home_position: SQLiteScalar
+
+
+class MPCCommandRow(TypedDict):
+	timestamp: float
+	path_id: SQLiteScalar
+	velocity_cmd_mps: SQLiteScalar
+	steering_angle_cmd_rad: SQLiteScalar
+	steering_angle_cmd_deg: SQLiteScalar

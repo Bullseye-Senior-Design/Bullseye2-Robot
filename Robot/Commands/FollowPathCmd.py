@@ -9,6 +9,9 @@ import logging
 from Robot.Constants import Constants
 from helpers.SavedPathsHelper import SavedPathsHelper
 from Comms.PiCommThread import PiCommThread
+from helpers.sqllib import SQLiteFileManager
+from helpers.dbConstants import MPC_COMMANDS_TABLE
+import math
 
 logger = logging.getLogger(f"{__name__}.FollowPathCmd")
 logger.setLevel(logging.DEBUG)  # Set to DEBUG for detailed output
@@ -45,6 +48,10 @@ class FollowPathCmd(Command):
         self.path_helper = SavedPathsHelper()
         self._pi_comm_thread = PiCommThread()
         self.is_approaching_boundary = False
+        
+        # Initialize SQL logging
+        self.db_manager = SQLiteFileManager()
+        self.db_manager.setup_file(MPC_COMMANDS_TABLE)
 
         
     def initialize(self):
@@ -98,6 +105,17 @@ class FollowPathCmd(Command):
         
         logger.debug(f"Robot position: x,y,yaw={KalmanStateEstimator().get_robot_pose()}")
         logger.debug(f"FollowPathCmd: v_cmd={v_cmd:.2f} m/s, delta_cmd={delta_cmd:.2f} rad -> speed={self.speed}%, angle={angle} rad")
+
+        # Log MPC command to database
+        steering_angle_deg = math.degrees(angle)
+        mpc_command = MPC_COMMANDS_TABLE.build_row(
+            timestamp=time.time(),
+            path_id=self.path_id,
+            velocity_cmd_mps=v_cmd,
+            steering_angle_cmd_rad=angle,
+            steering_angle_cmd_deg=steering_angle_deg,
+        )
+        self.db_manager.write_row(MPC_COMMANDS_TABLE, mpc_command)
 
         # Send to motors via DriveTrain subsystem
         self.drive_train.set_speed_angle(self.speed, angle)
