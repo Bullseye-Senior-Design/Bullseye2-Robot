@@ -145,8 +145,8 @@ class PathFollowing(Subsystem):
         # Optimization variables
         U = ca.SX.sym('U', n_controls, self.p) # type: ignore
         X = ca.SX.sym('X', n_states, self.p + 1) # type: ignore
-        # Parameters: initial state (3) + prev control (2) + pose refs (3*(p+1)) + speed refs (p+1)
-        P = ca.SX.sym('P', n_states + n_controls + (self.p+1)*3 + (self.p+1)) # type: ignore
+        # Parameters: initial state (3) + prev control (2) + pose refs (4*(p+1)) + speed refs (p+1)
+        P = ca.SX.sym('P', n_states + n_controls + (self.p+1)*4 + (self.p+1)) # type: ignore
         
         cost_fn = 0
         g = []
@@ -154,8 +154,8 @@ class PathFollowing(Subsystem):
         # Unpack parameters
         x_init = P[0:3]
         u_prev = P[3:5]
-        pose_ref_end = 5 + (self.p+1)*3
-        ref_traj = ca.reshape(P[5:pose_ref_end], 3, self.p+1)
+        pose_ref_end = 5 + (self.p+1)*4
+        ref_traj = ca.reshape(P[5:pose_ref_end], 4, self.p+1)
         v_ref = P[pose_ref_end:pose_ref_end + self.p + 1]
         
         # Initial state constraint
@@ -169,13 +169,16 @@ class PathFollowing(Subsystem):
             # Compute cross-track error (Frenet Frame)
             dx = st[0] - ref_pose[0]
             dy = st[1] - ref_pose[1]
-            ref_theta = ref_pose[2]
+            ref_cos = ref_pose[2]
+            ref_sin = ref_pose[3]
             
-            e_lateral = -dx * ca.sin(ref_theta) + dy * ca.cos(ref_theta)
+            e_lateral = -dx * ref_sin + dy * ref_cos
             cost_fn += self.Q_diag[0] * e_lateral**2
 
-            e_heading_diff = st[2] - ref_pose[2]
-            cost_fn += self.Q_diag[1] * 2.0 * (1.0 - ca.cos(e_heading_diff))   
+            st_heading = ca.vertcat(ca.cos(st[2]), ca.sin(st[2]))
+            ref_heading = ca.vertcat(ref_cos, ref_sin)
+            heading_error = st_heading - ref_heading
+            cost_fn += self.Q_diag[1] * ca.dot(heading_error, heading_error)
             
             # Input effort cost
             cost_fn += ca.mtimes([con.T, np.diag(self.R_diag), con])
@@ -197,16 +200,19 @@ class PathFollowing(Subsystem):
         # Terminal cost (Frenet Frame) - uses higher weights for goal emphasis
         dx_term = X[0, self.p] - ref_traj[0, self.p]
         dy_term = X[1, self.p] - ref_traj[1, self.p]
-        ref_theta_term = ref_traj[2, self.p]
+        ref_cos_term = ref_traj[2, self.p]
+        ref_sin_term = ref_traj[3, self.p]
         
         # CHANGED: Added Longitudinal Error Calculation to pull the robot to the end of the horizon
-        e_lateral_term = -dx_term * ca.sin(ref_theta_term) + dy_term * ca.cos(ref_theta_term)
-        e_longitudinal_term = dx_term * ca.cos(ref_theta_term) + dy_term * ca.sin(ref_theta_term) 
+        e_lateral_term = -dx_term * ref_sin_term + dy_term * ref_cos_term
+        e_longitudinal_term = dx_term * ref_cos_term + dy_term * ref_sin_term 
         
-        e_heading_term = X[2, self.p] - ref_traj[2, self.p]
+        terminal_heading = ca.vertcat(ca.cos(X[2, self.p]), ca.sin(X[2, self.p]))
+        ref_heading_term = ca.vertcat(ref_cos_term, ref_sin_term)
+        e_heading_term = terminal_heading - ref_heading_term
         
         cost_fn += self.Q_terminal_diag[0] * e_lateral_term**2
-        cost_fn += self.Q_terminal_diag[1] * 2.0 * (1.0 - ca.cos(e_heading_term))
+        cost_fn += self.Q_terminal_diag[1] * ca.dot(e_heading_term, e_heading_term)
         cost_fn += self.Q_terminal_diag[2] * e_longitudinal_term**2 # CHANGED: Now utilizing index 2!
         
         # Reshape for solver
@@ -232,14 +238,17 @@ class PathFollowing(Subsystem):
     def _generate_reference(self, cur_state):
         """Generate reference trajectory from path matrix using fixed arc-length spacing."""
         if self.path_matrix is None:
-            return np.zeros((self.p + 1, 3))
+            return np.zeros((self.p + 1, 4))
         
         x_wp = self.path_matrix[:, 0]
         y_wp = self.path_matrix[:, 1]
         theta_wp = self.path_matrix[:, 2]
         if len(x_wp) < 2:
             # Not enough points to form a path segment; hold current waypoint pose.
-            ref_pose = np.array([x_wp[0], y_wp[0], theta_wp[0]], dtype=float) if len(x_wp) == 1 else np.zeros(3)
+            if len(x_wp) == 1:
+                ref_pose = np.array([x_wp[0], y_wp[0], math.cos(theta_wp[0]), math.sin(theta_wp[0])], dtype=float)
+            else:
+                ref_pose = np.zeros(4)
             return np.tile(ref_pose, (self.p + 1, 1))
         
         # Compute cumulative arc-length of waypoints
@@ -255,16 +264,16 @@ class PathFollowing(Subsystem):
         theta_wp = theta_wp[keep]
 
         if len(s_wp) < 2:
-            ref_pose = np.array([x_wp[0], y_wp[0], theta_wp[0]], dtype=float)
+            ref_pose = np.array([x_wp[0], y_wp[0], math.cos(theta_wp[0]), math.sin(theta_wp[0])], dtype=float)
             return np.tile(ref_pose, (self.p + 1, 1))
 
         # Cubic requires >=4 points; linear is robust for short segments.
         interp_kind = 'cubic' if len(s_wp) >= 4 else 'linear'
         
-        # Create interpolators for x, y, and theta as functions of arc-length
+        # Create interpolators for x, y, and heading vector components as functions of arc-length
         interp_x = interp1d(s_wp, x_wp, kind=interp_kind, fill_value='extrapolate') # type: ignore
         interp_y = interp1d(s_wp, y_wp, kind=interp_kind, fill_value='extrapolate') # type: ignore
-        # Interpolate sin/cos of theta and recompute angle to avoid wrap discontinuities
+        # Interpolate sin/cos of theta and keep the heading as a unit vector to avoid wrap discontinuities
         interp_sin = interp1d(s_wp, np.sin(theta_wp), kind=interp_kind, fill_value='extrapolate') # type: ignore
         interp_cos = interp1d(s_wp, np.cos(theta_wp), kind=interp_kind, fill_value='extrapolate') # type: ignore
         
@@ -284,14 +293,19 @@ class PathFollowing(Subsystem):
             s_cur = s_wp[closest_idx] * (1 - alpha) + s_wp[closest_idx + 1] * alpha
         
         # Fixed arc-length spacing (independent of speed changes)
-        ref = np.zeros((self.p + 1, 3))
+        ref = np.zeros((self.p + 1, 4))
         for i in range(self.p + 1):
             s_f = min(s_cur + i * self.ds_ref, s_wp[-1])
-            # Recompose theta from interpolated sin/cos to handle +/-pi wrap
+            # Recompose a continuous heading vector from interpolated sin/cos.
             sin_f = float(interp_sin(s_f))
             cos_f = float(interp_cos(s_f))
-            theta_f = math.atan2(sin_f, cos_f)
-            ref[i, :] = [interp_x(s_f), interp_y(s_f), theta_f]
+            heading_norm = math.hypot(cos_f, sin_f)
+            if heading_norm > 1e-9:
+                cos_f /= heading_norm
+                sin_f /= heading_norm
+            else:
+                cos_f, sin_f = 1.0, 0.0
+            ref[i, :] = [interp_x(s_f), interp_y(s_f), cos_f, sin_f]
         return ref
     
     def set_path(self, path_matrix: np.ndarray):
@@ -562,7 +576,7 @@ class PathFollowing(Subsystem):
                     # Debug: show key reference info before solving
                     try:
                         logger.debug(
-                            "MPC debug: cur=(%.3f,%.3f,%.3f) closest_idx=%s ds_ref=%.3f v_nom=%.3f refs0=(%.3f,%.3f,%.3f) refs1=(%.3f,%.3f,%.3f)",
+                            "MPC debug: cur=(%.3f,%.3f,%.3f) closest_idx=%s ds_ref=%.3f v_nom=%.3f refs0=(%.3f,%.3f,[%.3f,%.3f]) refs1=(%.3f,%.3f,[%.3f,%.3f])",
                             cur_state[0],
                             cur_state[1],
                             cur_state[2],
@@ -572,9 +586,11 @@ class PathFollowing(Subsystem):
                             float(refs[0, 0]),
                             float(refs[0, 1]),
                             float(refs[0, 2]),
+                            float(refs[0, 3]),
                             float(refs[1, 0]) if refs.shape[0] > 1 else 0.0,
                             float(refs[1, 1]) if refs.shape[0] > 1 else 0.0,
-                            float(refs[1, 2]) if refs.shape[0] > 1 else 0.0,
+                            float(refs[1, 2]) if refs.shape[0] > 1 else 1.0,
+                            float(refs[1, 3]) if refs.shape[0] > 1 else 0.0,
                         )
                     except Exception:
                         logger.exception("Failed to log MPC debug refs")
