@@ -52,8 +52,8 @@ class PathFollowing(Subsystem):
         # ────────────────────────────────────────────────
         # Parameters & Constants
         # ────────────────────────────────────────────────
-        self.Ts = 0.3  # MPC sampling time (seconds)
-        self.p = 25 # 12 may be better for computation capacity
+        self.Ts = 0.15  # MPC sampling time (seconds)
+        self.p = 15 # 12 may be better for computation capacity
         self.L = Constants.wheel_base_width  # Wheelbase of the robot (meters) - must be set in Constants.py
         self.clutch_disengage_threshold = Constants.inside_clutch_angle_threshold_rads
         # crusing speed for reference trajectory generation, can be adjusted via set_nominal_speed() method
