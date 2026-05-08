@@ -116,7 +116,28 @@ class PathFollowing(Subsystem):
         
         # Get reference to state estimator
         self.state_estimator = KalmanStateEstimator()
-    
+
+        # === NEW: Robust yaw unwrapping for ±π crossings ===
+        self._unwrapped_yaw = 0.0
+        self._last_raw_yaw = None
+
+    def _unwrap_headings(self, theta: np.ndarray) -> np.ndarray:
+        """Unwrap a sequence of headings so consecutive differences are in (-π, π]."""
+        theta = np.asarray(theta, dtype=float).copy()
+        for i in range(1, len(theta)):
+            delta = (theta[i] - theta[i-1] + np.pi) % (2 * np.pi) - np.pi
+            theta[i] = theta[i-1] + delta
+        return theta
+
+    def set_path(self, path_matrix: np.ndarray):
+        """Set the path to follow. Headings are automatically unwrapped for continuity."""
+        with self._lock:
+            self.path_matrix = np.asarray(path_matrix, dtype=float).copy()
+            if len(self.path_matrix) > 1:
+                # Unwrap headings to prevent discontinuities at ±π
+                self.path_matrix[:, 2] = self._unwrap_headings(self.path_matrix[:, 2])
+            logger.info(f"Path set with {len(self.path_matrix)} waypoints (headings unwrapped)")
+
     def _setup_mpc(self):
         """Setup the MPC solver using CasADi with Frenet Frame cost function."""
         # Symbolic states
@@ -308,22 +329,6 @@ class PathFollowing(Subsystem):
             ref[i, :] = [interp_x(s_f), interp_y(s_f), cos_f, sin_f]
         return ref
     
-    def set_path(self, path_matrix: np.ndarray):
-        """Set the path to follow."""
-        with self._lock:
-            self.path_matrix = np.asarray(path_matrix, dtype=float)
-            
-    def _update_solver_bounds(self):
-        """Rebuild optimization bounds using current velocity and steering limits."""
-        self.lbx = np.array(
-            [-np.inf, -np.inf, -np.inf] * (self.p + 1) +
-            [self.v_bounds[0], self.delta_bounds[0]] * self.p
-        )
-        self.ubx = np.array(
-            [np.inf, np.inf, np.inf] * (self.p + 1) +
-            [self.v_bounds[1], self.delta_bounds[1]] * self.p
-        )
-            
     def set_drive_direction(self, direction: DriveDirection) -> bool:
         """Set motion direction constraints using DriveDirection enum."""
         with self._lock:
@@ -436,7 +441,10 @@ class PathFollowing(Subsystem):
             self._last_u = np.array([0.0, 0.0])
             self._v_cmd = 0.0
             self._delta_cmd = 0.0
-            logger.info("MPC state reset for clean restart")
+            # Reset yaw unwrapping
+            self._unwrapped_yaw = 0.0
+            self._last_raw_yaw = None
+            logger.info("MPC state and yaw unwrapping reset for clean restart")
     
     def get_current_commands(self) -> Tuple[float, float]:
         """Get the current velocity and steering commands."""
@@ -529,6 +537,17 @@ class PathFollowing(Subsystem):
             distance_to_goal = np.sqrt((current_x - goal_x)**2 + (current_y - goal_y)**2)
             return distance_to_goal
     
+    def _update_solver_bounds(self):
+        """Rebuild optimization bounds using current velocity and steering limits."""
+        self.lbx = np.array(
+            [-np.inf, -np.inf, -np.inf] * (self.p + 1) +
+            [self.v_bounds[0], self.delta_bounds[0]] * self.p
+        )
+        self.ubx = np.array(
+            [np.inf, np.inf, np.inf] * (self.p + 1) +
+            [self.v_bounds[1], self.delta_bounds[1]] * self.p
+        )
+
     def _control_loop(self):
         """Main control loop running in separate thread."""
         logger.info("MPC control loop started")
@@ -550,15 +569,16 @@ class PathFollowing(Subsystem):
                     state = self.state_estimator.get_state()
                     raw_yaw = self.state_estimator.euler[2]
                     
-                    # Prevent 2*pi jumps by unwrapping yaw relative to the previous solver state
-                    if self._x_prev is not None and iteration > 2:
-                        prev_yaw = float(self._x_prev[2])  # Index 2 is the yaw of X0 in the solver vars
-                        # Wrap the difference to [-pi, pi] and add back to prev_yaw
-                        yaw = prev_yaw + (raw_yaw - prev_yaw + np.pi) % (2 * np.pi) - np.pi
+                    # === IMPROVED: Robust persistent yaw unwrapping ===
+                    if self._last_raw_yaw is None:
+                        self._unwrapped_yaw = raw_yaw
+                        self._last_raw_yaw = raw_yaw
                     else:
-                        yaw = raw_yaw
+                        delta = (raw_yaw - self._last_raw_yaw + np.pi) % (2 * np.pi) - np.pi
+                        self._unwrapped_yaw += delta
+                        self._last_raw_yaw = raw_yaw
 
-                    cur_state = np.array([state.pos[0], state.pos[1], yaw])  # x, y, unwrapped yaw
+                    cur_state = np.array([state.pos[0], state.pos[1], self._unwrapped_yaw])  # x, y, unwrapped yaw
                     
                     # Generate reference trajectory
                     refs = self._generate_reference(cur_state)
