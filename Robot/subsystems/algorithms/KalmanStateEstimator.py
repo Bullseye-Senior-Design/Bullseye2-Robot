@@ -518,7 +518,7 @@ class KalmanStateEstimator:
         one Kalman update to avoid ping-pong errors from sequential updates.
         """
         # This assumes _lock is already held by caller
-        if not self._uwb_batch
+        if not self._uwb_batch:
             print(f"[UWB Batch] _process_stacked_uwb_update called but batch is empty")
             return
         
