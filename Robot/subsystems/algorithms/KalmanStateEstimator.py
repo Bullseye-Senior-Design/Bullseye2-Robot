@@ -117,6 +117,7 @@ class KalmanStateEstimator:
     @property
     def euler(self) -> np.ndarray:
         """Returns the current orientation of the robot as Euler angles (roll, pitch, yaw) in radians.
+        Range: 
 
         Returns:
             np.ndarray: A 3-element array containing the roll, pitch, and yaw angles in radians.
@@ -517,7 +518,7 @@ class KalmanStateEstimator:
         one Kalman update to avoid ping-pong errors from sequential updates.
         """
         # This assumes _lock is already held by caller
-        if not self._uwb_batch:
+        if not self._uwb_batch
             print(f"[UWB Batch] _process_stacked_uwb_update called but batch is empty")
             return
         
