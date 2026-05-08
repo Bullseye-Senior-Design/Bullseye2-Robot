@@ -110,14 +110,34 @@ class PathFollowing(Subsystem):
         # MPC state
         self._last_u = np.array([0.0, 0.0])
         self._x_prev = None  # For warm starting
-        self._prev_yaw = None  # To detect large yaw jumps and reset if necessary
         
         # Path completion tracking
         self.closest_point_idx = None  # To track closest point on path for determining if the path is finished
         
         # Get reference to state estimator
         self.state_estimator = KalmanStateEstimator()
-    
+
+        # === NEW: Robust yaw unwrapping for ±π crossings ===
+        self._unwrapped_yaw = 0.0
+        self._last_raw_yaw = None
+
+    def _unwrap_headings(self, theta: np.ndarray) -> np.ndarray:
+        """Unwrap a sequence of headings so consecutive differences are in (-π, π]."""
+        theta = np.asarray(theta, dtype=float).copy()
+        for i in range(1, len(theta)):
+            delta = (theta[i] - theta[i-1] + np.pi) % (2 * np.pi) - np.pi
+            theta[i] = theta[i-1] + delta
+        return theta
+
+    def set_path(self, path_matrix: np.ndarray):
+        """Set the path to follow. Headings are automatically unwrapped for continuity."""
+        with self._lock:
+            self.path_matrix = np.asarray(path_matrix, dtype=float).copy()
+            if len(self.path_matrix) > 1:
+                # Unwrap headings to prevent discontinuities at ±π
+                self.path_matrix[:, 2] = self._unwrap_headings(self.path_matrix[:, 2])
+            logger.info(f"Path set with {len(self.path_matrix)} waypoints (headings unwrapped)")
+
     def _setup_mpc(self):
         """Setup the MPC solver using CasADi with Frenet Frame cost function."""
         # Symbolic states
@@ -268,40 +288,15 @@ class PathFollowing(Subsystem):
             ref_pose = np.array([x_wp[0], y_wp[0], math.cos(theta_wp[0]), math.sin(theta_wp[0])], dtype=float)
             return np.tile(ref_pose, (self.p + 1, 1))
 
-        # Position interpolation can remain cubic for smooth geometry
-        pos_interp_kind = 'cubic' if len(s_wp) >= 4 else 'linear'
-
-        # Heading interpolation should stay linear to avoid overshoot near ±π
-        heading_interp_kind = 'linear'
+        # Cubic requires >=4 points; linear is robust for short segments.
+        interp_kind = 'cubic' if len(s_wp) >= 4 else 'linear'
         
         # Create interpolators for x, y, and heading vector components as functions of arc-length
-        interp_x = interp1d(
-            s_wp,
-            x_wp,
-            kind=pos_interp_kind,
-            fill_value='extrapolate'
-        )
-
-        interp_y = interp1d(
-            s_wp,
-            y_wp,
-            kind=pos_interp_kind,
-            fill_value='extrapolate'
-        )
-
-        interp_sin = interp1d(
-            s_wp,
-            np.sin(theta_wp),
-            kind=heading_interp_kind,
-            fill_value='extrapolate'
-        )
-
-        interp_cos = interp1d(
-            s_wp,
-            np.cos(theta_wp),
-            kind=heading_interp_kind,
-            fill_value='extrapolate'
-        )
+        interp_x = interp1d(s_wp, x_wp, kind=interp_kind, fill_value='extrapolate') # type: ignore
+        interp_y = interp1d(s_wp, y_wp, kind=interp_kind, fill_value='extrapolate') # type: ignore
+        # Interpolate sin/cos of theta and keep the heading as a unit vector to avoid wrap discontinuities
+        interp_sin = interp1d(s_wp, np.sin(theta_wp), kind=interp_kind, fill_value='extrapolate') # type: ignore
+        interp_cos = interp1d(s_wp, np.cos(theta_wp), kind=interp_kind, fill_value='extrapolate') # type: ignore
         
         # Find closest point on path to current state
         distances = np.sqrt((x_wp - cur_state[0])**2 + (y_wp - cur_state[1])**2)
@@ -310,27 +305,13 @@ class PathFollowing(Subsystem):
         self.closest_point_idx = closest_idx  # Store closest point index for potential use in determining path completion
         
         # Interpolate arc-length at robot's position for better accuracy
-        # Project robot position onto nearest path segment to compute continuous arc length
-        if closest_idx >= len(x_wp) - 1:
+        if closest_idx == len(x_wp) - 1:
             s_cur = s_wp[-1]
         else:
-            p = np.array([cur_state[0], cur_state[1]])
-
-            a = np.array([x_wp[closest_idx], y_wp[closest_idx]])
-            b = np.array([x_wp[closest_idx + 1], y_wp[closest_idx + 1]])
-
-            ab = b - a
-            ab_len_sq = np.dot(ab, ab)
-
-            if ab_len_sq < 1e-12:
-                t = 0.0
-            else:
-                t = np.dot(p - a, ab) / ab_len_sq
-                t = np.clip(t, 0.0, 1.0)
-
-            s_cur = s_wp[closest_idx] + t * (
-                s_wp[closest_idx + 1] - s_wp[closest_idx]
-    )
+            # Linear interpolation between two closest waypoints
+            sum_distances = distances[closest_idx] + distances[closest_idx + 1]
+            alpha = distances[closest_idx] / sum_distances if sum_distances > 0 else 0
+            s_cur = s_wp[closest_idx] * (1 - alpha) + s_wp[closest_idx + 1] * alpha
         
         # Fixed arc-length spacing (independent of speed changes)
         ref = np.zeros((self.p + 1, 4))
@@ -348,22 +329,6 @@ class PathFollowing(Subsystem):
             ref[i, :] = [interp_x(s_f), interp_y(s_f), cos_f, sin_f]
         return ref
     
-    def set_path(self, path_matrix: np.ndarray):
-        """Set the path to follow."""
-        with self._lock:
-            self.path_matrix = np.asarray(path_matrix, dtype=float)
-            
-    def _update_solver_bounds(self):
-        """Rebuild optimization bounds using current velocity and steering limits."""
-        self.lbx = np.array(
-            [-np.inf, -np.inf, -np.inf] * (self.p + 1) +
-            [self.v_bounds[0], self.delta_bounds[0]] * self.p
-        )
-        self.ubx = np.array(
-            [np.inf, np.inf, np.inf] * (self.p + 1) +
-            [self.v_bounds[1], self.delta_bounds[1]] * self.p
-        )
-            
     def set_drive_direction(self, direction: DriveDirection) -> bool:
         """Set motion direction constraints using DriveDirection enum."""
         with self._lock:
@@ -473,11 +438,13 @@ class PathFollowing(Subsystem):
         # Reset warm start data to prevent incompatibility on restart
         with self._lock:
             self._x_prev = None
-            self._prev_yaw = None
             self._last_u = np.array([0.0, 0.0])
             self._v_cmd = 0.0
             self._delta_cmd = 0.0
-            logger.info("MPC state reset for clean restart")
+            # Reset yaw unwrapping
+            self._unwrapped_yaw = 0.0
+            self._last_raw_yaw = None
+            logger.info("MPC state and yaw unwrapping reset for clean restart")
     
     def get_current_commands(self) -> Tuple[float, float]:
         """Get the current velocity and steering commands."""
@@ -570,6 +537,17 @@ class PathFollowing(Subsystem):
             distance_to_goal = np.sqrt((current_x - goal_x)**2 + (current_y - goal_y)**2)
             return distance_to_goal
     
+    def _update_solver_bounds(self):
+        """Rebuild optimization bounds using current velocity and steering limits."""
+        self.lbx = np.array(
+            [-np.inf, -np.inf, -np.inf] * (self.p + 1) +
+            [self.v_bounds[0], self.delta_bounds[0]] * self.p
+        )
+        self.ubx = np.array(
+            [np.inf, np.inf, np.inf] * (self.p + 1) +
+            [self.v_bounds[1], self.delta_bounds[1]] * self.p
+        )
+
     def _control_loop(self):
         """Main control loop running in separate thread."""
         logger.info("MPC control loop started")
@@ -591,16 +569,16 @@ class PathFollowing(Subsystem):
                     state = self.state_estimator.get_state()
                     raw_yaw = self.state_estimator.euler[2]
                     
-                    # Prevent ±2π discontinuities in estimator yaw
-                    if self._prev_yaw is not None:
-                        yaw = self._prev_yaw + (
-                            (raw_yaw - self._prev_yaw + np.pi) % (2 * np.pi)
-                        ) - np.pi
+                    # === IMPROVED: Robust persistent yaw unwrapping ===
+                    if self._last_raw_yaw is None:
+                        self._unwrapped_yaw = raw_yaw
+                        self._last_raw_yaw = raw_yaw
                     else:
-                        yaw = raw_yaw
-                    
-                    cur_state = np.array([state.pos[0], state.pos[1], yaw])  # x, y, unwrapped yaw
-                    self._prev_yaw = yaw
+                        delta = (raw_yaw - self._last_raw_yaw + np.pi) % (2 * np.pi) - np.pi
+                        self._unwrapped_yaw += delta
+                        self._last_raw_yaw = raw_yaw
+
+                    cur_state = np.array([state.pos[0], state.pos[1], self._unwrapped_yaw])  # x, y, unwrapped yaw
                     
                     # Generate reference trajectory
                     refs = self._generate_reference(cur_state)
