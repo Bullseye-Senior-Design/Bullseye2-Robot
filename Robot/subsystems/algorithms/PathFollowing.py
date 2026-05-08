@@ -172,11 +172,10 @@ class PathFollowing(Subsystem):
             ref_theta = ref_pose[2]
             
             e_lateral = -dx * ca.sin(ref_theta) + dy * ca.cos(ref_theta)
-            e_heading = st[2] - ref_pose[2]
-            e_heading = ca.atan2(ca.sin(e_heading), ca.cos(e_heading))
-            
             cost_fn += self.Q_diag[0] * e_lateral**2
-            cost_fn += self.Q_diag[1] * e_heading**2
+
+            e_heading_diff = st[2] - ref_pose[2]
+            cost_fn += self.Q_diag[1] * 2.0 * (1.0 - ca.cos(e_heading_diff))   
             
             # Input effort cost
             cost_fn += ca.mtimes([con.T, np.diag(self.R_diag), con])
