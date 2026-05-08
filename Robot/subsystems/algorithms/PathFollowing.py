@@ -14,7 +14,7 @@ from typing import Tuple
 
 
 logger = logging.getLogger(f"{__name__}.PathFollowing")
-logger.setLevel(logging.INFO)
+logger.setLevel(level=logging.INFO)
 
 class DriveDirection(Enum):
     FORWARD = "forward"
@@ -204,10 +204,9 @@ class PathFollowing(Subsystem):
         e_longitudinal_term = dx_term * ca.cos(ref_theta_term) + dy_term * ca.sin(ref_theta_term) 
         
         e_heading_term = X[2, self.p] - ref_traj[2, self.p]
-        e_heading_term = ca.atan2(ca.sin(e_heading_term), ca.cos(e_heading_term))
         
         cost_fn += self.Q_terminal_diag[0] * e_lateral_term**2
-        cost_fn += self.Q_terminal_diag[1] * e_heading_term**2
+        cost_fn += self.Q_terminal_diag[1] * 2.0 * (1.0 - ca.cos(e_heading_term))
         cost_fn += self.Q_terminal_diag[2] * e_longitudinal_term**2 # CHANGED: Now utilizing index 2!
         
         # Reshape for solver
