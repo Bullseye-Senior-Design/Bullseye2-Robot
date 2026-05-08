@@ -370,22 +370,6 @@ class PathFollowing(Subsystem):
                 self._drive_direction.value,
             )
     
-    def get_nominal_speed(self):
-        """Get the current nominal speed setting."""
-        with self._lock:
-            speed_percent = (self.v_nom / Constants.rear_motor_top_speed) * 100.0
-            return self.v_nom, speed_percent
-    
-    def set_speed_tracking_weight(self, weight):
-        """Set the weight for speed tracking in the MPC cost function."""
-        if weight <= 0:
-            logger.warning(f"Speed tracking weight must be positive. Got {weight}, ignoring.")
-            return
-        
-        with self._lock:
-            self.V_weight = weight
-            logger.debug(f"Set speed tracking weight: {weight}")
-    
     def get_path(self):
         """Get the current reference path."""
         with self._lock:
@@ -552,8 +536,17 @@ class PathFollowing(Subsystem):
                 try:
                     # Get current state from Kalman filter
                     state = self.state_estimator.get_state()
-                    cur_state = np.array([state.pos[0], state.pos[1], 
-                                         self.state_estimator.euler[2]])  # x, y, yaw
+                    raw_yaw = self.state_estimator.euler[2]
+                    
+                    # Prevent 2*pi jumps by unwrapping yaw relative to the previous solver state
+                    if self._x_prev is not None and iteration > 2:
+                        prev_yaw = float(self._x_prev[2])  # Index 2 is the yaw of X0 in the solver vars
+                        # Wrap the difference to [-pi, pi] and add back to prev_yaw
+                        yaw = prev_yaw + (raw_yaw - prev_yaw + np.pi) % (2 * np.pi) - np.pi
+                    else:
+                        yaw = raw_yaw
+
+                    cur_state = np.array([state.pos[0], state.pos[1], yaw])  # x, y, unwrapped yaw
                     
                     # Generate reference trajectory
                     refs = self._generate_reference(cur_state)
