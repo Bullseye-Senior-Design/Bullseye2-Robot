@@ -13,6 +13,8 @@ packet_errors.log
 robot_data.db
 *.db-journal
 
+kfx_config.json
+
 # C extensions
 *.so
 
