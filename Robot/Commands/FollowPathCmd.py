@@ -119,8 +119,6 @@ class FollowPathCmd(Command):
         self.path_following.stop_path_following()
         # Stop motors
         self.drive_train.stop()
-        self._pi_comm_thread.send_route_finished("Robot has parked at home position.")
-
         
         message = "Path following completed successfully." if not interrupted else "Path following interrupted."
 

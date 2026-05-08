@@ -1,3 +1,4 @@
+from Comms.PiCommThread import PiCommThread
 from structure.commands.Command import Command
 from Robot.subsystems.DriveTrain import DriveTrain
 from Robot.subsystems.algorithms.PathFollowing import PathFollowing, DriveDirection
@@ -73,6 +74,10 @@ class DriveHomeCmd(Command):
     
     def end(self, interrupted):
         self._path_following.stop_path_following()
+
+        message = "Path following completed successfully." if not interrupted else "Path following interrupted."
+
+        PiCommThread().send_route_finished(message)    
         self._drive_train.stop()
         logger.info("DriveHomeCmd ended" + (" due to interruption." if interrupted else "."))
     

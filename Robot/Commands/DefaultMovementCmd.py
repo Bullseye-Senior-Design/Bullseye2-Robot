@@ -7,7 +7,7 @@ from Robot.MathUtil import MathUtil
 from Robot.Constants import Constants
 
 logger = logging.getLogger(f"{__name__}.DriveTrain")
-logger.setLevel(logging.DEBUG)  # Set to DEBUG for detailed output
+logger.setLevel(logging.INFO)  # Set to DEBUG for detailed output
 
 class DefaultMovementCmd(Command):
     def __init__(self, drive_train: DriveTrain, throttle_supplier: Callable[[], float], steering_supplier: Callable[[], float]):
