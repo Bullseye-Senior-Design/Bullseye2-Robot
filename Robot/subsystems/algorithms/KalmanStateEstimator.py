@@ -25,7 +25,7 @@ from Robot.Constants import Constants
 GRAVITY = np.array([0.0, 0.0, -9.80665])
 
 logger = logging.getLogger(__name__ + ".KalmanStateEstimator")
-logger.setLevel(logging.INFO)  # Set to DEBUG for detailed output
+logger.setLevel(logging.DEBUG)  # Set to DEBUG for detailed output
 
 @dataclass
 class State:
@@ -170,6 +170,8 @@ class KalmanStateEstimator:
             sleep_duration = next_time - time.time()
             if sleep_duration > 0:
                 time.sleep(sleep_duration)
+
+            logger.debug(f"KalmanStateEstimator loop: euler={self.euler}")
     
     def constant_velocity_predict(self):
         if not self.is_initialized:
