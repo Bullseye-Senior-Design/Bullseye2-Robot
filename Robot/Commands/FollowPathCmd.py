@@ -110,17 +110,6 @@ class FollowPathCmd(Command):
         logger.debug(f"Robot position: x,y,yaw={KalmanStateEstimator().get_robot_pose()}")
         logger.debug(f"FollowPathCmd: v_cmd={v_cmd:.2f} m/s, delta_cmd={delta_cmd:.2f} rad -> speed={self.speed}%, angle={angle} rad")
 
-        # Log MPC command to database
-        steering_angle_deg = math.degrees(angle)
-        mpc_command = MPC_COMMANDS_TABLE.build_row(
-            timestamp=time.time(),
-            path_id=self.path_id,
-            velocity_cmd_mps=v_cmd,
-            steering_angle_cmd_rad=angle,
-            steering_angle_cmd_deg=steering_angle_deg,
-        )
-        self.db_manager.write_row(MPC_COMMANDS_TABLE, mpc_command)
-
         # Send to motors via DriveTrain subsystem
         self.drive_train.set_speed_angle(self.speed, angle)
 
@@ -130,6 +119,8 @@ class FollowPathCmd(Command):
         self.path_following.stop_path_following()
         # Stop motors
         self.drive_train.stop()
+        self._pi_comm_thread.send_route_finished("Robot has parked at home position.")
+
         
         message = "Path following completed successfully." if not interrupted else "Path following interrupted."
 
