@@ -7,7 +7,7 @@ from Robot.MathUtil import MathUtil
 from Robot.Constants import Constants
 
 logger = logging.getLogger(f"{__name__}.DriveTrain")
-logger.setLevel(logging.INFO)  # Set to DEBUG for detailed output
+logger.setLevel(logging.DEBUG)  # Set to DEBUG for detailed output
 
 class DefaultMovementCmd(Command):
     def __init__(self, drive_train: DriveTrain, throttle_supplier: Callable[[], float], steering_supplier: Callable[[], float]):
@@ -48,7 +48,7 @@ class DefaultMovementCmd(Command):
         logger.debug(f"commanding throttle {throttle} and angle {angle}")
 
         # Send to drivetrain
-        self._drive_train.set_speed_angle(throttle, angle)
+        self._drive_train.set_speed_angle(throttle, angle, teleop=True)  # Use teleop scaling for manual control
     
     def end(self, interrupted):
         """Called once when the command ends"""

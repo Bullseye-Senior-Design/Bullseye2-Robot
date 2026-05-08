@@ -115,7 +115,7 @@ class DriveTrain(Subsystem):
             return max(commanded_speed, 0)  # Prevent moving forward if over limit
         return commanded_speed
     
-    def set_speed_angle(self, speed: float, target_angle: float):
+    def set_speed_angle(self, speed: float, target_angle: float, teleop: bool = False):
         """Set motor speed and angle.
         speed: -1.0 to 1.0 (negative for reverse)
         target_angle: -π/6 (-30 degrees) to π/6 (30 degrees) 
@@ -155,7 +155,8 @@ class DriveTrain(Subsystem):
             self.is_reversing = limited_speed < 0
         BackWheelEncoder().set_reversing(self.is_reversing)  # Inform encoder of current direction for correct velocity calculation
         self._set_wheel_directions(self.is_reversing)
-        self._dac.write(self._dac_backwheel_channel, abs(limited_speed) * self._backwheel_power_scale_factor)
+        speed = abs(limited_speed) if not teleop else abs(limited_speed) * self._backwheel_power_scale_factor
+        self._dac.write(self._dac_backwheel_channel, speed)
         
         # set front wheel speed using PID controller
         pid_speed = self._get_angle_from_pid(target_angle)
